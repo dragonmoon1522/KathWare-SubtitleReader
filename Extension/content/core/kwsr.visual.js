@@ -533,7 +533,8 @@
 
     S._visualLastDeltaStrict = "";
     S._visualLastDeltaLoose = "";
-
+    S._nfLastStrict = "";
+    S._nfLastAt = 0;
     S.lastVisualSeen = "";
   }
 
@@ -659,9 +660,26 @@
     // -------------------------------------------------------------------------
     // SIN TEXTO → RESET
     // -------------------------------------------------------------------------
-    if (!text) {
+        if (!text) {
+      const emptyNow = performance.now();
+      const p = platform();
+
+      // Netflix a veces vacía el cue un instante y lo vuelve a insertar igual.
+      // No soltamos el lock enseguida o el mismo subtítulo entra como "nuevo".
+      if (p === "netflix") {
+        const lastEmpty = S._visualLastEmptyAt || 0;
+        S._visualLastEmptyAt = emptyNow;
+
+        const graceMs = 900;
+        const sinceLastSpeak = emptyNow - (S._visualLastAt || 0);
+
+        if (S._visualCueActive && sinceLastSpeak < graceMs) {
+          return;
+        }
+      }
+
       S._visualCueActive = false;
-      S._visualLastEmptyAt = performance.now();
+      S._visualLastEmptyAt = emptyNow;
 
       S._visualPendingText = "";
       S._visualPendingStrict = "";
@@ -721,7 +739,7 @@
     // =========================================================================
     // NETFLIX
     // =========================================================================
-    if (isNetflix()) {
+        if (isNetflix()) {
       const settleMs = 120;
 
       if (S._visualCueActive && sameExactish) {
@@ -747,6 +765,22 @@
         if (dtVideo < 0.3) return;
       }
 
+      const sameNetflixRecent =
+        strict &&
+        strict === (S._nfLastStrict || "") &&
+        (now - (S._nfLastAt || 0)) < 4000;
+
+      if (sameNetflixRecent) {
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL netflix suppress exact recent repeat", {
+            text,
+            strict,
+            age: Math.round(now - (S._nfLastAt || 0))
+          });
+        }
+        return;
+      }
+
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
@@ -757,6 +791,9 @@
       S.lastVisualSeen = strict || text;
 
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
+
+      S._nfLastStrict = strict;
+      S._nfLastAt = now;
 
       if (DEBUG()) {
         KWSR.log?.("VISUAL netflix speak", { text, lineParts, lineCount });
