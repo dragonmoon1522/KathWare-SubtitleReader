@@ -4,74 +4,65 @@
 //
 // QUÉ HACE ESTE ARCHIVO
 // ---------------------
-// Este módulo se encarga de leer subtítulos VISUALES.
-// Eso significa:
+// Este módulo lee subtítulos VISUALES del DOM.
 //
-// - NO lee pistas de video.textTracks
-// - NO decide cómo hablarlos
-// - NO crea interfaz
+// Traducción a idioma humano:
+// - mira lo que aparece en pantalla
+// - junta el texto del subtítulo
+// - intenta evitar basura o duplicados
+// - le pasa el resultado final a KWSR.voice
 //
-// Solo hace esto:
-// 1. Busca subtítulos dibujados en pantalla (en el DOM)
-// 2. Junta el texto visible
-// 3. Evita leer basura, menús o duplicados
-// 4. Le pasa el texto final a KWSR.voice
-//
-// IDEA SIMPLE
-// -----------
-// Pantalla -> este archivo mira
-// Texto -> este archivo limpia
-// Voz -> otro módulo lo habla
+// Este archivo NO:
+// - usa textTracks
+// - habla por sí solo
+// - crea paneles ni interfaz
 //
 // -----------------------------------------------------------------------------
 //
-// PROBLEMA REAL QUE RESUELVE
-// --------------------------
-// En plataformas como Netflix y Max, el subtítulo puede verse quieto,
-// PERO el DOM internamente cambia muchas veces.
+// PROBLEMA DIFÍCIL DE NETFLIX / MAX
+// ---------------------------------
+// Netflix y Max hacen cosas raras con el DOM.
 //
-// Ejemplo:
+// A veces pasa esto:
 //
-// 1. "Hola, Conan."
-// 2. Netflix re-renderiza el mismo bloque
-// 3. Parece nuevo para el código
-// 4. Si no filtramos bien, se vuelve a leer
+// 1. subtítulo viejo
+// 2. un instante donde conviven viejo + nuevo
+// 3. subtítulo nuevo
 //
-// Peor todavía: a veces aparece un estado intermedio:
+// Si leemos "todo lo que haya" sin pensar,
+// terminamos repitiendo o mezclando frases.
 //
-// 1. "Hola, Conan."
-// 2. "Hola, Conan. Hola profesor Agasa, cómo está?"
-// 3. "Hola profesor Agasa, cómo está?"
+// Pero también existe otro caso:
 //
-// Ese paso 2 NO es un subtítulo real estable.
-// Es una transición fea del DOM.
-// Este archivo intenta ignorar ese estado intermedio.
+// 1. un subtítulo real de dos líneas
 //
-// -----------------------------------------------------------------------------
+// Si tratamos eso como "viejo + nuevo",
+// rompemos la frase.
 //
-// REGLAS IMPORTANTES
-// ------------------
-// - Este módulo NO habla directo.
-// - Este módulo NO debe leer nuestra propia UI.
-// - Este módulo NO debe leer menús de audio/subtítulos.
-// - Este módulo NO debe releer el mismo cue por re-render.
+// Entonces la clave es:
+// - detectar cuándo varias líneas son un subtítulo real
+// - detectar cuándo son una transición fea
 //
 // -----------------------------------------------------------------------------
 //
-// NOTA PARA MI YO DEL FUTURO
-// --------------------------
-// Si algo falla en Netflix, casi seguro el problema está en UNA de estas 3 cosas:
+// IDEA GENERAL
+// ------------
+// Para Netflix/Max:
 //
-// 1. selector equivocado
-// 2. snapshot de contenedor que mezcla cue viejo + nuevo
-// 3. dedupe insuficiente
+// - leemos varias partes visibles del contenedor
+// - armamos un texto unido
+// - si ese texto unido contiene al subtítulo anterior,
+//   probablemente sea una transición vieja+nueva
+// - en ese caso, intentamos quedarnos solo con la parte nueva
+//
+// Si NO parece transición, usamos el texto completo unido.
 //
 // -----------------------------------------------------------------------------
 
 
 (() => {
   // ---------------------------------------------------------------------------
-  // Arranque seguro del módulo
+  // Arranque seguro
   // ---------------------------------------------------------------------------
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.visual) return;
@@ -115,7 +106,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Detectar texto de menús de idioma / audio / subtítulos
+  // Detectar menús de idioma / audio / subtítulos
   // ---------------------------------------------------------------------------
   function isLanguageMenuText(text) {
     const t = normalize(text);
@@ -181,7 +172,6 @@
 
       const style = window.getComputedStyle(el);
       if (!style) return false;
-
       if (style.display === "none" || style.visibility === "hidden") return false;
 
       const opacity = parseFloat(style.opacity || "1");
@@ -214,7 +204,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Clave de contenedor
+  // Clave del contenedor
   // ---------------------------------------------------------------------------
   function containerKeyForNode(n) {
     try {
@@ -277,19 +267,126 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Fingerprints
+  // ---------------------------------------------------------------------------
+  // Sirven para comparar texto "casi igual" sin que pequeñas diferencias
+  // de espacios o puntuación nos engañen.
+  // ---------------------------------------------------------------------------
+  function fpStrict(text) {
+    return normalize(text)
+      .replace(/\u00A0/g, " ")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function fpLoose(text) {
+    return normalize(text)
+      .replace(/\u00A0/g, " ")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/[\/|·•–—]+/g, " ")
+      .replace(/[.,;:!?¡¿"“”'’()\[\]{}]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Detectar si una lista de partes parece tener el texto anterior al principio
+  // ---------------------------------------------------------------------------
+  // Ejemplo:
+  // prev = "hola conan"
+  // joined = "hola conan hola profesor agasa como esta"
+  //
+  // Eso huele a transición vieja+nueva.
+  // ---------------------------------------------------------------------------
+  function joinedContainsPrevious(prevText, joinedText) {
+    const prev = fpLoose(prevText || "");
+    const joined = fpLoose(joinedText || "");
+
+    if (!prev || !joined) return false;
+    if (prev === joined) return false;
+    if (joined.length <= prev.length) return false;
+
+    if (joined.startsWith(prev + " ")) return true;
+    if (joined.includes(" " + prev + " ")) return true;
+
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Intentar recortar la parte nueva cuando el texto unido arranca con el viejo
+  // ---------------------------------------------------------------------------
+  // Ejemplo:
+  // prev   = "hola conan"
+  // joined = "hola conan hola profesor agasa como esta"
+  //
+  // devuelve:
+  // "hola profesor agasa como esta"
+  // ---------------------------------------------------------------------------
+  function subtractPreviousFromJoined(prevText, joinedText) {
+    const prevRaw = normalize(prevText || "");
+    const joinedRaw = normalize(joinedText || "");
+
+    if (!prevRaw || !joinedRaw) return "";
+    if (joinedRaw === prevRaw) return "";
+
+    const prevLoose = fpLoose(prevRaw);
+    const joinedLoose = fpLoose(joinedRaw);
+
+    if (!prevLoose || !joinedLoose) return "";
+    if (!joinedContainsPrevious(prevRaw, joinedRaw)) return "";
+
+    // Intento simple y bastante seguro:
+    // si joinedRaw empieza literalmente con prevRaw, cortamos por ahí.
+    if (joinedRaw.startsWith(prevRaw)) {
+      const tail = normalize(joinedRaw.slice(prevRaw.length));
+      if (tail) return tail;
+    }
+
+    // Fallback más flexible:
+    // si hay varias partes separadas por doble espacio o estructura similar,
+    // intentamos recuperar la cola final desde la última mitad "nueva".
+    //
+    // No es perfecto, pero es bastante mejor que comer subtítulos enteros.
+    const prevWords = prevLoose.split(" ").filter(Boolean);
+    const joinedWords = joinedLoose.split(" ").filter(Boolean);
+
+    if (!prevWords.length || joinedWords.length <= prevWords.length) return "";
+
+    const remainingLooseWords = joinedWords.slice(prevWords.length);
+    if (!remainingLooseWords.length) return "";
+
+    // Como no podemos reconstruir exactamente puntuación desde loose,
+    // usamos una estrategia conservadora:
+    // buscar una coincidencia aproximada del último tramo del prev en el joined real.
+    const anchor = prevRaw.slice(Math.max(0, prevRaw.length - 12)).trim();
+    if (anchor) {
+      const idx = joinedRaw.indexOf(anchor);
+      if (idx >= 0) {
+        const afterAnchor = normalize(joinedRaw.slice(idx + anchor.length));
+        if (afterAnchor && afterAnchor !== prevRaw) return afterAnchor;
+      }
+    }
+
+    return "";
+  }
+
+  // ---------------------------------------------------------------------------
   // Leer texto desde nodos
   // ---------------------------------------------------------------------------
-  // IMPORTANTE:
-  // Para Netflix/Max devolvemos también un poco de metadata:
-  //
-  // - joinedText: todo lo encontrado junto
-  // - lineCount: cuántas partes distintas vimos
-  //
-  // Eso sirve para detectar mejor las transiciones raras.
+  // En Netflix/Max devolvemos metadata extra para poder decidir mejor después.
   // ---------------------------------------------------------------------------
   function readTextFromNodes(nodes, p) {
     if (!nodes?.length) {
-      return { text: "", key: "", joinedText: "", lineCount: 0 };
+      return {
+        text: "",
+        key: "",
+        joinedText: "",
+        lineParts: [],
+        lineCount: 0
+      };
     }
 
     // -------------------------------------------------------------------------
@@ -302,6 +399,7 @@
         if (isInsideKathWareUI(el)) continue;
 
         const cont = el.closest?.(".player-timedtext-text-container") || el;
+        const key = containerKeyForNode(cont);
 
         let lineParts = [];
 
@@ -330,30 +428,20 @@
           lineParts = [];
         }
 
-        const key = containerKeyForNode(cont);
-
-        // Si vimos varias partes distintas, armamos un "joinedText"
-        // con todo, pero elegimos como texto principal la ÚLTIMA parte.
-        //
-        // ¿Por qué?
-        // Porque en Netflix muchas veces:
-        // - arriba queda residuo del cue viejo
-        // - abajo aparece el nuevo
-        if (lineParts.length >= 2) {
+        if (lineParts.length) {
           const joinedText = smartJoinLines(lineParts);
-          const lastLine = normalize(lineParts[lineParts.length - 1]);
-
-          if (lastLine && !isLanguageMenuText(lastLine) && !looksLikeNoise(cont, lastLine)) {
+          if (joinedText && !isLanguageMenuText(joinedText) && !looksLikeNoise(cont, joinedText)) {
             return {
-              text: lastLine,
+              text: joinedText,
               key,
               joinedText,
+              lineParts,
               lineCount: lineParts.length
             };
           }
         }
 
-        // Fallback clásico: leer el contenedor completo
+        // Fallback: leer todo el contenedor
         let raw = "";
         try {
           raw = cont.innerText || cont.textContent || "";
@@ -368,11 +456,18 @@
           text: t,
           key,
           joinedText: t,
+          lineParts: t ? [t] : [],
           lineCount: t ? 1 : 0
         };
       }
 
-      return { text: "", key: "", joinedText: "", lineCount: 0 };
+      return {
+        text: "",
+        key: "",
+        joinedText: "",
+        lineParts: [],
+        lineCount: 0
+      };
     }
 
     // -------------------------------------------------------------------------
@@ -398,7 +493,13 @@
     }
 
     if (!parts.length) {
-      return { text: "", key: "", joinedText: "", lineCount: 0 };
+      return {
+        text: "",
+        key: "",
+        joinedText: "",
+        lineParts: [],
+        lineCount: 0
+      };
     }
 
     const joined = smartJoinLines(parts).replace(/\s+/g, " ").trim();
@@ -407,12 +508,13 @@
       text: joined,
       key: key || "no-key",
       joinedText: joined,
+      lineParts: parts,
       lineCount: parts.length
     };
   }
 
   // ---------------------------------------------------------------------------
-  // Elegir el mejor selector
+  // Elegir mejor selector
   // ---------------------------------------------------------------------------
   function pickBestSelector(p) {
     const selectors = getSelectors();
@@ -426,64 +528,6 @@
     }
 
     return "";
-  }
-
-  // ---------------------------------------------------------------------------
-  // Fingerprints
-  // ---------------------------------------------------------------------------
-  function fpStrict(text) {
-    return normalize(text)
-      .replace(/\u00A0/g, " ")
-      .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-  }
-
-  function fpLoose(text) {
-    return normalize(text)
-      .replace(/\u00A0/g, " ")
-      .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/[\/|·•–—]+/g, " ")
-      .replace(/[.,;:!?¡¿"“”'’()\[\]{}]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Detectar transición fea de solapamiento
-  // ---------------------------------------------------------------------------
-  // OJO:
-  // Esta función sola NO alcanza.
-  // También vamos a exigir:
-  // - que haya varias líneas/partes detectadas
-  // - y que el texto "junto" contenga el anterior
-  //
-  // Así evitamos comernos subtítulos legítimos que solo se parecen un poco.
-  // ---------------------------------------------------------------------------
-  function isOverlapTransition(prevText, nextJoinedText, nextMainText, lineCount) {
-    const prev = fpLoose(prevText || "");
-    const joined = fpLoose(nextJoinedText || "");
-    const main = fpLoose(nextMainText || "");
-
-    if (!prev || !joined || !main) return false;
-
-    // Si no hay varias partes, no asumimos transición.
-    if (!lineCount || lineCount < 2) return false;
-
-    // Si el texto principal sigue siendo exactamente el anterior,
-    // esto no es "overlap", es simplemente repetición.
-    if (main === prev) return false;
-
-    // Caso típico:
-    // prev = "hola conan"
-    // joined = "hola conan hola profesor agasa como esta"
-    // main = "hola profesor agasa como esta"
-    if (joined.startsWith(prev + " ")) return true;
-    if (joined.includes(" " + prev + " ")) return true;
-
-    return false;
   }
 
   // ---------------------------------------------------------------------------
@@ -536,7 +580,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Pedir lectura en próximo frame
+  // Programar lectura para el próximo frame
   // ---------------------------------------------------------------------------
   function requestVisualFrame(reasonNode) {
     if (S._visualScheduled) return;
@@ -569,12 +613,11 @@
 
     S.visualDirty = true;
     S.visualDirtyAt = performance.now();
-
     requestVisualFrame(reasonNode);
   }
 
   // ---------------------------------------------------------------------------
-  // Iniciar visual
+  // Iniciar modo visual
   // ---------------------------------------------------------------------------
   function startVisual() {
     const p = platform();
@@ -604,7 +647,6 @@
         }
 
         if (reasonNode && isInsideKathWareUI(reasonNode)) return;
-
         scheduleVisualRead(reasonNode);
       });
 
@@ -670,18 +712,49 @@
       text,
       key,
       joinedText,
+      lineParts,
       lineCount
     } = readTextFromNodes(nodes, p);
 
-    // Si no hay texto visible, reseteamos cue activo.
+    // Si no hay texto, marcamos que no hay cue activo
     if (!text) {
       S._visualCueActive = false;
       S._visualLastEmptyAt = performance.now();
       return;
     }
 
-    const strict = fpStrict(text);
-    const loose = fpLoose(text);
+    // -------------------------------------------------------------------------
+    // Elegir texto efectivo
+    // -------------------------------------------------------------------------
+    // Normalmente usamos el texto completo.
+    // Pero si parece transición "viejo + nuevo", intentamos recortar
+    // la parte nueva y usar esa.
+    // -------------------------------------------------------------------------
+    let effectiveText = text;
+
+    if (
+      isRerenderPlatform &&
+      S._visualLastText &&
+      lineCount >= 2 &&
+      joinedContainsPrevious(S._visualLastText, joinedText)
+    ) {
+      const tail = subtractPreviousFromJoined(S._visualLastText, joinedText);
+
+      if (tail && tail !== S._visualLastText) {
+        effectiveText = tail;
+
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL overlap-tail", {
+            prev: S._visualLastText,
+            joinedText,
+            tail
+          });
+        }
+      }
+    }
+
+    const strict = fpStrict(effectiveText);
+    const loose = fpLoose(effectiveText);
 
     const tNow = getVideoTimeSec();
     const lastT = (typeof S._visualLastVideoTimeSec === "number")
@@ -691,65 +764,22 @@
     const lastStrict = S._visualLastStrict || "";
     const lastLoose = S._visualLastLoose || "";
 
-    // -------------------------------------------------------------------------
-    // OJO ACÁ:
-    // -------------------------------------------------------------------------
-    // Antes usábamos un "sameTextish" demasiado permisivo,
-    // incluyendo contains/includes.
-    //
-    // Eso ayudaba a parar duplicados,
-    // PERO también se comía subtítulos nuevos parecidos.
-    //
-    // Ahora, para Netflix/Max, solo tratamos como "igual"
-    // lo que sea igual de verdad.
-    // -------------------------------------------------------------------------
     const sameStrict = strict && strict === lastStrict;
     const sameLoose = loose && loose === lastLoose;
-
     const sameTextish = sameStrict || sameLoose;
 
     const sameKey = key && key === (S._visualLastKey || "");
     const now = performance.now();
 
     // -------------------------------------------------------------------------
-    // Detectar transición fea de overlap
-    // -------------------------------------------------------------------------
-    // Solo si:
-    // - estamos en Netflix/Max
-    // - había texto anterior
-    // - hay varias partes detectadas
-    // - el texto "junto" contiene claramente al anterior
-    // - y el texto principal ya es otro
-    // -------------------------------------------------------------------------
-    const overlapTransition =
-      isRerenderPlatform &&
-      S._visualLastText &&
-      isOverlapTransition(S._visualLastText, joinedText, text, lineCount);
-
-    if (overlapTransition) {
-      if (DEBUG()) {
-        KWSR.log?.("VISUAL overlap-transition", {
-          prev: S._visualLastText,
-          joinedText,
-          nextMain: text,
-          lineCount
-        });
-      }
-      return;
-    }
-
-    // -------------------------------------------------------------------------
-    // Cue-lock fuerte, pero SOLO para igualdad real
-    // -------------------------------------------------------------------------
-    // Si el mismo cue sigue activo y es esencialmente idéntico,
-    // no lo releemos.
-    //
-    // Ya NO bloqueamos "parecidos".
-    // Solo exactos.
+    // Cue-lock: solo para igualdad real
     // -------------------------------------------------------------------------
     if (isRerenderPlatform && S._visualCueActive && sameTextish) {
       if (DEBUG()) {
-        KWSR.log?.("VISUAL cue-lock", { text, key });
+        KWSR.log?.("VISUAL cue-lock", {
+          text: effectiveText,
+          key
+        });
       }
 
       if (tNow != null) {
@@ -760,11 +790,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // Gate por tiempo del video
-    // -------------------------------------------------------------------------
-    // También lo dejamos solo para igualdad real.
-    // Si el video casi no avanzó PERO el texto cambió de verdad,
-    // debemos permitirlo.
+    // Gate por tiempo del video: solo igualdad real
     // -------------------------------------------------------------------------
     if (isRerenderPlatform && tNow != null && lastT != null && sameTextish) {
       const dtVideo = Math.abs(tNow - lastT);
@@ -779,7 +805,7 @@
           KWSR.log?.("VISUAL dedupe (videoTime+exact)", {
             dtVideo,
             gate,
-            text
+            text: effectiveText
           });
         }
 
@@ -800,7 +826,7 @@
         if (DEBUG()) {
           KWSR.log?.("VISUAL dedupe (fast)", {
             dt: Math.round(dt),
-            text
+            text: effectiveText
           });
         }
         return;
@@ -810,7 +836,7 @@
         if (DEBUG()) {
           KWSR.log?.("VISUAL dedupe (grey)", {
             dt: Math.round(dt),
-            text
+            text: effectiveText
           });
         }
         return;
@@ -818,10 +844,10 @@
     }
 
     if (!fromObserver && strict && strict === S.lastVisualSeen) return;
-    S.lastVisualSeen = strict || text;
+    S.lastVisualSeen = strict || effectiveText;
 
-    // Guardamos nuevo estado
-    S._visualLastText = text;
+    // Guardar nuevo estado
+    S._visualLastText = effectiveText;
     S._visualLastKey = key || "";
     S._visualLastAt = now;
     S._visualLastStrict = strict;
@@ -838,13 +864,14 @@
         selector: S.visualSelectorUsed,
         key,
         fromObserver,
-        text,
+        rawText: text,
+        effectiveText,
         joinedText,
-        lineCount
+        lineParts
       });
     }
 
-    KWSR.voice?.leerTextoAccesible?.(text);
+    KWSR.voice?.leerTextoAccesible?.(effectiveText);
   }
 
   // ---------------------------------------------------------------------------
