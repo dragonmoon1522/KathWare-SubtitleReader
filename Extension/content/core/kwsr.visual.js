@@ -412,9 +412,7 @@
       if (!n) continue;
       if (isInsideKathWareUI(n)) continue;
 
-      if (p === "disney" && !isVisible(n)) continue;
-
-      const t = normalize(n.textContent || n.innerText || "");
+            const t = normalize(n.textContent || n.innerText || "");
       if (!t) continue;
 
       if (p === "disney" && isLanguageMenuText(t)) continue;
@@ -527,14 +525,14 @@
     const p = platform();
 
     // Disney: mantener filtro específico, pero no más agresivo que eso
-    if (p === "disney" && reasonNode) {
-      try {
-        const el = reasonNode.nodeType === 1 ? reasonNode : reasonNode.parentElement;
-        if (el && !el.closest?.(".hive-subtitle-renderer-line,[class*='hive-subtitle-renderer-line']")) {
-          return;
-        }
-      } catch {}
-    }
+    //if (p === "disney" && reasonNode) {
+//      try {
+        //const el = reasonNode.nodeType === 1 ? reasonNode : reasonNode.parentElement;
+        //if (el && !el.closest?.(".hive-subtitle-renderer-line,[class*='hive-subtitle-renderer-line']")) {
+//          return;
+        //}
+      //} catch {}
+    //}
 
     S.visualDirty = true;
     S.visualDirtyAt = performance.now();
@@ -699,7 +697,7 @@
     // 🟥 NETFLIX (fix fuerte anti duplicados)
     // =========================================================================
     if (isNetflix()) {
-      const settleMs = 120;
+      const settleMs = 260;
 
       // 🔒 Lock mientras el mismo subtítulo sigue en pantalla
       if (S._visualCueActive && sameExactish) {
@@ -727,7 +725,7 @@
         const dtVideo = Math.abs(tNow - lastT);
         if (dtVideo < 0.3) return;
       }
-
+if (text.length < 12) return;
       // ✅ OK → hablar
       S._visualLastText = text;
       S._visualLastKey = key || "";
@@ -753,7 +751,7 @@
     // =========================================================================
     if (isMax()) {
       const prevText = S._visualLastText || "";
-      const delta = prevText ? computeDelta(prevText, text) : "";
+      const delta = "";
       const sameKey = key && key === (S._visualLastKey || "");
 
       const closeInTime = (tNow != null && lastT != null)
