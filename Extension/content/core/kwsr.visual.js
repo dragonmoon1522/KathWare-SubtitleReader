@@ -23,9 +23,9 @@
 // ------------
 // Cada plataforma se porta distinto:
 //
-// - Disney: ya venía bastante bien -> no la compliquemos
-// - Netflix: re-renderiza mucho -> hay que esperar estabilidad
-// - Max: a veces el subtítulo "crece" -> hay que permitir delta
+// - Disney: no hay que filtrar de más o no dispara nunca
+// - Netflix: re-renderiza mucho -> deduplicación fuerte + pequeña espera
+// - Max: a veces el subtítulo aparece por partes o "crece"
 //
 // Esta versión separa esos comportamientos.
 //
@@ -106,10 +106,10 @@
     if (!strong) return false;
 
     const hits = [
-      "english","deutsch","español","espanol","français","francais","italiano","português","portugues",
-      "polski","magyar","dansk","norsk","svenska","suomi","türkçe","turkce","čeština","cestina",
-      "română","romana","slovenčina","slovencina","nederlands","ελληνικά","日本語","한국어",
-      "chinese","简体","繁體","粵語","bokmål","brasil","canada"
+      "english", "deutsch", "español", "espanol", "français", "francais", "italiano", "português", "portugues",
+      "polski", "magyar", "dansk", "norsk", "svenska", "suomi", "türkçe", "turkce", "čeština", "cestina",
+      "română", "romana", "slovenčina", "slovencina", "nederlands", "ελληνικά", "日本語", "한국어",
+      "chinese", "简体", "繁體", "粵語", "bokmål", "brasil", "canada"
     ].reduce((acc, w) => acc + (lower.includes(w) ? 1 : 0), 0);
 
     if (hits >= 3) return true;
@@ -143,7 +143,7 @@
     return false;
   }
 
-  // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
   // Ver visibilidad real
   // ---------------------------------------------------------------------------
   function isVisible(el) {
@@ -316,8 +316,7 @@
 
     return "";
   }
-
-  // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
   // Leer texto desde nodos
   // ---------------------------------------------------------------------------
   function readTextFromNodes(nodes, p) {
@@ -604,8 +603,7 @@
 
     KWSR.overlay?.updateOverlayStatus?.();
   }
-
-  // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
   // TICK PRINCIPAL
   // ---------------------------------------------------------------------------
   function pollVisualTick(fromObserver = false, reasonNode = null) {
@@ -635,7 +633,9 @@
     const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
     const { text, key, lineParts, lineCount } = readTextFromNodes(nodes, p);
 
-    // Sin texto = reset parcial
+    // -------------------------------------------------------------------------
+    // SIN TEXTO → RESET
+    // -------------------------------------------------------------------------
     if (!text) {
       S._visualCueActive = false;
       S._visualLastEmptyAt = performance.now();
@@ -654,6 +654,7 @@
 
     const lastStrict = S._visualLastStrict || "";
     const lastLoose = S._visualLastLoose || "";
+
     const sameStrict = strict && strict === lastStrict;
     const sameLoose = loose && loose === lastLoose;
     const sameExactish = sameStrict || sameLoose;
@@ -664,27 +665,17 @@
       ? S._visualLastVideoTimeSec
       : null;
 
-    // -------------------------------------------------------------------------
-    // DISNEY
-    // -------------------------------------------------------------------------
-    // Lo dejamos simple y parecido a la lógica que ya funcionaba:
-    // - si el texto es exactamente el mismo, no repetir
-    // - si cambia, leerlo
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 🟦 DISNEY (fix: no leer 0, pero tampoco duplicar)
+    // =========================================================================
     if (isDisney()) {
       const sameKey = key && key === (S._visualLastKey || "");
-      const minRepeatMs = 700;
-      const allowRepeatAfterMs = 1700;
+      const minRepeatMs = 600;
 
-      if ((sameStrict || sameLoose) && sameKey) {
+      if (sameExactish && sameKey) {
         const dt = now - (S._visualLastAt || 0);
-
         if (dt < minRepeatMs) return;
-        if (dt < allowRepeatAfterMs) return;
       }
-
-      if (!fromObserver && strict && strict === S.lastVisualSeen) return;
-      S.lastVisualSeen = strict || text;
 
       S._visualLastText = text;
       S._visualLastKey = key || "";
@@ -697,66 +688,47 @@
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
 
       if (DEBUG()) {
-        KWSR.log?.("VISUAL disney speak", {
-          selector: S.visualSelectorUsed,
-          key,
-          text,
-          lineCount,
-          lineParts
-        });
+        KWSR.log?.("VISUAL disney speak", { text, lineParts });
       }
 
       KWSR.voice?.leerTextoAccesible?.(text);
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // NETFLIX
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 🟥 NETFLIX (fix fuerte anti duplicados)
+    // =========================================================================
     if (isNetflix()) {
-      const settleMs = 150;
+      const settleMs = 120;
 
+      // 🔒 Lock mientras el mismo subtítulo sigue en pantalla
       if (S._visualCueActive && sameExactish) {
-        if (DEBUG()) KWSR.log?.("VISUAL netflix cue-lock", { text, key });
-        if (tNow != null) S._visualLastVideoTimeSec = tNow;
         return;
       }
 
+      // 🧠 Pending (esperar estabilidad)
       if (strict !== (S._visualPendingStrict || "")) {
         S._visualPendingText = text;
         S._visualPendingStrict = strict;
         S._visualPendingLoose = loose;
         S._visualPendingKey = key || "";
         S._visualPendingSince = now;
-
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL netflix pending-new", { text, lineCount, lineParts });
-        }
         return;
       }
 
       const pendingAge = now - (S._visualPendingSince || 0);
-      if (pendingAge < settleMs) {
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL netflix pending-wait", {
-            age: Math.round(pendingAge),
-            settleMs,
-            text
-          });
-        }
-        return;
-      }
+      if (pendingAge < settleMs) return;
 
-      if (sameExactish) {
-        if (DEBUG()) KWSR.log?.("VISUAL netflix pending-same-as-last", { text });
-        return;
-      }
+      // 🧠 Anti re-render mismo texto
+      if (sameExactish) return;
 
+      // 🧠 Anti micro-loop por tiempo de video
       if (tNow != null && lastT != null && sameExactish) {
         const dtVideo = Math.abs(tNow - lastT);
-        if (dtVideo < 0.35) return;
+        if (dtVideo < 0.3) return;
       }
 
+      // ✅ OK → hablar
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
@@ -764,167 +736,98 @@
       S._visualLastLoose = loose;
       S._visualCueActive = true;
       S._visualCueSince = now;
-      if (tNow != null) S._visualLastVideoTimeSec = tNow;
       S.lastVisualSeen = strict || text;
 
+      if (tNow != null) S._visualLastVideoTimeSec = tNow;
+
       if (DEBUG()) {
-        KWSR.log?.("VISUAL netflix speak", {
-          selector: S.visualSelectorUsed,
-          key,
-          text,
-          lineCount,
-          lineParts
-        });
+        KWSR.log?.("VISUAL netflix speak", { text, lineParts });
       }
 
       KWSR.voice?.leerTextoAccesible?.(text);
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // MAX
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // 🟨 MAX (fix: no perder frases)
+    // =========================================================================
     if (isMax()) {
       const prevText = S._visualLastText || "";
       const delta = prevText ? computeDelta(prevText, text) : "";
       const sameKey = key && key === (S._visualLastKey || "");
-      const closeInTime = (tNow != null && lastT != null)
-        ? Math.abs(tNow - lastT) < 1.35
-        : (now - (S._visualLastAt || 0)) < 1800;
 
+      const closeInTime = (tNow != null && lastT != null)
+        ? Math.abs(tNow - lastT) < 1.2
+        : (now - (S._visualLastAt || 0)) < 1500;
+
+      // 🧩 Si creció el subtítulo → leer SOLO la parte nueva
       if (delta && delta.length >= 2 && closeInTime && sameKey) {
         const deltaStrict = fpStrict(delta);
-        const deltaLoose = fpLoose(delta);
 
-        const sameDelta =
-          (deltaStrict && deltaStrict === (S._visualLastDeltaStrict || "")) ||
-          (deltaLoose && deltaLoose === (S._visualLastDeltaLoose || ""));
-
-        if (!sameDelta) {
+        if (deltaStrict !== (S._visualLastDeltaStrict || "")) {
           S._visualLastText = text;
           S._visualLastKey = key || "";
           S._visualLastAt = now;
           S._visualLastStrict = strict;
           S._visualLastLoose = loose;
-          S._visualCueActive = true;
-          S._visualCueSince = now;
-          S._visualLastDeltaStrict = deltaStrict || "";
-          S._visualLastDeltaLoose = deltaLoose || "";
-          if (tNow != null) S._visualLastVideoTimeSec = tNow;
-          S.lastVisualSeen = strict || text;
+          S._visualLastDeltaStrict = deltaStrict;
 
           if (DEBUG()) {
-            KWSR.log?.("VISUAL max speak-delta", {
-              fullText: text,
-              delta,
-              key,
-              lineCount,
-              lineParts
-            });
+            KWSR.log?.("VISUAL max delta", { delta });
           }
 
           KWSR.voice?.leerTextoAccesible?.(delta);
         }
-
         return;
       }
 
-      if (S._visualCueActive && sameExactish) {
-        if (DEBUG()) KWSR.log?.("VISUAL max cue-lock", { text, key });
-        if (tNow != null) S._visualLastVideoTimeSec = tNow;
-        return;
-      }
+      // 🔒 evitar repetir mismo
+      if (S._visualCueActive && sameExactish) return;
 
-      const settleMs = 90;
+      // 🧠 settle corto
+      const settleMs = 80;
 
       if (strict !== (S._visualPendingStrict || "")) {
-        S._visualPendingText = text;
         S._visualPendingStrict = strict;
-        S._visualPendingLoose = loose;
-        S._visualPendingKey = key || "";
         S._visualPendingSince = now;
-
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL max pending-new", { text, lineCount, lineParts });
-        }
         return;
       }
 
       const pendingAge = now - (S._visualPendingSince || 0);
-      if (pendingAge < settleMs) {
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL max pending-wait", {
-            age: Math.round(pendingAge),
-            settleMs,
-            text
-          });
-        }
-        return;
-      }
+      if (pendingAge < settleMs) return;
 
       if (sameExactish) return;
 
+      // ✅ hablar completo
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
       S._visualLastStrict = strict;
       S._visualLastLoose = loose;
-      S._visualCueActive = true;
-      S._visualCueSince = now;
       S._visualLastDeltaStrict = "";
-      S._visualLastDeltaLoose = "";
+
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
-      S.lastVisualSeen = strict || text;
 
       if (DEBUG()) {
-        KWSR.log?.("VISUAL max speak-full", {
-          selector: S.visualSelectorUsed,
-          key,
-          text,
-          lineCount,
-          lineParts
-        });
+        KWSR.log?.("VISUAL max full", { text });
       }
 
       KWSR.voice?.leerTextoAccesible?.(text);
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // RESTO DE PLATAFORMAS
-    // -------------------------------------------------------------------------
-    const minRepeatMs = 700;
-    const allowRepeatAfterMs = 1700;
-    const sameKey = key && key === (S._visualLastKey || "");
-
-    if ((sameStrict || sameLoose) && sameKey) {
-      const dt = now - (S._visualLastAt || 0);
-
-      if (dt < minRepeatMs) return;
-      if (dt < allowRepeatAfterMs) return;
-    }
-
-    if (!fromObserver && strict && strict === S.lastVisualSeen) return;
-    S.lastVisualSeen = strict || text;
+    // =========================================================================
+    // 🟩 GENERIC
+    // =========================================================================
+    if (sameExactish) return;
 
     S._visualLastText = text;
     S._visualLastKey = key || "";
     S._visualLastAt = now;
     S._visualLastStrict = strict;
     S._visualLastLoose = loose;
-    S._visualCueActive = true;
-    S._visualCueSince = now;
 
     if (tNow != null) S._visualLastVideoTimeSec = tNow;
-
-    if (DEBUG()) {
-      KWSR.log?.("VISUAL speak", {
-        selector: S.visualSelectorUsed,
-        key,
-        fromObserver,
-        text
-      });
-    }
 
     KWSR.voice?.leerTextoAccesible?.(text);
   }
