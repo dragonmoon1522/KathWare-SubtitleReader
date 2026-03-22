@@ -248,6 +248,35 @@
     return normalize(out);
   }
 
+  function pruneRecentSpoken(now, ttlMs = 4000) {
+    const map = S._visualRecentSpoken;
+    if (!(map instanceof Map)) return;
+
+    for (const [k, ts] of map.entries()) {
+      if ((now - ts) > ttlMs) {
+        map.delete(k);
+      }
+    }
+  }
+
+  function wasSpokenRecently(fp, now, ttlMs = 2500) {
+    const map = S._visualRecentSpoken;
+    if (!(map instanceof Map) || !fp) return false;
+
+    const ts = map.get(fp);
+    if (typeof ts !== "number") return false;
+
+    return (now - ts) < ttlMs;
+  }
+
+  function markSpoken(fp, now) {
+    if (!fp) return;
+    if (!(S._visualRecentSpoken instanceof Map)) {
+      S._visualRecentSpoken = new Map();
+    }
+    S._visualRecentSpoken.set(fp, now);
+  }
+
   // ---------------------------------------------------------------------------
   // Fingerprints
   // ---------------------------------------------------------------------------
@@ -497,6 +526,7 @@
 
     S._visualLastDeltaStrict = "";
     S._visualLastDeltaLoose = "";
+S._visualRecentSpoken = new Map();
 
     S.lastVisualSeen = "";
   }
@@ -524,17 +554,7 @@
 
     const p = platform();
 
-    // Disney: mantener filtro específico, pero no más agresivo que eso
-    //if (p === "disney" && reasonNode) {
-//      try {
-        //const el = reasonNode.nodeType === 1 ? reasonNode : reasonNode.parentElement;
-        //if (el && !el.closest?.(".hive-subtitle-renderer-line,[class*='hive-subtitle-renderer-line']")) {
-//          return;
-        //}
-      //} catch {}
-    //}
-
-    S.visualDirty = true;
+      S.visualDirty = true;
     S.visualDirtyAt = performance.now();
     requestVisualFrame(reasonNode);
   }
@@ -697,7 +717,7 @@
     // 🟥 NETFLIX (fix fuerte anti duplicados)
     // =========================================================================
     if (isNetflix()) {
-      const settleMs = 260;
+      const settleMs = 120;
 
       // 🔒 Lock mientras el mismo subtítulo sigue en pantalla
       if (S._visualCueActive && sameExactish) {
@@ -726,6 +746,22 @@
         if (dtVideo < 0.3) return;
       }
 if (text.length < 12) return;
+      
+      pruneRecentSpoken(now, 5000);
+
+      const netflixRepeatTtlMs = 3000;
+
+      if (wasSpokenRecently(strict, now, netflixRepeatTtlMs)) {
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL netflix suppress-recent-repeat", {
+            text,
+            strict,
+            ttl: netflixRepeatTtlMs
+          });
+        }
+        return;
+      }
+
       // ✅ OK → hablar
       S._visualLastText = text;
       S._visualLastKey = key || "";
@@ -741,6 +777,8 @@ if (text.length < 12) return;
       if (DEBUG()) {
         KWSR.log?.("VISUAL netflix speak", { text, lineParts });
       }
+
+      markSpoken(strict, now);
 
       KWSR.voice?.leerTextoAccesible?.(text);
       return;
@@ -780,7 +818,12 @@ if (text.length < 12) return;
       }
 
       // 🔒 evitar repetir mismo
-      if (S._visualCueActive && sameExactish) return;
+      const sameKey = key && key === (S._visualLastKey || "");
+
+// 🔒 Lock por contenedor, no por texto
+if (S._visualCueActive && sameKey) {
+  return;
+}
 
       // 🧠 settle corto
       const settleMs = 80;
@@ -794,9 +837,7 @@ if (text.length < 12) return;
       const pendingAge = now - (S._visualPendingSince || 0);
       if (pendingAge < settleMs) return;
 
-      if (sameExactish) return;
-
-      // ✅ hablar completo
+            // ✅ hablar completo
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
