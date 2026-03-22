@@ -397,7 +397,7 @@
   // - menos "inteligencia" peligrosa
   // - nada de delta en Netflix/Max
   // ---------------------------------------------------------------------------
-  function dedupeAndDelta(raw) {
+    function dedupeAndDelta(raw) {
     const clean = normalize(raw);
     if (!clean) return "";
 
@@ -411,31 +411,12 @@
     const lastStrict = S.lastEmitStrictKey || "";
     const lastLoose = S.lastEmitLooseKey || "";
 
-    // -------------------------------------------------------------------------
-    // sameTextish
-    // -------------------------------------------------------------------------
-    // Acá está uno de los cambios más importantes.
-    //
-    // ANTES:
-    // - también comparábamos con includes(...)
-    // - eso trataba textos "parecidos" como si fueran el mismo
-    //
-    // AHORA:
-    // - solo exacto estricto
-    // - o exacto flexible (loose)
-    //
-    // Nada de includes.
-    // -------------------------------------------------------------------------
     const sameTextish =
       (strictKey && strictKey === lastStrict) ||
       (looseKey && looseKey === lastLoose);
 
     // -------------------------------------------------------------------------
     // 0) Gate por videoTime (anti re-render)
-    // -------------------------------------------------------------------------
-    // Si estamos en Netflix/Max y el texto es realmente el mismo,
-    // y además el video casi no avanzó,
-    // lo tratamos como re-render y no lo leemos.
     // -------------------------------------------------------------------------
     if (isRerenderPlatform() && sameTextish) {
       const tNow = getVideoTimeSec();
@@ -457,9 +438,6 @@
     // -------------------------------------------------------------------------
     // 1) Anti-eco inmediato
     // -------------------------------------------------------------------------
-    // Si el mismo texto llega dos veces muy pegado en el tiempo,
-    // lo ignoramos.
-    // -------------------------------------------------------------------------
     const baseEcho = (CFG.echoMs ?? 380);
     const echoMs = isRerenderPlatform() ? Math.max(baseEcho, 520) : baseEcho;
 
@@ -475,14 +453,7 @@
     const windowMs = base + extra;
 
     // -------------------------------------------------------------------------
-    // 3) Delta (rolling captions)
-    // -------------------------------------------------------------------------
-    // IMPORTANTE:
-    // En esta versión lo desactivamos para Netflix/Max.
-    //
-    // De hecho, por ahora lo apagamos del todo
-    // para que voice.js no reinterpreté texto que ya viene procesado
-    // desde visual.js.
+    // 3) Delta
     // -------------------------------------------------------------------------
     const canDelta = false;
 
@@ -517,6 +488,15 @@
     // 4) Si es exactamente lo mismo dentro de la ventana, no repetir
     // -------------------------------------------------------------------------
     if (strictKey === lastStrict && dt < windowMs) return "";
+
+    // -------------------------------------------------------------------------
+    // 5) Anti-repetición larga en plataformas con re-render
+    // -------------------------------------------------------------------------
+    const rerenderRepeatMs = (platform() === "netflix") ? 4200 : 2600;
+
+    if (isRerenderPlatform() && sameTextish && dt < rerenderRepeatMs) {
+      return "";
+    }
 
     // -------------------------------------------------------------------------
     // Guardar estado global de dedupe

@@ -24,13 +24,12 @@
 // Cada plataforma se porta distinto:
 //
 // - Disney: no hay que filtrar de más o no dispara nunca
-// - Netflix: re-renderiza mucho -> deduplicación fuerte + pequeña espera
-// - Max: a veces el subtítulo aparece por partes o "crece"
+// - Netflix: re-renderiza mucho
+// - Max: a veces reparte el subtítulo en varios nodos
 //
 // Esta versión separa esos comportamientos.
 //
 // -----------------------------------------------------------------------------
-
 
 (() => {
   const KWSR = window.KWSR;
@@ -143,7 +142,7 @@
     return false;
   }
 
-    // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // Ver visibilidad real
   // ---------------------------------------------------------------------------
   function isVisible(el) {
@@ -248,35 +247,6 @@
     return normalize(out);
   }
 
-  function pruneRecentSpoken(now, ttlMs = 4000) {
-    const map = S._visualRecentSpoken;
-    if (!(map instanceof Map)) return;
-
-    for (const [k, ts] of map.entries()) {
-      if ((now - ts) > ttlMs) {
-        map.delete(k);
-      }
-    }
-  }
-
-  function wasSpokenRecently(fp, now, ttlMs = 2500) {
-    const map = S._visualRecentSpoken;
-    if (!(map instanceof Map) || !fp) return false;
-
-    const ts = map.get(fp);
-    if (typeof ts !== "number") return false;
-
-    return (now - ts) < ttlMs;
-  }
-
-  function markSpoken(fp, now) {
-    if (!fp) return;
-    if (!(S._visualRecentSpoken instanceof Map)) {
-      S._visualRecentSpoken = new Map();
-    }
-    S._visualRecentSpoken.set(fp, now);
-  }
-
   // ---------------------------------------------------------------------------
   // Fingerprints
   // ---------------------------------------------------------------------------
@@ -345,7 +315,8 @@
 
     return "";
   }
-    // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
   // Leer texto desde nodos
   // ---------------------------------------------------------------------------
   function readTextFromNodes(nodes, p) {
@@ -358,8 +329,8 @@
       };
     }
 
-    // Netflix / Max: snapshot del contenedor
-    if (p === "netflix" || p === "max") {
+    // Netflix: leer por contenedor propio
+    if (p === "netflix") {
       for (const n of nodes) {
         const el = n?.nodeType === 1 ? n : n?.parentElement;
         if (!el) continue;
@@ -407,21 +378,16 @@
           }
         }
 
-        let raw = "";
-        try {
-          raw = cont.innerText || cont.textContent || "";
-        } catch {}
-
-        const t = normalize(raw);
-        if (!t) continue;
-        if (isLanguageMenuText(t)) continue;
-        if (looksLikeNoise(cont, t)) continue;
+        const raw = normalize(cont.innerText || cont.textContent || "");
+        if (!raw) continue;
+        if (isLanguageMenuText(raw)) continue;
+        if (looksLikeNoise(cont, raw)) continue;
 
         return {
-          text: t,
+          text: raw,
           key,
-          lineParts: t ? [t] : [],
-          lineCount: t ? 1 : 0
+          lineParts: [raw],
+          lineCount: 1
         };
       }
 
@@ -433,6 +399,47 @@
       };
     }
 
+    // Max: juntar todos los nodos visibles del selector
+    if (p === "max") {
+      const parts = [];
+      let key = "";
+      const seen = new Set();
+
+      for (const n of nodes) {
+        const el = n?.nodeType === 1 ? n : n?.parentElement;
+        if (!el) continue;
+        if (isInsideKathWareUI(el)) continue;
+        if (!isVisible(el)) continue;
+
+        const t = normalize(el.innerText || el.textContent || "");
+        if (!t) continue;
+        if (looksLikeNoise(el, t)) continue;
+        if (seen.has(t)) continue;
+
+        seen.add(t);
+        if (!key) key = containerKeyForNode(el);
+        parts.push(t);
+      }
+
+      if (!parts.length) {
+        return {
+          text: "",
+          key: "",
+          lineParts: [],
+          lineCount: 0
+        };
+      }
+
+      const joined = smartJoinLines(parts);
+
+      return {
+        text: joined,
+        key: key || "no-key",
+        lineParts: parts,
+        lineCount: parts.length
+      };
+    }
+
     // Disney / resto: lectura simple y conservadora
     const parts = [];
     let key = "";
@@ -441,7 +448,7 @@
       if (!n) continue;
       if (isInsideKathWareUI(n)) continue;
 
-            const t = normalize(n.textContent || n.innerText || "");
+      const t = normalize(n.textContent || n.innerText || "");
       if (!t) continue;
 
       if (p === "disney" && isLanguageMenuText(t)) continue;
@@ -526,7 +533,6 @@
 
     S._visualLastDeltaStrict = "";
     S._visualLastDeltaLoose = "";
-S._visualRecentSpoken = new Map();
 
     S.lastVisualSeen = "";
   }
@@ -552,9 +558,7 @@ S._visualRecentSpoken = new Map();
     if (S.effectiveFuente !== "visual") return;
     if (reasonNode && isInsideKathWareUI(reasonNode)) return;
 
-    const p = platform();
-
-      S.visualDirty = true;
+    S.visualDirty = true;
     S.visualDirtyAt = performance.now();
     requestVisualFrame(reasonNode);
   }
@@ -621,7 +625,8 @@ S._visualRecentSpoken = new Map();
 
     KWSR.overlay?.updateOverlayStatus?.();
   }
-    // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
   // TICK PRINCIPAL
   // ---------------------------------------------------------------------------
   function pollVisualTick(fromObserver = false, reasonNode = null) {
@@ -684,7 +689,7 @@ S._visualRecentSpoken = new Map();
       : null;
 
     // =========================================================================
-    // 🟦 DISNEY (fix: no leer 0, pero tampoco duplicar)
+    // DISNEY
     // =========================================================================
     if (isDisney()) {
       const sameKey = key && key === (S._visualLastKey || "");
@@ -706,7 +711,7 @@ S._visualRecentSpoken = new Map();
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
 
       if (DEBUG()) {
-        KWSR.log?.("VISUAL disney speak", { text, lineParts });
+        KWSR.log?.("VISUAL disney speak", { text, lineParts, lineCount });
       }
 
       KWSR.voice?.leerTextoAccesible?.(text);
@@ -714,17 +719,15 @@ S._visualRecentSpoken = new Map();
     }
 
     // =========================================================================
-    // 🟥 NETFLIX (fix fuerte anti duplicados)
+    // NETFLIX
     // =========================================================================
     if (isNetflix()) {
       const settleMs = 120;
 
-      // 🔒 Lock mientras el mismo subtítulo sigue en pantalla
       if (S._visualCueActive && sameExactish) {
         return;
       }
 
-      // 🧠 Pending (esperar estabilidad)
       if (strict !== (S._visualPendingStrict || "")) {
         S._visualPendingText = text;
         S._visualPendingStrict = strict;
@@ -737,32 +740,13 @@ S._visualRecentSpoken = new Map();
       const pendingAge = now - (S._visualPendingSince || 0);
       if (pendingAge < settleMs) return;
 
-      // 🧠 Anti re-render mismo texto
       if (sameExactish) return;
 
-      // 🧠 Anti micro-loop por tiempo de video
       if (tNow != null && lastT != null && sameExactish) {
         const dtVideo = Math.abs(tNow - lastT);
         if (dtVideo < 0.3) return;
       }
-if (text.length < 12) return;
-      
-      pruneRecentSpoken(now, 5000);
 
-      const netflixRepeatTtlMs = 3000;
-
-      if (wasSpokenRecently(strict, now, netflixRepeatTtlMs)) {
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL netflix suppress-recent-repeat", {
-            text,
-            strict,
-            ttl: netflixRepeatTtlMs
-          });
-        }
-        return;
-      }
-
-      // ✅ OK → hablar
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
@@ -775,57 +759,18 @@ if (text.length < 12) return;
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
 
       if (DEBUG()) {
-        KWSR.log?.("VISUAL netflix speak", { text, lineParts });
+        KWSR.log?.("VISUAL netflix speak", { text, lineParts, lineCount });
       }
-
-      markSpoken(strict, now);
 
       KWSR.voice?.leerTextoAccesible?.(text);
       return;
     }
 
     // =========================================================================
-    // 🟨 MAX (fix: no perder frases)
+    // MAX
     // =========================================================================
     if (isMax()) {
-      const prevText = S._visualLastText || "";
-      const delta = "";
       const sameKey = key && key === (S._visualLastKey || "");
-
-      const closeInTime = (tNow != null && lastT != null)
-        ? Math.abs(tNow - lastT) < 1.2
-        : (now - (S._visualLastAt || 0)) < 1500;
-
-      // 🧩 Si creció el subtítulo → leer SOLO la parte nueva
-      if (delta && delta.length >= 2 && closeInTime && sameKey) {
-        const deltaStrict = fpStrict(delta);
-
-        if (deltaStrict !== (S._visualLastDeltaStrict || "")) {
-          S._visualLastText = text;
-          S._visualLastKey = key || "";
-          S._visualLastAt = now;
-          S._visualLastStrict = strict;
-          S._visualLastLoose = loose;
-          S._visualLastDeltaStrict = deltaStrict;
-
-          if (DEBUG()) {
-            KWSR.log?.("VISUAL max delta", { delta });
-          }
-
-          KWSR.voice?.leerTextoAccesible?.(delta);
-        }
-        return;
-      }
-
-      // 🔒 evitar repetir mismo
-      const sameKey = key && key === (S._visualLastKey || "");
-
-// 🔒 Lock por contenedor, no por texto
-if (S._visualCueActive && sameKey) {
-  return;
-}
-
-      // 🧠 settle corto
       const settleMs = 80;
 
       if (strict !== (S._visualPendingStrict || "")) {
@@ -837,18 +782,61 @@ if (S._visualCueActive && sameKey) {
       const pendingAge = now - (S._visualPendingSince || 0);
       if (pendingAge < settleMs) return;
 
-            // ✅ hablar completo
+      if (S._visualCueActive && sameKey && sameExactish) {
+        return;
+      }
+
+      const prevText = S._visualLastText || "";
+      const delta = prevText ? computeDelta(prevText, text) : "";
+      const closeInTime = (tNow != null && lastT != null)
+        ? Math.abs(tNow - lastT) < 1.2
+        : (now - (S._visualLastAt || 0)) < 1500;
+
+      if (delta && delta.length >= 2 && closeInTime && sameKey) {
+        const deltaStrict = fpStrict(delta);
+        const deltaLoose = fpLoose(delta);
+
+        const sameDelta =
+          (deltaStrict && deltaStrict === (S._visualLastDeltaStrict || "")) ||
+          (deltaLoose && deltaLoose === (S._visualLastDeltaLoose || ""));
+
+        if (!sameDelta) {
+          S._visualLastText = text;
+          S._visualLastKey = key || "";
+          S._visualLastAt = now;
+          S._visualLastStrict = strict;
+          S._visualLastLoose = loose;
+          S._visualCueActive = true;
+          S._visualCueSince = now;
+          S._visualLastDeltaStrict = deltaStrict || "";
+          S._visualLastDeltaLoose = deltaLoose || "";
+
+          if (tNow != null) S._visualLastVideoTimeSec = tNow;
+
+          if (DEBUG()) {
+            KWSR.log?.("VISUAL max delta", { delta, text, lineParts, lineCount });
+          }
+
+          KWSR.voice?.leerTextoAccesible?.(delta);
+        }
+
+        return;
+      }
+
       S._visualLastText = text;
       S._visualLastKey = key || "";
       S._visualLastAt = now;
       S._visualLastStrict = strict;
       S._visualLastLoose = loose;
+      S._visualCueActive = true;
+      S._visualCueSince = now;
       S._visualLastDeltaStrict = "";
+      S._visualLastDeltaLoose = "";
 
       if (tNow != null) S._visualLastVideoTimeSec = tNow;
 
       if (DEBUG()) {
-        KWSR.log?.("VISUAL max full", { text });
+        KWSR.log?.("VISUAL max full", { text, lineParts, lineCount });
       }
 
       KWSR.voice?.leerTextoAccesible?.(text);
@@ -856,7 +844,7 @@ if (S._visualCueActive && sameKey) {
     }
 
     // =========================================================================
-    // 🟩 GENERIC
+    // GENERIC
     // =========================================================================
     if (sameExactish) return;
 
