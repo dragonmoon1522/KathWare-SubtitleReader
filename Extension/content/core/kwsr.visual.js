@@ -6,64 +6,33 @@
 // ---------------------
 // Este módulo lee subtítulos VISUALES del DOM.
 //
-// Traducción a idioma humano:
-// - mira lo que aparece en pantalla
-// - junta el texto del subtítulo
-// - intenta evitar basura o duplicados
-// - le pasa el resultado final a KWSR.voice
+// Traducción simple:
+// - mira nodos de subtítulos en pantalla
+// - junta el texto visible
+// - evita basura / menús / duplicados
+// - le pasa el texto final a KWSR.voice
 //
 // Este archivo NO:
 // - usa textTracks
 // - habla por sí solo
-// - crea paneles ni interfaz
-//
-// -----------------------------------------------------------------------------
-//
-// PROBLEMA DIFÍCIL DE NETFLIX / MAX
-// ---------------------------------
-// Netflix y Max hacen cosas raras con el DOM.
-//
-// A veces pasa esto:
-//
-// 1. subtítulo viejo
-// 2. un instante donde conviven viejo + nuevo
-// 3. subtítulo nuevo
-//
-// Si leemos "todo lo que haya" sin pensar,
-// terminamos repitiendo o mezclando frases.
-//
-// Pero también existe otro caso:
-//
-// 1. un subtítulo real de dos líneas
-//
-// Si tratamos eso como "viejo + nuevo",
-// rompemos la frase.
-//
-// Entonces la clave es:
-// - detectar cuándo varias líneas son un subtítulo real
-// - detectar cuándo son una transición fea
+// - crea paneles
 //
 // -----------------------------------------------------------------------------
 //
 // IDEA GENERAL
 // ------------
-// Para Netflix/Max:
+// Cada plataforma se porta distinto:
 //
-// - leemos varias partes visibles del contenedor
-// - armamos un texto unido
-// - si ese texto unido contiene al subtítulo anterior,
-//   probablemente sea una transición vieja+nueva
-// - en ese caso, intentamos quedarnos solo con la parte nueva
+// - Disney: ya venía bastante bien -> no la compliquemos
+// - Netflix: re-renderiza mucho -> hay que esperar estabilidad
+// - Max: a veces el subtítulo "crece" -> hay que permitir delta
 //
-// Si NO parece transición, usamos el texto completo unido.
+// Esta versión separa esos comportamientos.
 //
 // -----------------------------------------------------------------------------
 
 
 (() => {
-  // ---------------------------------------------------------------------------
-  // Arranque seguro
-  // ---------------------------------------------------------------------------
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.visual) return;
 
@@ -74,7 +43,7 @@
   const DEBUG = () => !!(CFG?.debug && CFG?.debugVisual);
 
   // ---------------------------------------------------------------------------
-  // Helpers de plataforma
+  // Plataforma
   // ---------------------------------------------------------------------------
   function platform() {
     return KWSR.platforms?.getPlatform?.() || "generic";
@@ -85,8 +54,20 @@
     return KWSR.platforms?.platformCapabilities?.(p) || {};
   }
 
+  function isNetflix() {
+    return platform() === "netflix";
+  }
+
+  function isMax() {
+    return platform() === "max";
+  }
+
+  function isDisney() {
+    return platform() === "disney";
+  }
+
   // ---------------------------------------------------------------------------
-  // Evitar leer nuestra propia UI
+  // Evitar leer UI propia
   // ---------------------------------------------------------------------------
   function isInsideKathWareUI(node) {
     try {
@@ -106,7 +87,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Detectar menús de idioma / audio / subtítulos
+  // Detectar menús de audio / idiomas / subtítulos
   // ---------------------------------------------------------------------------
   function isLanguageMenuText(text) {
     const t = normalize(text);
@@ -138,7 +119,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Filtro general anti-basura
+  // Filtro anti-basura
   // ---------------------------------------------------------------------------
   function looksLikeNoise(node, text) {
     const t = normalize(text);
@@ -163,7 +144,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Ver si un elemento está visible
+  // Ver visibilidad real
   // ---------------------------------------------------------------------------
   function isVisible(el) {
     try {
@@ -172,6 +153,7 @@
 
       const style = window.getComputedStyle(el);
       if (!style) return false;
+
       if (style.display === "none" || style.visibility === "hidden") return false;
 
       const opacity = parseFloat(style.opacity || "1");
@@ -188,7 +170,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Selectores por plataforma
+  // Selectores
   // ---------------------------------------------------------------------------
   function getSelectors() {
     const p = platform();
@@ -269,9 +251,6 @@
   // ---------------------------------------------------------------------------
   // Fingerprints
   // ---------------------------------------------------------------------------
-  // Sirven para comparar texto "casi igual" sin que pequeñas diferencias
-  // de espacios o puntuación nos engañen.
-  // ---------------------------------------------------------------------------
   function fpStrict(text) {
     return normalize(text)
       .replace(/\u00A0/g, " ")
@@ -293,80 +272,45 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Detectar si una lista de partes parece tener el texto anterior al principio
+  // Tiempo del video
   // ---------------------------------------------------------------------------
-  // Ejemplo:
-  // prev = "hola conan"
-  // joined = "hola conan hola profesor agasa como esta"
-  //
-  // Eso huele a transición vieja+nueva.
-  // ---------------------------------------------------------------------------
-  function joinedContainsPrevious(prevText, joinedText) {
-    const prev = fpLoose(prevText || "");
-    const joined = fpLoose(joinedText || "");
+  function getVideoTimeSec() {
+    try {
+      const v = S.currentVideo || KWSR.video?.getMainVideo?.();
+      if (!v) return null;
 
-    if (!prev || !joined) return false;
-    if (prev === joined) return false;
-    if (joined.length <= prev.length) return false;
-
-    if (joined.startsWith(prev + " ")) return true;
-    if (joined.includes(" " + prev + " ")) return true;
-
-    return false;
+      const t = Number(v.currentTime || 0);
+      return Number.isFinite(t) ? t : null;
+    } catch {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // Intentar recortar la parte nueva cuando el texto unido arranca con el viejo
+  // Delta simple (para Max)
   // ---------------------------------------------------------------------------
-  // Ejemplo:
-  // prev   = "hola conan"
-  // joined = "hola conan hola profesor agasa como esta"
-  //
-  // devuelve:
-  // "hola profesor agasa como esta"
-  // ---------------------------------------------------------------------------
-  function subtractPreviousFromJoined(prevText, joinedText) {
-    const prevRaw = normalize(prevText || "");
-    const joinedRaw = normalize(joinedText || "");
+  function computeDelta(prevText, currText) {
+    const prev = normalize(prevText);
+    const curr = normalize(currText);
 
-    if (!prevRaw || !joinedRaw) return "";
-    if (joinedRaw === prevRaw) return "";
+    if (!prev || !curr) return "";
+    if (curr.length <= prev.length) return "";
 
-    const prevLoose = fpLoose(prevRaw);
-    const joinedLoose = fpLoose(joinedRaw);
-
-    if (!prevLoose || !joinedLoose) return "";
-    if (!joinedContainsPrevious(prevRaw, joinedRaw)) return "";
-
-    // Intento simple y bastante seguro:
-    // si joinedRaw empieza literalmente con prevRaw, cortamos por ahí.
-    if (joinedRaw.startsWith(prevRaw)) {
-      const tail = normalize(joinedRaw.slice(prevRaw.length));
-      if (tail) return tail;
+    if (curr.toLowerCase().startsWith(prev.toLowerCase())) {
+      let tail = curr.slice(prev.length).trim();
+      tail = tail.replace(/^[-–—:|•]+\s*/g, "").trim();
+      return tail;
     }
 
-    // Fallback más flexible:
-    // si hay varias partes separadas por doble espacio o estructura similar,
-    // intentamos recuperar la cola final desde la última mitad "nueva".
-    //
-    // No es perfecto, pero es bastante mejor que comer subtítulos enteros.
-    const prevWords = prevLoose.split(" ").filter(Boolean);
-    const joinedWords = joinedLoose.split(" ").filter(Boolean);
+    const prevL = fpLoose(prev);
+    const currL = fpLoose(curr);
 
-    if (!prevWords.length || joinedWords.length <= prevWords.length) return "";
-
-    const remainingLooseWords = joinedWords.slice(prevWords.length);
-    if (!remainingLooseWords.length) return "";
-
-    // Como no podemos reconstruir exactamente puntuación desde loose,
-    // usamos una estrategia conservadora:
-    // buscar una coincidencia aproximada del último tramo del prev en el joined real.
-    const anchor = prevRaw.slice(Math.max(0, prevRaw.length - 12)).trim();
-    if (anchor) {
-      const idx = joinedRaw.indexOf(anchor);
-      if (idx >= 0) {
-        const afterAnchor = normalize(joinedRaw.slice(idx + anchor.length));
-        if (afterAnchor && afterAnchor !== prevRaw) return afterAnchor;
+    if (prevL && currL && currL.startsWith(prevL)) {
+      const idx = curr.toLowerCase().indexOf(prev.toLowerCase());
+      if (idx === 0) {
+        let tail = curr.slice(prev.length).trim();
+        tail = tail.replace(/^[-–—:|•]+\s*/g, "").trim();
+        return tail;
       }
     }
 
@@ -376,22 +320,17 @@
   // ---------------------------------------------------------------------------
   // Leer texto desde nodos
   // ---------------------------------------------------------------------------
-  // En Netflix/Max devolvemos metadata extra para poder decidir mejor después.
-  // ---------------------------------------------------------------------------
   function readTextFromNodes(nodes, p) {
     if (!nodes?.length) {
       return {
         text: "",
         key: "",
-        joinedText: "",
         lineParts: [],
         lineCount: 0
       };
     }
 
-    // -------------------------------------------------------------------------
-    // Netflix / Max
-    // -------------------------------------------------------------------------
+    // Netflix / Max: snapshot del contenedor
     if (p === "netflix" || p === "max") {
       for (const n of nodes) {
         const el = n?.nodeType === 1 ? n : n?.parentElement;
@@ -429,19 +368,17 @@
         }
 
         if (lineParts.length) {
-          const joinedText = smartJoinLines(lineParts);
-          if (joinedText && !isLanguageMenuText(joinedText) && !looksLikeNoise(cont, joinedText)) {
+          const joined = smartJoinLines(lineParts);
+          if (joined && !isLanguageMenuText(joined) && !looksLikeNoise(cont, joined)) {
             return {
-              text: joinedText,
+              text: joined,
               key,
-              joinedText,
               lineParts,
               lineCount: lineParts.length
             };
           }
         }
 
-        // Fallback: leer todo el contenedor
         let raw = "";
         try {
           raw = cont.innerText || cont.textContent || "";
@@ -455,7 +392,6 @@
         return {
           text: t,
           key,
-          joinedText: t,
           lineParts: t ? [t] : [],
           lineCount: t ? 1 : 0
         };
@@ -464,15 +400,12 @@
       return {
         text: "",
         key: "",
-        joinedText: "",
         lineParts: [],
         lineCount: 0
       };
     }
 
-    // -------------------------------------------------------------------------
-    // Resto de plataformas
-    // -------------------------------------------------------------------------
+    // Disney / resto: lectura simple y conservadora
     const parts = [];
     let key = "";
 
@@ -482,7 +415,7 @@
 
       if (p === "disney" && !isVisible(n)) continue;
 
-      const t = normalize(n.textContent);
+      const t = normalize(n.textContent || n.innerText || "");
       if (!t) continue;
 
       if (p === "disney" && isLanguageMenuText(t)) continue;
@@ -496,7 +429,6 @@
       return {
         text: "",
         key: "",
-        joinedText: "",
         lineParts: [],
         lineCount: 0
       };
@@ -507,14 +439,13 @@
     return {
       text: joined,
       key: key || "no-key",
-      joinedText: joined,
       lineParts: parts,
       lineCount: parts.length
     };
   }
 
   // ---------------------------------------------------------------------------
-  // Elegir mejor selector
+  // Elegir selector
   // ---------------------------------------------------------------------------
   function pickBestSelector(p) {
     const selectors = getSelectors();
@@ -528,21 +459,6 @@
     }
 
     return "";
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tiempo del video
-  // ---------------------------------------------------------------------------
-  function getVideoTimeSec() {
-    try {
-      const v = S.currentVideo || KWSR.video?.getMainVideo?.();
-      if (!v) return null;
-
-      const t = Number(v.currentTime || 0);
-      return Number.isFinite(t) ? t : null;
-    } catch {
-      return null;
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -576,11 +492,20 @@
     S._visualCueSince = 0;
     S._visualLastEmptyAt = 0;
 
+    S._visualPendingText = "";
+    S._visualPendingStrict = "";
+    S._visualPendingLoose = "";
+    S._visualPendingKey = "";
+    S._visualPendingSince = 0;
+
+    S._visualLastDeltaStrict = "";
+    S._visualLastDeltaLoose = "";
+
     S.lastVisualSeen = "";
   }
 
   // ---------------------------------------------------------------------------
-  // Programar lectura para el próximo frame
+  // Programar lectura en próximo frame
   // ---------------------------------------------------------------------------
   function requestVisualFrame(reasonNode) {
     if (S._visualScheduled) return;
@@ -594,7 +519,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Marcar que hay algo nuevo
+  // Marcar cambios
   // ---------------------------------------------------------------------------
   function scheduleVisualRead(reasonNode) {
     if (S.effectiveFuente !== "visual") return;
@@ -602,6 +527,7 @@
 
     const p = platform();
 
+    // Disney: mantener filtro específico, pero no más agresivo que eso
     if (p === "disney" && reasonNode) {
       try {
         const el = reasonNode.nodeType === 1 ? reasonNode : reasonNode.parentElement;
@@ -617,7 +543,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Iniciar modo visual
+  // Iniciar visual
   // ---------------------------------------------------------------------------
   function startVisual() {
     const p = platform();
@@ -696,7 +622,6 @@
     if (reasonNode && isInsideKathWareUI(reasonNode)) return;
 
     const p = platform();
-    const isRerenderPlatform = (p === "netflix" || p === "max");
 
     if (!S.visualSelectors) {
       S.visualSelectors = getSelectors();
@@ -708,146 +633,281 @@
     }
 
     const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
-    const {
-      text,
-      key,
-      joinedText,
-      lineParts,
-      lineCount
-    } = readTextFromNodes(nodes, p);
+    const { text, key, lineParts, lineCount } = readTextFromNodes(nodes, p);
 
-    // Si no hay texto, marcamos que no hay cue activo
+    // Sin texto = reset parcial
     if (!text) {
       S._visualCueActive = false;
       S._visualLastEmptyAt = performance.now();
+
+      S._visualPendingText = "";
+      S._visualPendingStrict = "";
+      S._visualPendingLoose = "";
+      S._visualPendingKey = "";
+      S._visualPendingSince = 0;
+
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // Elegir texto efectivo
-    // -------------------------------------------------------------------------
-    // Normalmente usamos el texto completo.
-    // Pero si parece transición "viejo + nuevo", intentamos recortar
-    // la parte nueva y usar esa.
-    // -------------------------------------------------------------------------
-    let effectiveText = text;
+    const strict = fpStrict(text);
+    const loose = fpLoose(text);
 
-    if (
-      isRerenderPlatform &&
-      S._visualLastText &&
-      lineCount >= 2 &&
-      joinedContainsPrevious(S._visualLastText, joinedText)
-    ) {
-      const tail = subtractPreviousFromJoined(S._visualLastText, joinedText);
+    const lastStrict = S._visualLastStrict || "";
+    const lastLoose = S._visualLastLoose || "";
+    const sameStrict = strict && strict === lastStrict;
+    const sameLoose = loose && loose === lastLoose;
+    const sameExactish = sameStrict || sameLoose;
 
-      if (tail && tail !== S._visualLastText) {
-        effectiveText = tail;
-
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL overlap-tail", {
-            prev: S._visualLastText,
-            joinedText,
-            tail
-          });
-        }
-      }
-    }
-
-    const strict = fpStrict(effectiveText);
-    const loose = fpLoose(effectiveText);
-
+    const now = performance.now();
     const tNow = getVideoTimeSec();
     const lastT = (typeof S._visualLastVideoTimeSec === "number")
       ? S._visualLastVideoTimeSec
       : null;
 
-    const lastStrict = S._visualLastStrict || "";
-    const lastLoose = S._visualLastLoose || "";
-
-    const sameStrict = strict && strict === lastStrict;
-    const sameLoose = loose && loose === lastLoose;
-    const sameTextish = sameStrict || sameLoose;
-
-    const sameKey = key && key === (S._visualLastKey || "");
-    const now = performance.now();
-
     // -------------------------------------------------------------------------
-    // Cue-lock: solo para igualdad real
+    // DISNEY
     // -------------------------------------------------------------------------
-    if (isRerenderPlatform && S._visualCueActive && sameTextish) {
+    // Lo dejamos simple y parecido a la lógica que ya funcionaba:
+    // - si el texto es exactamente el mismo, no repetir
+    // - si cambia, leerlo
+    // -------------------------------------------------------------------------
+    if (isDisney()) {
+      const sameKey = key && key === (S._visualLastKey || "");
+      const minRepeatMs = 700;
+      const allowRepeatAfterMs = 1700;
+
+      if ((sameStrict || sameLoose) && sameKey) {
+        const dt = now - (S._visualLastAt || 0);
+
+        if (dt < minRepeatMs) return;
+        if (dt < allowRepeatAfterMs) return;
+      }
+
+      if (!fromObserver && strict && strict === S.lastVisualSeen) return;
+      S.lastVisualSeen = strict || text;
+
+      S._visualLastText = text;
+      S._visualLastKey = key || "";
+      S._visualLastAt = now;
+      S._visualLastStrict = strict;
+      S._visualLastLoose = loose;
+      S._visualCueActive = true;
+      S._visualCueSince = now;
+
+      if (tNow != null) S._visualLastVideoTimeSec = tNow;
+
       if (DEBUG()) {
-        KWSR.log?.("VISUAL cue-lock", {
-          text: effectiveText,
-          key
+        KWSR.log?.("VISUAL disney speak", {
+          selector: S.visualSelectorUsed,
+          key,
+          text,
+          lineCount,
+          lineParts
         });
       }
 
-      if (tNow != null) {
-        S._visualLastVideoTimeSec = tNow;
-      }
-
+      KWSR.voice?.leerTextoAccesible?.(text);
       return;
     }
 
     // -------------------------------------------------------------------------
-    // Gate por tiempo del video: solo igualdad real
+    // NETFLIX
     // -------------------------------------------------------------------------
-    if (isRerenderPlatform && tNow != null && lastT != null && sameTextish) {
-      const dtVideo = Math.abs(tNow - lastT);
-      const gate = (p === "max") ? 0.40 : 0.35;
+    if (isNetflix()) {
+      const settleMs = 150;
 
-      if (dtVideo < gate) {
-        S._visualLastVideoTimeSec = tNow;
-        S._visualLastStrict = strict;
-        S._visualLastLoose = loose;
+      if (S._visualCueActive && sameExactish) {
+        if (DEBUG()) KWSR.log?.("VISUAL netflix cue-lock", { text, key });
+        if (tNow != null) S._visualLastVideoTimeSec = tNow;
+        return;
+      }
+
+      if (strict !== (S._visualPendingStrict || "")) {
+        S._visualPendingText = text;
+        S._visualPendingStrict = strict;
+        S._visualPendingLoose = loose;
+        S._visualPendingKey = key || "";
+        S._visualPendingSince = now;
 
         if (DEBUG()) {
-          KWSR.log?.("VISUAL dedupe (videoTime+exact)", {
-            dtVideo,
-            gate,
-            text: effectiveText
+          KWSR.log?.("VISUAL netflix pending-new", { text, lineCount, lineParts });
+        }
+        return;
+      }
+
+      const pendingAge = now - (S._visualPendingSince || 0);
+      if (pendingAge < settleMs) {
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL netflix pending-wait", {
+            age: Math.round(pendingAge),
+            settleMs,
+            text
           });
+        }
+        return;
+      }
+
+      if (sameExactish) {
+        if (DEBUG()) KWSR.log?.("VISUAL netflix pending-same-as-last", { text });
+        return;
+      }
+
+      if (tNow != null && lastT != null && sameExactish) {
+        const dtVideo = Math.abs(tNow - lastT);
+        if (dtVideo < 0.35) return;
+      }
+
+      S._visualLastText = text;
+      S._visualLastKey = key || "";
+      S._visualLastAt = now;
+      S._visualLastStrict = strict;
+      S._visualLastLoose = loose;
+      S._visualCueActive = true;
+      S._visualCueSince = now;
+      if (tNow != null) S._visualLastVideoTimeSec = tNow;
+      S.lastVisualSeen = strict || text;
+
+      if (DEBUG()) {
+        KWSR.log?.("VISUAL netflix speak", {
+          selector: S.visualSelectorUsed,
+          key,
+          text,
+          lineCount,
+          lineParts
+        });
+      }
+
+      KWSR.voice?.leerTextoAccesible?.(text);
+      return;
+    }
+
+    // -------------------------------------------------------------------------
+    // MAX
+    // -------------------------------------------------------------------------
+    if (isMax()) {
+      const prevText = S._visualLastText || "";
+      const delta = prevText ? computeDelta(prevText, text) : "";
+      const sameKey = key && key === (S._visualLastKey || "");
+      const closeInTime = (tNow != null && lastT != null)
+        ? Math.abs(tNow - lastT) < 1.35
+        : (now - (S._visualLastAt || 0)) < 1800;
+
+      if (delta && delta.length >= 2 && closeInTime && sameKey) {
+        const deltaStrict = fpStrict(delta);
+        const deltaLoose = fpLoose(delta);
+
+        const sameDelta =
+          (deltaStrict && deltaStrict === (S._visualLastDeltaStrict || "")) ||
+          (deltaLoose && deltaLoose === (S._visualLastDeltaLoose || ""));
+
+        if (!sameDelta) {
+          S._visualLastText = text;
+          S._visualLastKey = key || "";
+          S._visualLastAt = now;
+          S._visualLastStrict = strict;
+          S._visualLastLoose = loose;
+          S._visualCueActive = true;
+          S._visualCueSince = now;
+          S._visualLastDeltaStrict = deltaStrict || "";
+          S._visualLastDeltaLoose = deltaLoose || "";
+          if (tNow != null) S._visualLastVideoTimeSec = tNow;
+          S.lastVisualSeen = strict || text;
+
+          if (DEBUG()) {
+            KWSR.log?.("VISUAL max speak-delta", {
+              fullText: text,
+              delta,
+              key,
+              lineCount,
+              lineParts
+            });
+          }
+
+          KWSR.voice?.leerTextoAccesible?.(delta);
         }
 
         return;
       }
+
+      if (S._visualCueActive && sameExactish) {
+        if (DEBUG()) KWSR.log?.("VISUAL max cue-lock", { text, key });
+        if (tNow != null) S._visualLastVideoTimeSec = tNow;
+        return;
+      }
+
+      const settleMs = 90;
+
+      if (strict !== (S._visualPendingStrict || "")) {
+        S._visualPendingText = text;
+        S._visualPendingStrict = strict;
+        S._visualPendingLoose = loose;
+        S._visualPendingKey = key || "";
+        S._visualPendingSince = now;
+
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL max pending-new", { text, lineCount, lineParts });
+        }
+        return;
+      }
+
+      const pendingAge = now - (S._visualPendingSince || 0);
+      if (pendingAge < settleMs) {
+        if (DEBUG()) {
+          KWSR.log?.("VISUAL max pending-wait", {
+            age: Math.round(pendingAge),
+            settleMs,
+            text
+          });
+        }
+        return;
+      }
+
+      if (sameExactish) return;
+
+      S._visualLastText = text;
+      S._visualLastKey = key || "";
+      S._visualLastAt = now;
+      S._visualLastStrict = strict;
+      S._visualLastLoose = loose;
+      S._visualCueActive = true;
+      S._visualCueSince = now;
+      S._visualLastDeltaStrict = "";
+      S._visualLastDeltaLoose = "";
+      if (tNow != null) S._visualLastVideoTimeSec = tNow;
+      S.lastVisualSeen = strict || text;
+
+      if (DEBUG()) {
+        KWSR.log?.("VISUAL max speak-full", {
+          selector: S.visualSelectorUsed,
+          key,
+          text,
+          lineCount,
+          lineParts
+        });
+      }
+
+      KWSR.voice?.leerTextoAccesible?.(text);
+      return;
     }
 
     // -------------------------------------------------------------------------
-    // Dedupe temporal normal
+    // RESTO DE PLATAFORMAS
     // -------------------------------------------------------------------------
-    const minRepeatMs = isRerenderPlatform ? 950 : 700;
-    const allowRepeatAfterMs = isRerenderPlatform ? 2200 : 1700;
+    const minRepeatMs = 700;
+    const allowRepeatAfterMs = 1700;
+    const sameKey = key && key === (S._visualLastKey || "");
 
     if ((sameStrict || sameLoose) && sameKey) {
       const dt = now - (S._visualLastAt || 0);
 
-      if (dt < minRepeatMs) {
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL dedupe (fast)", {
-            dt: Math.round(dt),
-            text: effectiveText
-          });
-        }
-        return;
-      }
-
-      if (!isRerenderPlatform && dt < allowRepeatAfterMs) {
-        if (DEBUG()) {
-          KWSR.log?.("VISUAL dedupe (grey)", {
-            dt: Math.round(dt),
-            text: effectiveText
-          });
-        }
-        return;
-      }
+      if (dt < minRepeatMs) return;
+      if (dt < allowRepeatAfterMs) return;
     }
 
     if (!fromObserver && strict && strict === S.lastVisualSeen) return;
-    S.lastVisualSeen = strict || effectiveText;
+    S.lastVisualSeen = strict || text;
 
-    // Guardar nuevo estado
-    S._visualLastText = effectiveText;
+    S._visualLastText = text;
     S._visualLastKey = key || "";
     S._visualLastAt = now;
     S._visualLastStrict = strict;
@@ -855,23 +915,18 @@
     S._visualCueActive = true;
     S._visualCueSince = now;
 
-    if (tNow != null) {
-      S._visualLastVideoTimeSec = tNow;
-    }
+    if (tNow != null) S._visualLastVideoTimeSec = tNow;
 
     if (DEBUG()) {
       KWSR.log?.("VISUAL speak", {
         selector: S.visualSelectorUsed,
         key,
         fromObserver,
-        rawText: text,
-        effectiveText,
-        joinedText,
-        lineParts
+        text
       });
     }
 
-    KWSR.voice?.leerTextoAccesible?.(effectiveText);
+    KWSR.voice?.leerTextoAccesible?.(text);
   }
 
   // ---------------------------------------------------------------------------
