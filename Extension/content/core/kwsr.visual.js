@@ -19,8 +19,6 @@
 //
 // IDEA SIMPLE
 // -----------
-// Pensalo así:
-//
 // Pantalla -> este archivo mira
 // Texto -> este archivo limpia
 // Voz -> otro módulo lo habla
@@ -75,38 +73,22 @@
   // ---------------------------------------------------------------------------
   // Arranque seguro del módulo
   // ---------------------------------------------------------------------------
-  // Si KWSR no existe, no hacemos nada.
-  // Si KWSR.visual ya existe, tampoco, para no pisar otro módulo cargado antes.
-  // ---------------------------------------------------------------------------
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.visual) return;
 
-  // Estado global del proyecto
   const S = KWSR.state;
-
-  // Config global
   const CFG = KWSR.CFG;
-
-  // normalize es una función helper compartida.
-  // Si no existe, usamos una versión mínima.
   const normalize = KWSR.utils?.normalize || ((x) => String(x ?? "").trim());
 
-  // Debug opcional solo para visual.
-  // Se activa si en CFG hay debug y debugVisual.
   const DEBUG = () => !!(CFG?.debug && CFG?.debugVisual);
 
   // ---------------------------------------------------------------------------
   // Helpers de plataforma
   // ---------------------------------------------------------------------------
-
-  // Devuelve la plataforma actual:
-  // "netflix", "disney", "max", "youtube", etc.
   function platform() {
     return KWSR.platforms?.getPlatform?.() || "generic";
   }
 
-  // Devuelve capacidades especiales de esa plataforma.
-  // Ejemplo: si conviene observar document completo.
   function caps() {
     const p = platform();
     return KWSR.platforms?.platformCapabilities?.(p) || {};
@@ -114,10 +96,6 @@
 
   // ---------------------------------------------------------------------------
   // Evitar leer nuestra propia UI
-  // ---------------------------------------------------------------------------
-  // Esto es MUY importante.
-  // Si no filtramos nuestra UI, el lector puede terminar leyéndose a sí mismo.
-  // Y eso sería bastante cursed.
   // ---------------------------------------------------------------------------
   function isInsideKathWareUI(node) {
     try {
@@ -139,20 +117,12 @@
   // ---------------------------------------------------------------------------
   // Detectar texto de menús de idioma / audio / subtítulos
   // ---------------------------------------------------------------------------
-  // Queremos evitar leer cosas como:
-  // "Audio: English Español Français"
-  // "Subtitles"
-  // "CC"
-  //
-  // Esta función intenta detectar ese tipo de texto.
-  // ---------------------------------------------------------------------------
   function isLanguageMenuText(text) {
     const t = normalize(text);
     if (!t) return false;
 
     const lower = t.toLowerCase();
 
-    // Palabras fuertes que suelen aparecer en menús, no en subtítulos reales.
     const strong =
       lower.includes("audio") ||
       lower.includes("subtítulos") ||
@@ -163,7 +133,6 @@
 
     if (!strong) return false;
 
-    // Si aparecen muchos idiomas juntos, es sospechoso.
     const hits = [
       "english","deutsch","español","espanol","français","francais","italiano","português","portugues",
       "polski","magyar","dansk","norsk","svenska","suomi","türkçe","turkce","čeština","cestina",
@@ -172,9 +141,6 @@
     ].reduce((acc, w) => acc + (lower.includes(w) ? 1 : 0), 0);
 
     if (hits >= 3) return true;
-
-    // Si es muy largo y además tiene palabras de audio/subs,
-    // también puede ser menú o panel.
     if (t.length > 160 && strong) return true;
 
     return false;
@@ -182,13 +148,6 @@
 
   // ---------------------------------------------------------------------------
   // Filtro general anti-basura
-  // ---------------------------------------------------------------------------
-  // Esto intenta descartar cosas que NO son subtítulos:
-  // - botones
-  // - links
-  // - overlays
-  // - tooltips
-  // - cosas muy cortas o absurdamente largas
   // ---------------------------------------------------------------------------
   function looksLikeNoise(node, text) {
     const t = normalize(text);
@@ -202,7 +161,6 @@
       return true;
     }
 
-    // Largo razonable de subtítulo.
     if (t.length < 2 || t.length > 420) return true;
 
     const cls = ((node?.className || "") + " " + (node?.id || "")).toLowerCase();
@@ -215,9 +173,6 @@
 
   // ---------------------------------------------------------------------------
   // Ver si un elemento está visible
-  // ---------------------------------------------------------------------------
-  // Esto ayuda especialmente en Disney:
-  // a veces hay nodos que existen, pero no se ven realmente.
   // ---------------------------------------------------------------------------
   function isVisible(el) {
     try {
@@ -234,7 +189,6 @@
 
       const r = el.getBoundingClientRect?.();
       if (!r) return true;
-
       if (r.width < 2 && r.height < 2) return false;
 
       return true;
@@ -246,15 +200,11 @@
   // ---------------------------------------------------------------------------
   // Selectores por plataforma
   // ---------------------------------------------------------------------------
-  // Los selectores vienen desde kwsr.platforms.js
-  // para no hardcodear todo acá.
-  // ---------------------------------------------------------------------------
   function getSelectors() {
     const p = platform();
     return KWSR.platforms?.platformSelectors?.(p) || [];
   }
 
-  // Busca nodos usando un selector CSS y filtra nuestra UI.
   function getFreshNodesBySelector(sel) {
     try {
       return Array.from(document.querySelectorAll(sel)).filter(n => !isInsideKathWareUI(n));
@@ -265,9 +215,6 @@
 
   // ---------------------------------------------------------------------------
   // Clave de contenedor
-  // ---------------------------------------------------------------------------
-  // Esto genera una "key" o "huella" del contenedor del subtítulo.
-  // Sirve para saber si el texto viene del mismo bloque visual.
   // ---------------------------------------------------------------------------
   function containerKeyForNode(n) {
     try {
@@ -298,9 +245,6 @@
 
   // ---------------------------------------------------------------------------
   // Unir partes de texto
-  // ---------------------------------------------------------------------------
-  // A veces un subtítulo está dividido en varios spans.
-  // Esta función intenta unirlos con espacios donde corresponde.
   // ---------------------------------------------------------------------------
   function smartJoinLines(parts) {
     if (!parts || !parts.length) return "";
@@ -335,26 +279,21 @@
   // ---------------------------------------------------------------------------
   // Leer texto desde nodos
   // ---------------------------------------------------------------------------
-  // Acá está una de las partes más importantes.
+  // IMPORTANTE:
+  // Para Netflix/Max devolvemos también un poco de metadata:
   //
-  // Netflix/Max:
-  // - intentamos leer el CONTENEDOR completo
-  // - porque cada span interno puede cambiar demasiado
+  // - joinedText: todo lo encontrado junto
+  // - lineCount: cuántas partes distintas vimos
   //
-  // Otras plataformas:
-  // - juntamos partes visibles
+  // Eso sirve para detectar mejor las transiciones raras.
   // ---------------------------------------------------------------------------
   function readTextFromNodes(nodes, p) {
-    if (!nodes?.length) return { text: "", key: "" };
+    if (!nodes?.length) {
+      return { text: "", key: "", joinedText: "", lineCount: 0 };
+    }
 
     // -------------------------------------------------------------------------
     // Netflix / Max
-    // -------------------------------------------------------------------------
-    // Leemos snapshot del contenedor.
-    // PERO además:
-    // - si encontramos varias líneas/nodos con texto, preferimos la ÚLTIMA,
-    //   porque muchas veces el DOM mantiene un cue viejo + el nuevo,
-    //   y la última línea suele ser el cue nuevo real.
     // -------------------------------------------------------------------------
     if (p === "netflix" || p === "max") {
       for (const n of nodes) {
@@ -364,16 +303,10 @@
 
         const cont = el.closest?.(".player-timedtext-text-container") || el;
 
-        // 1) Intentamos primero leer líneas hijas visibles de forma separada.
-        // Esto ayuda a evitar el caso:
-        // "viejo + nuevo" todo pegado en el contenedor.
         let lineParts = [];
 
         try {
-          // Tomamos descendientes comunes de texto.
-          const candidates = Array.from(
-            cont.querySelectorAll("span, div")
-          ).filter(child => {
+          const candidates = Array.from(cont.querySelectorAll("span, div")).filter(child => {
             if (!child) return false;
             if (child === cont) return false;
             if (!isVisible(child)) return false;
@@ -385,7 +318,6 @@
             return true;
           });
 
-          // Nos quedamos con textos no vacíos y únicos en orden.
           const seen = new Set();
           for (const child of candidates) {
             const txt = normalize(child.innerText || child.textContent || "");
@@ -395,24 +327,33 @@
             lineParts.push(txt);
           }
         } catch {
-          // Si algo falla, seguimos con fallback.
           lineParts = [];
         }
 
-        // Si encontramos varias partes, para Netflix/Max preferimos la última.
+        const key = containerKeyForNode(cont);
+
+        // Si vimos varias partes distintas, armamos un "joinedText"
+        // con todo, pero elegimos como texto principal la ÚLTIMA parte.
+        //
         // ¿Por qué?
-        // Porque cuando aparece:
-        // "Hola, Conan. Hola profesor Agasa..."
-        // muchas veces el texto nuevo queda abajo / al final.
+        // Porque en Netflix muchas veces:
+        // - arriba queda residuo del cue viejo
+        // - abajo aparece el nuevo
         if (lineParts.length >= 2) {
+          const joinedText = smartJoinLines(lineParts);
           const lastLine = normalize(lineParts[lineParts.length - 1]);
+
           if (lastLine && !isLanguageMenuText(lastLine) && !looksLikeNoise(cont, lastLine)) {
-            const key = containerKeyForNode(cont);
-            return { text: lastLine, key };
+            return {
+              text: lastLine,
+              key,
+              joinedText,
+              lineCount: lineParts.length
+            };
           }
         }
 
-        // Fallback clásico: leer todo el contenedor.
+        // Fallback clásico: leer el contenedor completo
         let raw = "";
         try {
           raw = cont.innerText || cont.textContent || "";
@@ -423,11 +364,15 @@
         if (isLanguageMenuText(t)) continue;
         if (looksLikeNoise(cont, t)) continue;
 
-        const key = containerKeyForNode(cont);
-        return { text: t, key };
+        return {
+          text: t,
+          key,
+          joinedText: t,
+          lineCount: t ? 1 : 0
+        };
       }
 
-      return { text: "", key: "" };
+      return { text: "", key: "", joinedText: "", lineCount: 0 };
     }
 
     // -------------------------------------------------------------------------
@@ -452,17 +397,22 @@
       parts.push(t);
     }
 
-    if (!parts.length) return { text: "", key: "" };
+    if (!parts.length) {
+      return { text: "", key: "", joinedText: "", lineCount: 0 };
+    }
 
     const joined = smartJoinLines(parts).replace(/\s+/g, " ").trim();
-    return { text: joined, key: key || "no-key" };
+
+    return {
+      text: joined,
+      key: key || "no-key",
+      joinedText: joined,
+      lineCount: parts.length
+    };
   }
 
   // ---------------------------------------------------------------------------
   // Elegir el mejor selector
-  // ---------------------------------------------------------------------------
-  // Recorre los selectores posibles y se queda con el primero
-  // que realmente entregue texto útil.
   // ---------------------------------------------------------------------------
   function pickBestSelector(p) {
     const selectors = getSelectors();
@@ -481,12 +431,6 @@
   // ---------------------------------------------------------------------------
   // Fingerprints
   // ---------------------------------------------------------------------------
-  // Estas funciones crean "huellas" del texto para comparar
-  // si dos subtítulos son iguales o casi iguales.
-  // ---------------------------------------------------------------------------
-
-  // Huella estricta:
-  // conserva más estructura.
   function fpStrict(text) {
     return normalize(text)
       .replace(/\u00A0/g, " ")
@@ -496,8 +440,6 @@
       .toLowerCase();
   }
 
-  // Huella más flexible:
-  // saca más puntuación y hace comparaciones menos rígidas.
   function fpLoose(text) {
     return normalize(text)
       .replace(/\u00A0/g, " ")
@@ -512,33 +454,40 @@
   // ---------------------------------------------------------------------------
   // Detectar transición fea de solapamiento
   // ---------------------------------------------------------------------------
-  // Caso típico:
+  // OJO:
+  // Esta función sola NO alcanza.
+  // También vamos a exigir:
+  // - que haya varias líneas/partes detectadas
+  // - y que el texto "junto" contenga el anterior
   //
-  // prev = "hola conan"
-  // next = "hola conan hola profesor agasa como esta"
-  //
-  // Eso NO debería leerse todavía.
-  // Es un estado puente.
+  // Así evitamos comernos subtítulos legítimos que solo se parecen un poco.
   // ---------------------------------------------------------------------------
-  function isOverlapTransition(prevText, nextText) {
+  function isOverlapTransition(prevText, nextJoinedText, nextMainText, lineCount) {
     const prev = fpLoose(prevText || "");
-    const next = fpLoose(nextText || "");
+    const joined = fpLoose(nextJoinedText || "");
+    const main = fpLoose(nextMainText || "");
 
-    if (!prev || !next) return false;
-    if (prev === next) return false;
-    if (next.length <= prev.length) return false;
+    if (!prev || !joined || !main) return false;
 
-    if (next.startsWith(prev + " ")) return true;
-    if (next.includes(" " + prev + " ")) return true;
+    // Si no hay varias partes, no asumimos transición.
+    if (!lineCount || lineCount < 2) return false;
+
+    // Si el texto principal sigue siendo exactamente el anterior,
+    // esto no es "overlap", es simplemente repetición.
+    if (main === prev) return false;
+
+    // Caso típico:
+    // prev = "hola conan"
+    // joined = "hola conan hola profesor agasa como esta"
+    // main = "hola profesor agasa como esta"
+    if (joined.startsWith(prev + " ")) return true;
+    if (joined.includes(" " + prev + " ")) return true;
 
     return false;
   }
 
   // ---------------------------------------------------------------------------
   // Tiempo del video
-  // ---------------------------------------------------------------------------
-  // Nos sirve para saber si el video realmente avanzó o si solo
-  // hubo re-render del DOM.
   // ---------------------------------------------------------------------------
   function getVideoTimeSec() {
     try {
@@ -571,11 +520,6 @@
   // ---------------------------------------------------------------------------
   // Resetear memoria visual
   // ---------------------------------------------------------------------------
-  // Sirve cuando:
-  // - se apaga todo
-  // - cambia el video
-  // - reiniciamos fuerte
-  // ---------------------------------------------------------------------------
   function resetVisualDedupe() {
     S._visualLastAt = 0;
     S._visualLastText = "";
@@ -584,24 +528,15 @@
     S._visualLastLoose = "";
     S._visualLastVideoTimeSec = null;
 
-    // Cue activo = hay un subtítulo que consideramos "actual".
     S._visualCueActive = false;
-
-    // Momento en que empezó ese cue.
     S._visualCueSince = 0;
-
-    // Momento en que detectamos por última vez que NO había subtítulo.
     S._visualLastEmptyAt = 0;
 
-    // Compatibilidad con lógica más vieja
     S.lastVisualSeen = "";
   }
 
   // ---------------------------------------------------------------------------
-  // Pedir una lectura en el próximo frame
-  // ---------------------------------------------------------------------------
-  // requestAnimationFrame agrupa muchas mutaciones en una sola lectura.
-  // Eso ayuda bastante a no reaccionar a cada microcambio del DOM.
+  // Pedir lectura en próximo frame
   // ---------------------------------------------------------------------------
   function requestVisualFrame(reasonNode) {
     if (S._visualScheduled) return;
@@ -615,7 +550,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Marcar que hay algo nuevo para leer
+  // Marcar que hay algo nuevo
   // ---------------------------------------------------------------------------
   function scheduleVisualRead(reasonNode) {
     if (S.effectiveFuente !== "visual") return;
@@ -623,7 +558,6 @@
 
     const p = platform();
 
-    // En Disney podemos filtrar un poco más por zona.
     if (p === "disney" && reasonNode) {
       try {
         const el = reasonNode.nodeType === 1 ? reasonNode : reasonNode.parentElement;
@@ -640,7 +574,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Iniciar modo visual
+  // Iniciar visual
   // ---------------------------------------------------------------------------
   function startVisual() {
     const p = platform();
@@ -706,25 +640,12 @@
   // ---------------------------------------------------------------------------
   // TICK PRINCIPAL
   // ---------------------------------------------------------------------------
-  // Esta es la función más importante del archivo.
-  //
-  // Qué hace:
-  // 1. Verifica si corresponde leer
-  // 2. Busca texto actual
-  // 3. Decide si es nuevo, repetido o transición fea
-  // 4. Si es válido, lo manda a voice
-  // ---------------------------------------------------------------------------
   function pollVisualTick(fromObserver = false, reasonNode = null) {
-    // Si voice dice que no hay que leer ahora, salimos.
     if (!KWSR.voice?.shouldReadNow?.()) return;
-
-    // Solo trabajamos si la fuente efectiva es visual.
     if (S.effectiveFuente !== "visual") return;
 
-    // Si hay observer activo, el poll manual no debe hablar por su cuenta.
     if (!fromObserver && S.visualObserverActive) return;
 
-    // Si el llamado vino del observer, solo seguimos si había dirty flag.
     if (fromObserver) {
       if (!S.visualDirty) return;
       S.visualDirty = false;
@@ -739,34 +660,29 @@
       S.visualSelectors = getSelectors();
     }
 
-    // Si todavía no elegimos selector, intentamos elegir uno.
     if (!S.visualSelectorUsed) {
       S.visualSelectorUsed = pickBestSelector(p);
       if (!S.visualSelectorUsed) return;
     }
 
-    // Leemos nodos usando el selector elegido.
     const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
-    const { text, key } = readTextFromNodes(nodes, p);
+    const {
+      text,
+      key,
+      joinedText,
+      lineCount
+    } = readTextFromNodes(nodes, p);
 
-    // -------------------------------------------------------------------------
-    // Si no hay texto visible
-    // -------------------------------------------------------------------------
-    // Marcamos que no hay cue activo.
-    // Esto es útil para que un subtítulo igual pueda volver a leerse
-    // más adelante SOLO si realmente desapareció antes.
-    // -------------------------------------------------------------------------
+    // Si no hay texto visible, reseteamos cue activo.
     if (!text) {
       S._visualCueActive = false;
       S._visualLastEmptyAt = performance.now();
       return;
     }
 
-    // Huellas del texto actual
     const strict = fpStrict(text);
     const loose = fpLoose(text);
 
-    // Estado previo
     const tNow = getVideoTimeSec();
     const lastT = (typeof S._visualLastVideoTimeSec === "number")
       ? S._visualLastVideoTimeSec
@@ -775,48 +691,61 @@
     const lastStrict = S._visualLastStrict || "";
     const lastLoose = S._visualLastLoose || "";
 
+    // -------------------------------------------------------------------------
+    // OJO ACÁ:
+    // -------------------------------------------------------------------------
+    // Antes usábamos un "sameTextish" demasiado permisivo,
+    // incluyendo contains/includes.
+    //
+    // Eso ayudaba a parar duplicados,
+    // PERO también se comía subtítulos nuevos parecidos.
+    //
+    // Ahora, para Netflix/Max, solo tratamos como "igual"
+    // lo que sea igual de verdad.
+    // -------------------------------------------------------------------------
     const sameStrict = strict && strict === lastStrict;
     const sameLoose = loose && loose === lastLoose;
 
-    // "sameTextish" = parecido fuerte
-    const sameTextish =
-      sameStrict ||
-      sameLoose ||
-      (lastLoose && loose && (lastLoose.includes(loose) || loose.includes(lastLoose)));
+    const sameTextish = sameStrict || sameLoose;
 
     const sameKey = key && key === (S._visualLastKey || "");
     const now = performance.now();
 
     // -------------------------------------------------------------------------
-    // Detectar transición de solapamiento
+    // Detectar transición fea de overlap
     // -------------------------------------------------------------------------
-    // Caso que queremos ignorar:
-    //
-    // prev = "Hola, Conan."
-    // next = "Hola, Conan. Hola profesor Agasa..."
-    //
-    // Eso suele ser un estado puente de Netflix/Max.
+    // Solo si:
+    // - estamos en Netflix/Max
+    // - había texto anterior
+    // - hay varias partes detectadas
+    // - el texto "junto" contiene claramente al anterior
+    // - y el texto principal ya es otro
     // -------------------------------------------------------------------------
     const overlapTransition =
       isRerenderPlatform &&
       S._visualLastText &&
-      isOverlapTransition(S._visualLastText, text);
+      isOverlapTransition(S._visualLastText, joinedText, text, lineCount);
 
     if (overlapTransition) {
       if (DEBUG()) {
         KWSR.log?.("VISUAL overlap-transition", {
           prev: S._visualLastText,
-          next: text
+          joinedText,
+          nextMain: text,
+          lineCount
         });
       }
       return;
     }
 
     // -------------------------------------------------------------------------
-    // Cue-lock fuerte para Netflix/Max
+    // Cue-lock fuerte, pero SOLO para igualdad real
     // -------------------------------------------------------------------------
-    // Si el mismo cue sigue activo, no lo releemos.
-    // Esto mata el bug clásico del re-render infinito.
+    // Si el mismo cue sigue activo y es esencialmente idéntico,
+    // no lo releemos.
+    //
+    // Ya NO bloqueamos "parecidos".
+    // Solo exactos.
     // -------------------------------------------------------------------------
     if (isRerenderPlatform && S._visualCueActive && sameTextish) {
       if (DEBUG()) {
@@ -833,13 +762,12 @@
     // -------------------------------------------------------------------------
     // Gate por tiempo del video
     // -------------------------------------------------------------------------
-    // Si el video casi no avanzó y el texto es casi el mismo,
-    // probablemente fue re-render y no cue nuevo.
+    // También lo dejamos solo para igualdad real.
+    // Si el video casi no avanzó PERO el texto cambió de verdad,
+    // debemos permitirlo.
     // -------------------------------------------------------------------------
     if (isRerenderPlatform && tNow != null && lastT != null && sameTextish) {
       const dtVideo = Math.abs(tNow - lastT);
-
-      // Max tolera un poquito más.
       const gate = (p === "max") ? 0.40 : 0.35;
 
       if (dtVideo < gate) {
@@ -848,7 +776,7 @@
         S._visualLastLoose = loose;
 
         if (DEBUG()) {
-          KWSR.log?.("VISUAL dedupe (videoTime+textish)", {
+          KWSR.log?.("VISUAL dedupe (videoTime+exact)", {
             dtVideo,
             gate,
             text
@@ -862,15 +790,12 @@
     // -------------------------------------------------------------------------
     // Dedupe temporal normal
     // -------------------------------------------------------------------------
-    // Esto es más útil en plataformas que no son Netflix/Max.
-    // -------------------------------------------------------------------------
     const minRepeatMs = isRerenderPlatform ? 950 : 700;
     const allowRepeatAfterMs = isRerenderPlatform ? 2200 : 1700;
 
     if ((sameStrict || sameLoose) && sameKey) {
       const dt = now - (S._visualLastAt || 0);
 
-      // Duplicado inmediato
       if (dt < minRepeatMs) {
         if (DEBUG()) {
           KWSR.log?.("VISUAL dedupe (fast)", {
@@ -881,8 +806,6 @@
         return;
       }
 
-      // Ventana gris:
-      // en Netflix/Max NO dejamos pasar por tiempo solamente.
       if (!isRerenderPlatform && dt < allowRepeatAfterMs) {
         if (DEBUG()) {
           KWSR.log?.("VISUAL dedupe (grey)", {
@@ -894,13 +817,10 @@
       }
     }
 
-    // Compatibilidad vieja: si poll corre sin observer y ya vimos esto, salir.
     if (!fromObserver && strict && strict === S.lastVisualSeen) return;
     S.lastVisualSeen = strict || text;
 
-    // -------------------------------------------------------------------------
-    // Guardamos estado nuevo
-    // -------------------------------------------------------------------------
+    // Guardamos nuevo estado
     S._visualLastText = text;
     S._visualLastKey = key || "";
     S._visualLastAt = now;
@@ -918,19 +838,17 @@
         selector: S.visualSelectorUsed,
         key,
         fromObserver,
-        text
+        text,
+        joinedText,
+        lineCount
       });
     }
 
-    // Finalmente delegamos a voice.
     KWSR.voice?.leerTextoAccesible?.(text);
   }
 
   // ---------------------------------------------------------------------------
   // Re-evaluar selector
-  // ---------------------------------------------------------------------------
-  // Algunas plataformas cambian tanto el DOM que conviene
-  // volver a elegir selector de vez en cuando.
   // ---------------------------------------------------------------------------
   function visualReselectTick() {
     const p = platform();
@@ -943,7 +861,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Export público del módulo
+  // Export público
   // ---------------------------------------------------------------------------
   KWSR.visual = {
     startVisual,
