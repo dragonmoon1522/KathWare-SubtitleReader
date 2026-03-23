@@ -107,51 +107,43 @@
     if (!nodes?.length) return { text: "", key: "" };
 
     if (p === "netflix") {
-      for (const n of nodes) {
-        const el = n?.nodeType === 1 ? n : n?.parentElement;
-        if (!el) continue;
+  for (const n of nodes) {
+    const el = n?.nodeType === 1 ? n : n?.parentElement;
+    if (!el) continue;
+    if (isInsideKathWareUI(el)) continue;
 
-        const cont = el.closest(".player-timedtext-text-container") || el;
-        const key = containerKeyForNode(cont);
+    const cont = el.closest?.(".player-timedtext-text-container") || el;
+    const key = containerKeyForNode(cont);
 
-        const spans = Array.from(cont.querySelectorAll("span")).filter(s => {
-          if (!isVisible(s)) return false;
+    let raw = "";
+    try {
+      raw = cont.innerText || cont.textContent || "";
+    } catch {}
 
-          const txt = normalize(s.innerText || "");
-          if (!txt) return false;
+    let text = normalize(raw);
+    if (!text) continue;
 
-          // 🚫 ignorar spans con <br>
-          if (s.querySelector("br")) return false;
+    // 🔥 CLAVE: normalizar saltos de línea
+    text = text.replace(/\s*\n\s*/g, " ").trim();
 
-          return true;
-        });
+    if (isLanguageMenuText(text)) continue;
+    if (looksLikeNoise(cont, text)) continue;
 
-        let parts = [];
-        const seen = new Set();
+    return {
+      text,
+      key,
+      lineParts: [text],
+      lineCount: 1
+    };
+  }
 
-        for (const s of spans) {
-          const txt = normalize(s.innerText || "");
-          const k = fpLoose(txt);
-
-          if (!k || seen.has(k)) continue;
-          seen.add(k);
-          parts.push(txt);
-        }
-
-        if (!parts.length) continue;
-
-        const text = smartJoinLines(parts);
-
-        return {
-          text,
-          key,
-          lineParts: parts,
-          lineCount: parts.length
-        };
-      }
-
-      return { text: "", key: "" };
-    }
+  return {
+    text: "",
+    key: "",
+    lineParts: [],
+    lineCount: 0
+  };
+}
 
     // -----------------------------------------------------------------------------
     // MAX (ya te funcionaba)
