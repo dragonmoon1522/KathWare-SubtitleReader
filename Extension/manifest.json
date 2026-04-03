@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "KathWare SubtitleReader",
   "short_name": "KWSR",
-  "description": "Extensión de accesibilidad que lee subtítulos en tiempo real mediante lector de pantalla o voz del sistema. Detecta automáticamente la mejor fuente disponible y adapta reproductores poco accesibles.",
+  "description": "Lectura automática de subtítulos en plataformas de streaming con accesibilidad real y sin configuración.",
   "version": "2.0.0",
   "author": "Katherine Vargas (KathWare)",
   "minimum_chrome_version": "114",
