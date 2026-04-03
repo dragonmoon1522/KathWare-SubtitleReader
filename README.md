@@ -7,56 +7,60 @@
 
 ### **Descripción del Proyecto**
 
-**KathWare SubtitleReader** es una extensión accesible para navegador que permite la **lectura automática de subtítulos** en plataformas de video, incluso cuando el reproductor **no ofrece accesibilidad nativa** o presenta barreras para lectores de pantalla (como ocurre en Netflix, Max, Flow y plataformas similares).
+**KathWare SubtitleReader** es una extensión accesible para navegador que permite la **lectura automática de subtítulos** en plataformas de video, incluso cuando el reproductor **no ofrece accesibilidad nativa** o presenta barreras para lectores de pantalla.
 
 Forma parte del ecosistema **KathWare** y se desarrolla como proyecto independiente dentro del entorno GitHub de `dragonmoon1522`.
 
-El objetivo principal de la extensión es **garantizar acceso al contenido audiovisual**, respetando siempre la configuración del usuario y **sin imponer idioma, voz ni comportamiento al lector de pantalla o sintetizador**.
+Su objetivo principal es **garantizar acceso al contenido audiovisual**, respetando siempre la configuración del usuario y **sin imponer idioma, voz ni comportamiento al lector de pantalla o sintetizador**.
 
 Incluye:
 
-* Activación y control completos desde teclado.
-* Lectura automática de subtítulos mediante lector de pantalla o sintetizador del sistema.
-* Detección inteligente de subtítulos visibles cuando no existen pistas accesibles.
-* Adaptaciones automáticas para reproductores con interfaces poco accesibles.
-* Herramientas de diagnóstico y compatibilidad para pruebas de accesibilidad.
+* Activación y control completos desde teclado
+* Lectura automática de subtítulos mediante lector de pantalla o sintetizador del sistema
+* Detección inteligente de subtítulos visibles cuando no existen pistas accesibles
+* Adaptaciones automáticas para reproductores con interfaces poco accesibles
+* Herramientas de diagnóstico para pruebas de accesibilidad
 
 ---
 
-### 🌍 Plataformas soportadas (estado actual)
+### 🌍 Plataformas soportadas (versión actual)
 
-**Probadas y funcionales:**
+**Compatibilidad verificada:**
 
 * Netflix
 * Disney+
 * Max
-* YouTube
-
-**Compatibilidad en evaluación o parcial:**
-
-* Prime Video
 * Paramount+
 * Flow
-* Pluto TV
-* Twitch
-* Vimeo
 
-> ⚠️ Las plataformas pueden cambiar su funcionamiento interno sin previo aviso.
+> ⚠️ Las plataformas pueden modificar su funcionamiento interno sin previo aviso.
 > KathWare SubtitleReader está diseñado para adaptarse dinámicamente, pero pueden producirse fallos temporales.
+
+---
+
+### ⭐ Compatibilidad destacada: Flow
+
+En **Flow**, la extensión no solo permite la lectura de subtítulos, sino que además:
+
+* Mejora la accesibilidad del reproductor
+* Detecta y anuncia cuando el botón de audio y subtítulos no está disponible
+* Permite navegación accesible en canales de TV en vivo
+
+> Esto convierte a Flow en uno de los entornos donde KathWare SubtitleReader aporta mayor valor diferencial.
 
 ---
 
 ### Tecnologías utilizadas
 
-* HTML, CSS y JavaScript puro.
-* Web Speech API (SpeechSynthesis), opcional y controlada por el usuario.
-* Lectura accesible mediante *live regions* (no se fuerza idioma).
-* Almacenamiento local del navegador (`storage.local`).
+* HTML, CSS y JavaScript puro
+* Web Speech API (SpeechSynthesis), opcional
+* Lectura accesible mediante *live regions*
+* Almacenamiento local del navegador (`storage.local`)
 * Detección dinámica de:
 
-  * elementos `<video>`,
-  * pistas de subtítulos (`textTracks`),
-  * subtítulos renderizados visualmente en el DOM.
+  * elementos `<video>`
+  * pistas de subtítulos (`textTracks`)
+  * subtítulos renderizados en el DOM
 
 ---
 
@@ -64,41 +68,39 @@ Incluye:
 
 KathWare SubtitleReader:
 
-* **No recopila datos personales sensibles.**
-* **No envía información a servidores externos por defecto.**
+* **No recopila datos personales sensibles**
+* **No envía información a servidores externos por defecto**
 * Utiliza almacenamiento local (`storage.local`) únicamente para:
 
-  * configuración del usuario,
-  * estado de la extensión,
-  * logs de diagnóstico (opcionales).
+  * configuración del usuario
+  * estado de la extensión
+  * logs de diagnóstico (opcionales)
 
-> El envío de información de diagnóstico **solo ocurre si el usuario decide reportar un problema**.
+> El envío de logs solo ocurre cuando el usuario decide reportar un problema.
 
 ---
 
 ### Licencias y manifiestos
 
-* 🛡 [Licencia de Accesibilidad Universal (LAU) — Español y inglés](https://kathware.com.ar/lau/)
+* 🛡 [Licencia de Accesibilidad Universal (LAU)](https://kathware.com.ar/lau/)
 * [Creative Commons BY-NC-SA 4.0](https://kathware.com.ar/normas-de-uso-y-licencias-de-kathware/)
-
-> Todos los proyectos del ecosistema KathWare están protegidos por la LAU y por licencias libres no comerciales.
 
 ---
 
 ### Funcionalidades principales
 
 * **Activación por atajo universal:** `Alt + Shift + K`
-* **Panel accesible opcional**, disponible solo cuando la extensión está activa.
+* **Panel accesible opcional**, visible solo cuando la extensión está activa
 
-#### Modos de lectura
+#### Modos de funcionamiento
 
-* **Modo lector:** utiliza lector de pantalla (*live region*).
-* **Modo voz:** utiliza sintetizador del sistema.
-* **Modo desactivado.**
+* **Modo lector:** usa lector de pantalla (*live region*)
+* **Modo voz:** usa sintetizador del sistema
+* **Modo desactivado**
 
-Cambio rápido:
+Atajos:
 
-* `Alt + Shift + L` → alternar modos
+* `Alt + Shift + L` → cambiar modo
 * `Alt + Shift + O` → abrir/cerrar panel
 
 ---
@@ -107,14 +109,16 @@ Cambio rápido:
 
 * Selección automática de fuente de subtítulos:
 
-  * `track` (pistas accesibles),
-  * `visual` (detección en pantalla).
-* Lectura sincronizada con el video.
-* **Sistema anti-duplicación avanzado**:
+  * `track` (pistas accesibles)
+  * `visual` (detección en pantalla)
 
-  * evita eco en Netflix y Max,
-  * detecta re-render de subtítulos,
-  * filtra contenido irrelevante (menús, overlays).
+* Lectura sincronizada con el video
+
+* Sistema anti-duplicación:
+
+  * evita repeticiones
+  * detecta re-render de subtítulos
+  * filtra contenido irrelevante (menús, overlays, etc.)
 
 ---
 
@@ -129,84 +133,84 @@ Cambio rápido:
 
 ---
 
-### Arquitectura y decisiones de diseño (núcleo)
+### Arquitectura y diseño del núcleo
 
-El núcleo de **KathWare SubtitleReader** está diseñado de forma **modular, defensiva y comprensible**, priorizando la mantenibilidad y la accesibilidad.
+El núcleo está diseñado de forma **modular, robusta y orientada a accesibilidad real**.
 
 Principios clave:
 
-* **Arranque seguro (bootstrap):**
+* **Arranque seguro (bootstrap)**
 
-  * `kwsr.bootstrap.js` crea un único namespace global (`window.KWSR`)
-  * Previene cargas duplicadas del content script
+  * `kwsr.bootstrap.js` crea `window.KWSR`
+  * evita cargas duplicadas
 
-* **Separación de responsabilidades:**
+* **Separación de responsabilidades**
 
   * `core/` → lógica principal
   * `ui/` → overlay y notificaciones
   * `adapters/` → compatibilidad por plataforma
 
-* **Automatización inteligente:**
+* **Automatización**
 
   * el sistema decide la mejor fuente de subtítulos
-  * el usuario no necesita configurar manualmente
+  * el usuario no necesita configuración técnica
 
-* **Robustez frente a cambios externos:**
+* **Resistencia a cambios externos**
 
   * deduplicación avanzada
   * control de re-render
   * watchdog del sintetizador
 
-* **Accesibilidad nativa:**
+* **Accesibilidad como base**
 
   * uso de *live regions*
   * sin forzar idioma ni voz
-  * sin interferir con navegación o escritura
+  * sin interferir con navegación del usuario
 
 ---
 
-### Instalación de la extensión (modo desarrollador)
+### Instalación (modo desarrollador)
 
-#### En Google Chrome o Microsoft Edge:
+#### Chrome / Edge:
 
-1. Descargá o cloná este repositorio.
-2. Abrí: `chrome://extensions/`
-3. Activá **"Modo de desarrollador"**
-4. Seleccioná **"Cargar sin comprimir"**
-5. Elegí la carpeta del proyecto
+1. Clonar o descargar el repositorio
+2. Abrir: `chrome://extensions/`
+3. Activar **Modo de desarrollador**
+4. Seleccionar **Cargar sin comprimir**
+5. Elegir la carpeta del proyecto
 
 ---
 
-### Cómo contribuir o reportar errores
+### Contribuciones y reporte de errores
 
 Podés:
 
-* Enviar un **pull request**
-* Abrir un **Issue**
-* Usar el **formulario integrado en la extensión**
-* Enviar logs de diagnóstico (opcional)
+* Crear un **Issue**
+* Enviar un **Pull Request**
+* Usar el formulario integrado en la extensión
+* Adjuntar logs de diagnóstico (opcional)
 
 ---
 
-### Licencia de este proyecto
+### Licencia del proyecto
 
-* [Licencia de Accesibilidad Universal (LAU) v1.2](https://kathware.com.ar/lau/)
-* [Creative Commons BY-NC-SA 4.0](https://kathware.com.ar/normas-de-uso-y-licencias-de-kathware/)
+* Licencia de Accesibilidad Universal (LAU) v1.3
+* Creative Commons BY-NC-SA 4.0
 
 ---
 
 ### Historial de versiones
 
-🔗 [Consultar `version.md`](./version.md)
+🔗 [version.md](./version.md)
 
 ---
 
-### Estado actual del proyecto
+### Estado del proyecto
 
-Este proyecto se encuentra en **desarrollo activo (beta pública)**.
+**Beta pública**
 
-Las pruebas se realizan priorizando:
+El proyecto se encuentra en desarrollo activo, con foco en:
 
 * accesibilidad real con lector de pantalla
-* uso en plataformas de streaming reales
-* comportamiento en escenarios no controlados
+* funcionamiento en plataformas de streaming
+* adaptación a entornos dinámicos
