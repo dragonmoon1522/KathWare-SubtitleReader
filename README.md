@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
-**Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)  
-**Última actualización:** 2026-01-26
+**Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
+**Última actualización:** 2026-04-03
 
 ---
 
@@ -23,6 +23,29 @@ Incluye:
 
 ---
 
+### 🌍 Plataformas soportadas (estado actual)
+
+**Probadas y funcionales:**
+
+* Netflix
+* Disney+
+* Max
+* YouTube
+
+**Compatibilidad en evaluación o parcial:**
+
+* Prime Video
+* Paramount+
+* Flow
+* Pluto TV
+* Twitch
+* Vimeo
+
+> ⚠️ Las plataformas pueden cambiar su funcionamiento interno sin previo aviso.
+> KathWare SubtitleReader está diseñado para adaptarse dinámicamente, pero pueden producirse fallos temporales.
+
+---
+
 ### Tecnologías utilizadas
 
 * HTML, CSS y JavaScript puro.
@@ -30,15 +53,32 @@ Incluye:
 * Lectura accesible mediante *live regions* (no se fuerza idioma).
 * Almacenamiento local del navegador (`storage.local`).
 * Detección dinámica de:
+
   * elementos `<video>`,
   * pistas de subtítulos (`textTracks`),
   * subtítulos renderizados visualmente en el DOM.
 
 ---
 
+### 🔒 Privacidad y datos
+
+KathWare SubtitleReader:
+
+* **No recopila datos personales sensibles.**
+* **No envía información a servidores externos por defecto.**
+* Utiliza almacenamiento local (`storage.local`) únicamente para:
+
+  * configuración del usuario,
+  * estado de la extensión,
+  * logs de diagnóstico (opcionales).
+
+> El envío de información de diagnóstico **solo ocurre si el usuario decide reportar un problema**.
+
+---
+
 ### Licencias y manifiestos
 
-* 🛡 [Licencia de Accesibilidad Universal (LAU) — Español](https://kathware.com.ar/lau/)
+* 🛡 [Licencia de Accesibilidad Universal (LAU) — Español y inglés](https://kathware.com.ar/lau/)
 * [Creative Commons BY-NC-SA 4.0](https://kathware.com.ar/normas-de-uso-y-licencias-de-kathware/)
 
 > Todos los proyectos del ecosistema KathWare están protegidos por la LAU y por licencias libres no comerciales.
@@ -47,56 +87,81 @@ Incluye:
 
 ### Funcionalidades principales
 
-* **Activación por atajo universal:** `Alt + Shift + K`.
+* **Activación por atajo universal:** `Alt + Shift + K`
 * **Panel accesible opcional**, disponible solo cuando la extensión está activa.
-* Lectura automática de subtítulos:
-  * mediante lector de pantalla (modo *lector*), o
-  * mediante sintetizador de voz del sistema (modo *voz*).
-* Cambio rápido de modo de lectura desde teclado:
-  * `Alt + Shift + L` (lector → voz → desactivado).
-* Apertura y cierre del panel:
-  * `Alt + Shift + O`.
-* Detección automática de la mejor fuente de subtítulos disponible:
-  * pistas accesibles (`track`) cuando existen,
-  * subtítulos visibles (`visual`) cuando no hay pistas reales.
-* Adaptaciones automáticas para plataformas con controles poco accesibles:
-  * etiquetado dinámico de botones,
-  * menús de audio y subtítulos accesibles.
-* Lectura sincronizada con el video, **sin repeticiones ni eco**.
-* Controles del reproductor accesibles por teclado:
-  * reproducir / pausar,
-  * avanzar / retroceder,
-  * volumen,
-  * pantalla completa (con aviso de posibles limitaciones de accesibilidad).
 
-> ⚠️ La extensión **no reimprime subtítulos en pantalla**: utiliza únicamente el contenido ya visible o disponible en la plataforma para la lectura, evitando duplicación o confusión visual.
+#### Modos de lectura
+
+* **Modo lector:** utiliza lector de pantalla (*live region*).
+* **Modo voz:** utiliza sintetizador del sistema.
+* **Modo desactivado.**
+
+Cambio rápido:
+
+* `Alt + Shift + L` → alternar modos
+* `Alt + Shift + O` → abrir/cerrar panel
+
+---
+
+### Inteligencia de detección
+
+* Selección automática de fuente de subtítulos:
+
+  * `track` (pistas accesibles),
+  * `visual` (detección en pantalla).
+* Lectura sincronizada con el video.
+* **Sistema anti-duplicación avanzado**:
+
+  * evita eco en Netflix y Max,
+  * detecta re-render de subtítulos,
+  * filtra contenido irrelevante (menús, overlays).
+
+---
+
+### Controles accesibles del reproductor
+
+* Reproducir / pausar
+* Avanzar / retroceder
+* Volumen
+* Pantalla completa
+
+> ⚠️ Algunas plataformas pueden limitar la accesibilidad de ciertos controles.
 
 ---
 
 ### Arquitectura y decisiones de diseño (núcleo)
 
-El núcleo de **KathWare SubtitleReader** está diseñado de forma **modular, defensiva y comprensible**, priorizando la mantenibilidad y la accesibilidad por sobre soluciones frágiles o dependientes de una sola plataforma.
+El núcleo de **KathWare SubtitleReader** está diseñado de forma **modular, defensiva y comprensible**, priorizando la mantenibilidad y la accesibilidad.
 
-Principios clave del core:
+Principios clave:
 
 * **Arranque seguro (bootstrap):**
-  * El archivo `kwsr.bootstrap.js` inicializa un único namespace global (`window.KWSR`).
-  * Incluye una guarda estricta para evitar dobles cargas del content script.
-* **Separación clara de responsabilidades:**
-  * `core/` → detección de video, pistas, subtítulos y pipeline.
-  * `ui/` → overlay accesible y notificaciones (toast).
-  * `adapters/` → correcciones específicas para plataformas poco accesibles.
-* **Selección automática del motor de lectura:**
-  * El usuario **no elige** entre *track* o *visual*.
-  * El pipeline decide dinámicamente la fuente más confiable disponible.
-* **Prevención activa de errores comunes:**
-  * deduplicación avanzada para evitar eco o repeticiones,
-  * control de re-render en plataformas como Netflix y Max,
-  * watchdog para detectar bloqueos del sintetizador de voz.
-* **Accesibilidad como regla, no como parche:**
-  * una sola *live region* global,
-  * sin forzar idioma ni voz,
-  * sin interferir con escritura o navegación del usuario.
+
+  * `kwsr.bootstrap.js` crea un único namespace global (`window.KWSR`)
+  * Previene cargas duplicadas del content script
+
+* **Separación de responsabilidades:**
+
+  * `core/` → lógica principal
+  * `ui/` → overlay y notificaciones
+  * `adapters/` → compatibilidad por plataforma
+
+* **Automatización inteligente:**
+
+  * el sistema decide la mejor fuente de subtítulos
+  * el usuario no necesita configurar manualmente
+
+* **Robustez frente a cambios externos:**
+
+  * deduplicación avanzada
+  * control de re-render
+  * watchdog del sintetizador
+
+* **Accesibilidad nativa:**
+
+  * uso de *live regions*
+  * sin forzar idioma ni voz
+  * sin interferir con navegación o escritura
 
 ---
 
@@ -105,29 +170,25 @@ Principios clave del core:
 #### En Google Chrome o Microsoft Edge:
 
 1. Descargá o cloná este repositorio.
-2. Abrí el navegador y accedé a: `chrome://extensions/`
-3. Activá la opción **"Modo de desarrollador"**.
-4. Seleccioná el botón **"Cargar sin comprimir"**.
-5. Indicá la carpeta donde se encuentra este repositorio.
-
-> 🛈 Si usás lector de pantalla, podés navegar por tabulaciones hasta el botón “Cargar sin comprimir”.
+2. Abrí: `chrome://extensions/`
+3. Activá **"Modo de desarrollador"**
+4. Seleccioná **"Cargar sin comprimir"**
+5. Elegí la carpeta del proyecto
 
 ---
 
 ### Cómo contribuir o reportar errores
 
-Podés contribuir de las siguientes formas:
+Podés:
 
-* Enviando un **pull request** con mejoras o correcciones.
-* Abriendo un **Issue** en GitHub con la descripción del problema.
-* Usando el **formulario accesible integrado en la extensión** para enviar errores.
-* Activando la opción de **envío de logs de diagnóstico**, que solo se adjuntan cuando el usuario decide reportarlos.
+* Enviar un **pull request**
+* Abrir un **Issue**
+* Usar el **formulario integrado en la extensión**
+* Enviar logs de diagnóstico (opcional)
 
 ---
 
 ### Licencia de este proyecto
-
-Este proyecto está licenciado bajo:
 
 * [Licencia de Accesibilidad Universal (LAU) v1.2](https://kathware.com.ar/lau/)
 * [Creative Commons BY-NC-SA 4.0](https://kathware.com.ar/normas-de-uso-y-licencias-de-kathware/)
@@ -142,7 +203,10 @@ Este proyecto está licenciado bajo:
 
 ### Estado actual del proyecto
 
-Este proyecto se encuentra en **desarrollo activo**.  
-Las plataformas soportadas pueden variar según cambios en los reproductores externos.
+Este proyecto se encuentra en **desarrollo activo (beta pública)**.
 
-Las pruebas se realizan priorizando **accesibilidad real con lector de pantalla**, no solo compatibilidad técnica.
+Las pruebas se realizan priorizando:
+
+* accesibilidad real con lector de pantalla
+* uso en plataformas de streaming reales
+* comportamiento en escenarios no controlados
