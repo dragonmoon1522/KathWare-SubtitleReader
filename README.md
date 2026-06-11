@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-04-03
+**Última actualización:** 2026-04-07
 
 ---
 
@@ -23,7 +23,23 @@ Incluye:
 
 ---
 
-### 🌍 Plataformas soportadas (versión actual)
+### Enlaces oficiales
+
+Sitio web:
+https://kathware.com.ar/subtitlereader/
+
+Presentación del proyecto:
+https://kathware.com.ar/presentacion-subtitlereader/
+
+Chrome Web Store:
+https://chrome.google.com/webstore/detail/mbdjoamfljkbajlppfpahibnfjdiecbe/
+
+Repositorio:
+https://github.com/dragonmoon1522/KathWare-SubtitleReader
+
+---
+
+### Plataformas soportadas (versión actual)
 
 **Compatibilidad verificada:**
 
@@ -33,12 +49,12 @@ Incluye:
 * Paramount+
 * Flow
 
-> ⚠️ Las plataformas pueden modificar su funcionamiento interno sin previo aviso.
+> Las plataformas pueden modificar su funcionamiento interno sin previo aviso.
 > KathWare SubtitleReader está diseñado para adaptarse dinámicamente, pero pueden producirse fallos temporales.
 
 ---
 
-### ⭐ Compatibilidad destacada: Flow
+### Compatibilidad destacada: Flow
 
 En **Flow**, la extensión no solo permite la lectura de subtítulos, sino que además:
 
@@ -64,7 +80,7 @@ En **Flow**, la extensión no solo permite la lectura de subtítulos, sino que a
 
 ---
 
-### 🔒 Privacidad y datos
+### Privacidad y datos
 
 KathWare SubtitleReader:
 
@@ -82,7 +98,7 @@ KathWare SubtitleReader:
 
 ### Licencias y manifiestos
 
-* 🛡 [Licencia de Accesibilidad Universal (LAU)](https://kathware.com.ar/lau/)
+* [Licencia de Accesibilidad Universal (LAU)](https://kathware.com.ar/lau/)
 * [Creative Commons BY-NC-SA 4.0](https://kathware.com.ar/normas-de-uso-y-licencias-de-kathware/)
 
 ---
@@ -129,7 +145,7 @@ Atajos:
 * Volumen
 * Pantalla completa
 
-> ⚠️ Algunas plataformas pueden limitar la accesibilidad de ciertos controles.
+> Algunas plataformas pueden limitar la accesibilidad de ciertos controles.
 
 ---
 
@@ -169,9 +185,13 @@ Principios clave:
 
 ---
 
-### Instalación (modo desarrollador)
+### Instalación
 
-#### Chrome / Edge:
+#### Chrome Web Store
+
+https://chrome.google.com/webstore/detail/mbdjoamfljkbajlppfpahibnfjdiecbe/
+
+#### Chrome / Edge
 
 1. Clonar o descargar el repositorio
 2. Abrir: `chrome://extensions/`
@@ -201,15 +221,15 @@ Podés:
 
 ### Historial de versiones
 
-🔗 [version.md](./version.md)
+[version.md](./version.md)
 
 ---
 
 ### Estado del proyecto
 
-**Beta pública**
+**Versión estable 2.0.0**
 
-El proyecto se encuentra en desarrollo activo, con foco en:
+El proyecto continúa en desarrollo activo, con foco en:
 
 * accesibilidad real con lector de pantalla
 * funcionamiento en plataformas de streaming
