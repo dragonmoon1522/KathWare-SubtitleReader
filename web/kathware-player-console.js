@@ -1,6 +1,6 @@
 // ====================================================
 // KathWare SubtitleReader - Console Stable
-// Version: 2.1.0-console-stable
+// Version: 2.1.1-console-stable
 // ====================================================
 
 (() => {
@@ -10,7 +10,7 @@
   if (OLD?.destroy) OLD.destroy();
 
   const KWSR = {
-    version: "2.1.0-console-stable",
+    version: "2.1.1-console-stable",
     enabled: true,
     readerMode: "lector", // lector | voz | off
     debug: false,
@@ -30,10 +30,14 @@
     visualBuffer: "",
     visualFlushTimer: null,
 
+    visualSpokenContext: "",
+
     settleMs: 120,
     repeatBlockMs: 4000,
-    softFlushMs: 700,
-    emergencyLimit: 85,
+    softFlushMs: 1400,
+    emergencyLimit: 140,
+    minFlushWords: 4,
+    spokenContextLimit: 900,
   };
 
   const log = (...args) => {
@@ -52,6 +56,11 @@
       .toLowerCase()
       .replace(/[.,;:!?¿¡"“”'()[\]{}…]/g, "")
       .trim();
+
+  const wordsOf = text =>
+    normalize(text).split(/\s+/).filter(Boolean);
+
+  const wordCount = text => wordsOf(text).length;
 
   function collapseRepeatedText(text) {
     text = normalize(text);
@@ -87,6 +96,19 @@
     KWSR.liveRegion = live;
   }
 
+  function rememberSpoken(text) {
+    text = normalize(text);
+    if (!text) return;
+
+    KWSR.visualSpokenContext = normalize(`${KWSR.visualSpokenContext} ${text}`);
+
+    if (KWSR.visualSpokenContext.length > KWSR.spokenContextLimit) {
+      KWSR.visualSpokenContext = KWSR.visualSpokenContext.slice(
+        -KWSR.spokenContextLimit
+      );
+    }
+  }
+
   function emit(text, source) {
     text = normalize(text);
     if (!KWSR.enabled || !text || KWSR.readerMode === "off") return;
@@ -118,6 +140,7 @@
       speechSynthesis.speak(utterance);
     }
 
+    rememberSpoken(text);
     log(`${source}:`, text);
   }
 
@@ -394,47 +417,66 @@
     return /[,;]\s*$/.test(normalize(text));
   }
 
-function getDelta(previous, current) {
-  previous = normalize(previous);
-  current = normalize(current);
+  function getDelta(previous, current) {
+    previous = normalize(previous);
+    current = normalize(current);
 
-  if (!previous) return current;
-  if (!current || current === previous) return "";
-  if (fp(current) === fp(previous)) return "";
+    if (!previous) return current;
+    if (!current || current === previous) return "";
+    if (fp(current) === fp(previous)) return "";
 
-  const prevWords = previous.split(" ");
-  const currWords = current.split(" ");
+    const prevWords = wordsOf(previous);
+    const currWords = wordsOf(current);
 
-  // Caso simple: YouTube agrega texto al final sin recortar.
-  if (current.startsWith(previous)) {
-    return normalize(currWords.slice(prevWords.length).join(" "));
-  }
+    if (current.startsWith(previous)) {
+      return normalize(currWords.slice(prevWords.length).join(" "));
+    }
 
-  // Busca el mayor solapamiento entre el final anterior
-  // y cualquier tramo inicial o interno del texto actual.
-  const maxOverlap = Math.min(prevWords.length, currWords.length);
+    const maxOverlap = Math.min(prevWords.length, currWords.length);
 
-  for (let size = maxOverlap; size >= 2; size--) {
-    const prevTail = fp(prevWords.slice(-size).join(" "));
+    for (let size = maxOverlap; size >= 2; size--) {
+      const prevTail = fp(prevWords.slice(-size).join(" "));
 
-    for (let start = 0; start <= currWords.length - size; start++) {
-      const currChunk = fp(currWords.slice(start, start + size).join(" "));
+      for (let start = 0; start <= currWords.length - size; start++) {
+        const currChunk = fp(currWords.slice(start, start + size).join(" "));
 
-      if (prevTail && prevTail === currChunk) {
-        return normalize(currWords.slice(start + size).join(" "));
+        if (prevTail && prevTail === currChunk) {
+          return normalize(currWords.slice(start + size).join(" "));
+        }
       }
     }
+
+    if (fp(previous).includes(fp(current))) {
+      return "";
+    }
+
+    return current;
   }
 
-  // Si el texto actual es más corto y está contenido dentro del anterior,
-  // probablemente YouTube solo recortó la ventana visible.
-  if (fp(previous).includes(fp(current))) {
-    return "";
-  }
+  function removeAlreadySpoken(delta) {
+    delta = normalize(delta);
+    if (!delta) return "";
 
-  // Fallback: solo devolver todo si no hay forma segura de calcular delta.
-  return current;
-}
+    const context = normalize(`${KWSR.visualSpokenContext} ${KWSR.visualBuffer}`);
+    if (!context) return delta;
+
+    if (fp(context).includes(fp(delta))) {
+      return "";
+    }
+
+    const deltaWords = wordsOf(delta);
+
+    for (let cut = 1; cut < deltaWords.length; cut++) {
+      const candidate = normalize(deltaWords.slice(cut).join(" "));
+      if (!candidate) continue;
+
+      if (!fp(context).includes(fp(candidate))) {
+        return candidate;
+      }
+    }
+
+    return delta;
+  }
 
   function flushVisual(reason = "flush") {
     clearTimeout(KWSR.visualFlushTimer);
@@ -449,30 +491,41 @@ function getDelta(previous, current) {
   }
 
   function queueVisualDelta(delta) {
-    delta = normalize(delta);
+    delta = removeAlreadySpoken(delta);
     if (!delta) return;
 
     KWSR.visualBuffer = normalize(`${KWSR.visualBuffer} ${delta}`);
 
     clearTimeout(KWSR.visualFlushTimer);
 
-    if (hasHardBoundary(KWSR.visualBuffer)) {
+    const words = wordCount(KWSR.visualBuffer);
+
+    if (hasHardBoundary(KWSR.visualBuffer) && words >= 3) {
       flushVisual("sentence");
       return;
     }
 
-    if (hasSoftBoundary(KWSR.visualBuffer) && KWSR.visualBuffer.length >= 35) {
+    if (
+      hasSoftBoundary(KWSR.visualBuffer) &&
+      KWSR.visualBuffer.length >= 45 &&
+      words >= KWSR.minFlushWords
+    ) {
       flushVisual("soft");
       return;
     }
 
-    if (KWSR.visualBuffer.length >= KWSR.emergencyLimit) {
+    if (
+      KWSR.visualBuffer.length >= KWSR.emergencyLimit &&
+      words >= KWSR.minFlushWords
+    ) {
       flushVisual("limit");
       return;
     }
 
     KWSR.visualFlushTimer = setTimeout(() => {
-      flushVisual("pause");
+      if (wordCount(KWSR.visualBuffer) >= KWSR.minFlushWords) {
+        flushVisual("pause");
+      }
     }, KWSR.softFlushMs);
   }
 
@@ -496,18 +549,21 @@ function getDelta(previous, current) {
   }
 
   function handleIncrementalVisual(current, picked) {
-const previous = KWSR.lastVisualRaw;
-const delta = getDelta(previous, current);
-KWSR.lastVisualRaw = current;
+    const previous = KWSR.lastVisualRaw;
+    let delta = getDelta(previous, current);
 
-if (!delta) return true;
+    KWSR.lastVisualRaw = current;
 
-// Si había texto previo y el delta volvió a ser todo el RAW,
-// probablemente se perdió el solapamiento. Mejor no duplicar.
-if (previous && fp(delta) === fp(current)) {
-  log("VISUAL DELTA descartado por posible repetición completa:", delta);
-  return true;
-}
+    if (!delta) return true;
+
+    if (previous && fp(delta) === fp(current)) {
+      log("VISUAL DELTA descartado por repetición completa:", delta);
+      return true;
+    }
+
+    delta = removeAlreadySpoken(delta);
+
+    if (!delta) return true;
 
     log(`VISUAL RAW (${picked.renderer.name}):`, current);
     log("VISUAL DELTA:", delta);
@@ -550,8 +606,11 @@ if (previous && fp(delta) === fp(current)) {
     KWSR.lastVisualRaw = "";
     KWSR.pendingVisualText = "";
     KWSR.visualBuffer = "";
+    KWSR.visualSpokenContext = "";
+
     clearTimeout(KWSR.visualSettleTimer);
     clearTimeout(KWSR.visualFlushTimer);
+
     KWSR.visualSettleTimer = null;
     KWSR.visualFlushTimer = null;
   }
@@ -600,7 +659,8 @@ if (previous && fp(delta) === fp(current)) {
           debug: KWSR.debug,
           lastTrackText: KWSR.lastTrackText,
           lastVisualRaw: KWSR.lastVisualRaw,
-          buffer: KWSR.visualBuffer,
+          visualBuffer: KWSR.visualBuffer,
+          visualSpokenContext: KWSR.visualSpokenContext,
           pickedVisual: pickVisual()?.renderer?.name || null,
         });
 
