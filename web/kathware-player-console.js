@@ -394,33 +394,47 @@
     return /[,;]\s*$/.test(normalize(text));
   }
 
-  function getDelta(previous, current) {
-    previous = normalize(previous);
-    current = normalize(current);
+function getDelta(previous, current) {
+  previous = normalize(previous);
+  current = normalize(current);
 
-    if (!previous) return current;
-    if (!current || current === previous) return "";
-    if (fp(current) === fp(previous)) return "";
+  if (!previous) return current;
+  if (!current || current === previous) return "";
+  if (fp(current) === fp(previous)) return "";
 
-    if (current.startsWith(previous)) {
-      return normalize(current.slice(previous.length));
-    }
+  const prevWords = previous.split(" ");
+  const currWords = current.split(" ");
 
-    if (current.length < previous.length) {
-      return current;
-    }
+  // Caso simple: YouTube agrega texto al final sin recortar.
+  if (current.startsWith(previous)) {
+    return normalize(currWords.slice(prevWords.length).join(" "));
+  }
 
-    const min = Math.min(previous.length, current.length);
+  // Busca el mayor solapamiento entre el final anterior
+  // y cualquier tramo inicial o interno del texto actual.
+  const maxOverlap = Math.min(prevWords.length, currWords.length);
 
-    for (let size = min; size >= 20; size--) {
-      const tail = previous.slice(-size);
-      if (current.startsWith(tail)) {
-        return normalize(current.slice(size));
+  for (let size = maxOverlap; size >= 2; size--) {
+    const prevTail = fp(prevWords.slice(-size).join(" "));
+
+    for (let start = 0; start <= currWords.length - size; start++) {
+      const currChunk = fp(currWords.slice(start, start + size).join(" "));
+
+      if (prevTail && prevTail === currChunk) {
+        return normalize(currWords.slice(start + size).join(" "));
       }
     }
-
-    return current;
   }
+
+  // Si el texto actual es más corto y está contenido dentro del anterior,
+  // probablemente YouTube solo recortó la ventana visible.
+  if (fp(previous).includes(fp(current))) {
+    return "";
+  }
+
+  // Fallback: solo devolver todo si no hay forma segura de calcular delta.
+  return current;
+}
 
   function flushVisual(reason = "flush") {
     clearTimeout(KWSR.visualFlushTimer);
@@ -482,10 +496,18 @@
   }
 
   function handleIncrementalVisual(current, picked) {
-    const delta = getDelta(KWSR.lastVisualRaw, current);
-    KWSR.lastVisualRaw = current;
+const previous = KWSR.lastVisualRaw;
+const delta = getDelta(previous, current);
+KWSR.lastVisualRaw = current;
 
-    if (!delta) return true;
+if (!delta) return true;
+
+// Si había texto previo y el delta volvió a ser todo el RAW,
+// probablemente se perdió el solapamiento. Mejor no duplicar.
+if (previous && fp(delta) === fp(current)) {
+  log("VISUAL DELTA descartado por posible repetición completa:", delta);
+  return true;
+}
 
     log(`VISUAL RAW (${picked.renderer.name}):`, current);
     log("VISUAL DELTA:", delta);
