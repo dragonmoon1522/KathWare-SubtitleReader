@@ -37,6 +37,11 @@
     softFlushMs: 1400,
     emergencyLimit: 140,
     minFlushWords: 4,
+    // Modo vivo:
+// para YouTube, Flow live y conferencias.
+// Habla antes, porque el subtítulo cambia todo el tiempo.
+liveFlushMs: 650,
+liveMinWords: 2,
     spokenContextLimit: 900,
   };
 
@@ -526,9 +531,27 @@ function pickVisual() {
     emit(text, `VISUAL:${reason}`);
   }
 
-  function queueVisualDelta(delta) {
+  function queueVisualDelta(delta, rendererName = "") {
+    // Para YouTube no hacemos filtro por palabras ya leídas.
+// Su renderizador mueve una ventana de texto y ese filtro rompe la frase.
+  if (rendererName !== "YouTube") {
     delta = removeAlreadySpoken(delta);
-    if (!delta) return;
+  }
+
+  const isLiveRenderer =
+    rendererName === "YouTube" ||
+    rendererName === "THEOplayer / Flow-like" ||
+    rendererName === "Training / LMS generic";
+
+  const flushMs = isLiveRenderer
+    ? KWSR.liveFlushMs
+    : KWSR.softFlushMs;
+
+  const minWords = isLiveRenderer
+    ? KWSR.liveMinWords
+      : KWSR.minFlushWords;
+
+  if (!delta) return;
 
     KWSR.visualBuffer = normalize(`${KWSR.visualBuffer} ${delta}`);
 
@@ -544,7 +567,7 @@ function pickVisual() {
     if (
       hasSoftBoundary(KWSR.visualBuffer) &&
       KWSR.visualBuffer.length >= 45 &&
-      words >= KWSR.minFlushWords
+      words >= minWords
     ) {
       flushVisual("soft");
       return;
@@ -552,17 +575,17 @@ function pickVisual() {
 
     if (
       KWSR.visualBuffer.length >= KWSR.emergencyLimit &&
-      words >= KWSR.minFlushWords
+      words >= minWords
     ) {
       flushVisual("limit");
       return;
     }
 
     KWSR.visualFlushTimer = setTimeout(() => {
-      if (wordCount(KWSR.visualBuffer) >= KWSR.minFlushWords) {
+      if (wordCount(KWSR.visualBuffer) >= minWords) {
         flushVisual("pause");
       }
-    }, KWSR.softFlushMs);
+    }, flushMs);
   }
 
   function handleSettledVisual(current, picked) {
@@ -592,19 +615,32 @@ function pickVisual() {
 
     if (!delta) return true;
 
-    if (previous && fp(delta) === fp(current)) {
-      log("VISUAL DELTA descartado por repetición completa:", delta);
-      return true;
-    }
+    // Solo descartamos repetición completa si el texto actual YA estaba en el anterior.
+// En YouTube traducido, a veces aparece una frase corta nueva como RAW completo.
+// Ejemplo: "vídeos cortos para Google." no debe descartarse solo por ser delta === current.
+if (
+  previous &&
+  fp(delta) === fp(current) &&
+  fp(previous).includes(fp(current))
+) {
+  log("VISUAL DELTA descartado por repetición completa:", delta);
+  return true;
+}
 
-    delta = removeAlreadySpoken(delta);
+    // YouTube usa una ventana móvil:
+// muestra una frase larga, recorta el principio y agrega palabras al final.
+// Si filtramos palabra por palabra, perdemos conectores como "nos", "los", "de".
+// Por eso YouTube entra al buffer sin removeAlreadySpoken().
+if (picked.renderer.name !== "YouTube") {
+  delta = removeAlreadySpoken(delta);
+}
 
-    if (!delta) return true;
+if (!delta) return true;
 
-    log(`VISUAL RAW (${picked.renderer.name}):`, current);
-    log("VISUAL DELTA:", delta);
+log(`VISUAL RAW (${picked.renderer.name}):`, current);
+log("VISUAL DELTA:", delta);
 
-    queueVisualDelta(delta);
+queueVisualDelta(delta, picked.renderer.name);
 
     return true;
   }
