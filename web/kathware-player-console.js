@@ -192,8 +192,8 @@
   }
 
   function isBadText(text) {
-    return /control deslizante|barra deslizante|configuración del proyecto|botón|subtítulos desactivados|volumen|velocidad|calidad|audio|shopping|copiar vínculo|información|vistas|hace \d+|reproducir combinación/i.test(text);
-  }
+  return /control deslizante|barra deslizante|configuración del proyecto|botón|subtítulos desactivados|volumen|velocidad|calidad|audio|shopping|copiar vínculo|información|vistas|hace \d+|reproducir combinación|bahasa indonesia|bahasa melayu|english \[cc\]|español \(latinoamérica\)|opciones de audio|estilo de subtítulos|se reanudó la reproducción|se pausó la reproducción/i.test(text);
+}
 
   function findVideos(root = document, out = new Set()) {
     try {
@@ -321,6 +321,25 @@
       ],
     },
     {
+  name: "Disney / Hive",
+  mode: "settled",
+  stable: [
+    "timed-text-override-region",
+    ".timed-text-override-region",
+    ".DxcOverlay",
+    "DISNEY-WEB-PLAYER",
+  ],
+  inner: [
+    ".hive-subtitle-renderer-wrapper",
+    ".hive-subtitle-renderer-line",
+    "[class*='subtitle']",
+    "[class*='caption']",
+    "[class*='timed-text']",
+    "span",
+    "div",
+  ],
+},
+    {
       name: "THEOplayer / Flow-like",
       mode: "incrementalTimed",
       stable: [
@@ -379,7 +398,24 @@
     return collapseRepeatedText(text);
   }
 
-  function pickVisual() {
+// Busca elementos también dentro de shadowRoot.
+// Algunas plataformas esconden el reproductor en "cajitas cerradas".
+// Si no entramos ahí, SubtitleReader mira la puerta pero no ve los subtítulos.
+function queryAllDeep(root, selector, out = []) {
+  try {
+    root.querySelectorAll(selector).forEach(el => out.push(el));
+
+    root.querySelectorAll("*").forEach(el => {
+      if (el.shadowRoot) {
+        queryAllDeep(el.shadowRoot, selector, out);
+      }
+    });
+  } catch (_) {}
+
+  return out;
+}
+  
+function pickVisual() {
     const candidates = [];
     const isYouTube = location.hostname.includes("youtube.com");
 
@@ -388,7 +424,7 @@
 
       for (const sel of renderer.stable) {
         try {
-          document.querySelectorAll(sel).forEach(el => {
+          queryAllDeep(document, sel).forEach(el => {
             const text = getNodeText(el, renderer);
             if (!text) return;
             if (text.length < 2 || text.length > 600) return;
