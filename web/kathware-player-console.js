@@ -49,12 +49,13 @@ liveMinWords: 2,
     if (KWSR.debug) console.log("[KWSR]", ...args);
   };
 
-  const normalize = text =>
-    String(text || "")
-      .replace(/\u200b/g, "")
-      .replace(/\s+/g, " ")
-      .replace(/\s+([,.!?…:;])/g, "$1")
-      .trim();
+const normalize = text =>
+  String(text || "")
+    .replace(/\u200b/g, "")
+    .replace(/>>+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?…:;])/g, "$1")
+    .trim();
 
   const fp = text =>
     normalize(text)
@@ -666,6 +667,7 @@ if (picked.renderer.mode === "settled") {
     handleIncrementalVisual(current, picked);
     return true;
   }
+
 function handleRollingSettledVisual(current, picked) {
   clearTimeout(KWSR.visualSettleTimer);
   KWSR.pendingVisualText = current;
@@ -677,7 +679,11 @@ function handleRollingSettledVisual(current, picked) {
     if (fp(text) === fp(KWSR.lastVisualRaw)) return;
 
     KWSR.lastVisualRaw = text;
-    emit(text, `VISUAL:${picked.renderer.name}`);
+
+    const clean = removeAlreadySpoken(text);
+    if (!clean) return;
+
+    emit(clean, `VISUAL:${picked.renderer.name}`);
   }, 750);
 }
   
