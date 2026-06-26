@@ -346,7 +346,7 @@ liveMinWords: 2,
 },
     {
       name: "THEOplayer / Flow-like",
-      mode: "incrementalTimed",
+      mode: "settled",
       stable: [
         ".theoplayer-texttracks",
         "[class*='theoplayer'][class*='texttrack']",
