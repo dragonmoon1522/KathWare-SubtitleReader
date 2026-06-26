@@ -346,7 +346,7 @@ liveMinWords: 2,
 },
     {
       name: "THEOplayer / Flow-like",
-      mode: "settled",
+        mode: "rollingSettled",
       stable: [
         ".theoplayer-texttracks",
         "[class*='theoplayer'][class*='texttrack']",
@@ -653,8 +653,12 @@ queueVisualDelta(delta, picked.renderer.name);
 
     const current = normalize(picked.text);
     if (!current) return false;
-
-    if (picked.renderer.mode === "settled") {
+if (picked.renderer.mode === "rollingSettled") {
+  handleRollingSettledVisual(current, picked);
+  return true;
+}
+    
+if (picked.renderer.mode === "settled") {
       handleSettledVisual(current, picked);
       return true;
     }
@@ -662,8 +666,22 @@ queueVisualDelta(delta, picked.renderer.name);
     handleIncrementalVisual(current, picked);
     return true;
   }
+function handleRollingSettledVisual(current, picked) {
+  clearTimeout(KWSR.visualSettleTimer);
+  KWSR.pendingVisualText = current;
 
-  function tick() {
+  KWSR.visualSettleTimer = setTimeout(() => {
+    const text = normalize(KWSR.pendingVisualText);
+    if (!text) return;
+
+    if (fp(text) === fp(KWSR.lastVisualRaw)) return;
+
+    KWSR.lastVisualRaw = text;
+    emit(text, `VISUAL:${picked.renderer.name}`);
+  }, 750);
+}
+  
+function tick() {
     if (!KWSR.enabled) return;
 
     const trackWorked = readTrack();
