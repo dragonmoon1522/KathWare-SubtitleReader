@@ -1,6 +1,12 @@
 // ====================================================
-// KathWare SubtitleReader - Console Stable
-// Version: 2.1.1-console-stable
+// KathWare SubtitleReader - Console Integrated
+// Version: 2.1.2-console-integrated
+// Consola de prueba con funciones cercanas a la extensión:
+// - lectura de subtítulos
+// - anuncios accesibles de estado
+// - panel básico
+// - controles de video
+// - motores por tipo de renderizador/contenedor
 // ====================================================
 
 (() => {
@@ -10,13 +16,17 @@
   if (OLD?.destroy) OLD.destroy();
 
   const KWSR = {
-    version: "2.1.1-console-stable",
+    version: "2.1.2-console-integrated",
+
     enabled: true,
     readerMode: "lector", // lector | voz | off
     debug: false,
 
     liveRegion: null,
+    statusRegion: null,
+    panel: null,
     visualObserver: null,
+    keyHandler: null,
     timers: [],
 
     lastTrackText: "",
@@ -29,19 +39,19 @@
 
     visualBuffer: "",
     visualFlushTimer: null,
-
     visualSpokenContext: "",
 
     settleMs: 120,
+    rollingSettleMs: 750,
     repeatBlockMs: 4000,
+
     softFlushMs: 1400,
+    liveFlushMs: 850,
+
     emergencyLimit: 140,
     minFlushWords: 4,
-    // Modo vivo:
-// para YouTube, Flow live y conferencias.
-// Habla antes, porque el subtítulo cambia todo el tiempo.
-liveFlushMs: 650,
-liveMinWords: 2,
+    liveMinWords: 3,
+
     spokenContextLimit: 900,
   };
 
@@ -49,13 +59,13 @@ liveMinWords: 2,
     if (KWSR.debug) console.log("[KWSR]", ...args);
   };
 
-const normalize = text =>
-  String(text || "")
-    .replace(/\u200b/g, "")
-    .replace(/>>+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.!?…:;])/g, "$1")
-    .trim();
+  const normalize = text =>
+    String(text || "")
+      .replace(/\u200b/g, "")
+      .replace(/>>+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\s+([,.!?…:;])/g, "$1")
+      .trim();
 
   const fp = text =>
     normalize(text)
@@ -83,7 +93,7 @@ const normalize = text =>
     return text;
   }
 
-  function createLiveRegion() {
+  function createLiveRegions() {
     const live = document.createElement("div");
     live.id = "kwsr-console-live-region";
     live.setAttribute("aria-live", "polite");
@@ -98,8 +108,42 @@ const normalize = text =>
       overflow: "hidden",
     });
 
+    const status = document.createElement("div");
+    status.id = "kwsr-console-status-region";
+    status.setAttribute("aria-live", "assertive");
+    status.setAttribute("aria-atomic", "true");
+    status.setAttribute("role", "status");
+
+    Object.assign(status.style, {
+      position: "fixed",
+      left: "-9999px",
+      width: "1px",
+      height: "1px",
+      overflow: "hidden",
+    });
+
     document.documentElement.appendChild(live);
+    document.documentElement.appendChild(status);
+
     KWSR.liveRegion = live;
+    KWSR.statusRegion = status;
+  }
+
+  function speakThroughLiveRegion(region, text) {
+    if (!region) return;
+    region.textContent = "";
+    setTimeout(() => {
+      region.textContent = normalize(text);
+    }, 25);
+  }
+
+  function announceStatus(text) {
+    text = normalize(text);
+    if (!text) return;
+
+    speakThroughLiveRegion(KWSR.statusRegion, text);
+    log(text);
+    updatePanel();
   }
 
   function rememberSpoken(text) {
@@ -133,10 +177,7 @@ const normalize = text =>
     KWSR.lastEmittedAt = now;
 
     if (KWSR.readerMode === "lector") {
-      KWSR.liveRegion.textContent = "";
-      setTimeout(() => {
-        KWSR.liveRegion.textContent = text;
-      }, 25);
+      speakThroughLiveRegion(KWSR.liveRegion, text);
     }
 
     if (KWSR.readerMode === "voz" && "speechSynthesis" in window) {
@@ -148,6 +189,7 @@ const normalize = text =>
 
     rememberSpoken(text);
     log(`${source}:`, text);
+    updatePanel(text, source);
   }
 
   function isVisible(el) {
@@ -198,8 +240,20 @@ const normalize = text =>
   }
 
   function isBadText(text) {
-  return /control deslizante|barra deslizante|configuración del proyecto|botón|subtítulos desactivados|volumen|velocidad|calidad|audio|shopping|copiar vínculo|información|vistas|hace \d+|reproducir combinación|bahasa indonesia|bahasa melayu|english \[cc\]|español \(latinoamérica\)|opciones de audio|estilo de subtítulos|se reanudó la reproducción|se pausó la reproducción/i.test(text);
-}
+    return /control deslizante|barra deslizante|configuración del proyecto|botón|subtítulos desactivados|volumen|velocidad|calidad|audio|shopping|copiar vínculo|información|vistas|hace \d+|reproducir combinación|bahasa indonesia|bahasa melayu|english \[cc\]|español \(latinoamérica\)|opciones de audio|estilo de subtítulos|se reanudó la reproducción|se pausó la reproducción/i.test(text);
+  }
+
+  function queryAllDeep(root, selector, out = []) {
+    try {
+      root.querySelectorAll(selector).forEach(el => out.push(el));
+
+      root.querySelectorAll("*").forEach(el => {
+        if (el.shadowRoot) queryAllDeep(el.shadowRoot, selector, out);
+      });
+    } catch (_) {}
+
+    return out;
+  }
 
   function findVideos(root = document, out = new Set()) {
     try {
@@ -231,7 +285,7 @@ const normalize = text =>
 
     const usable = tracks.find(t => {
       try {
-        return t.cues && t.cues.length;
+        return t.activeCues && t.activeCues.length;
       } catch (_) {
         return false;
       }
@@ -263,15 +317,15 @@ const normalize = text =>
     if (!text || text === KWSR.lastTrackText) return !!text;
 
     KWSR.lastTrackText = text;
-    emit(text, "TRACK");
+    emit(text, "STANDARD:textTracks");
 
     return true;
   }
 
   const VISUAL_RENDERERS = [
     {
-      name: "YouTube",
-      mode: "incrementalTimed",
+      name: "YouTube captions",
+      mode: "liveIncremental",
       stable: [
         "#ytp-caption-window-container",
         ".ytp-caption-window-container",
@@ -279,6 +333,37 @@ const normalize = text =>
       inner: [
         ".ytp-caption-segment",
         ".caption-visual-line",
+      ],
+    },
+    {
+      name: "THEOplayer / Flow-like",
+      mode: "liveIncremental",
+      stable: [
+        ".theoplayer-texttracks",
+        "[class*='theoplayer'][class*='texttrack']",
+      ],
+      inner: [
+        ".theoplayer-texttracks *",
+        "[class*='texttrack']",
+      ],
+    },
+    {
+      name: "Disney / Hive",
+      mode: "settled",
+      stable: [
+        "timed-text-override-region",
+        ".timed-text-override-region",
+        ".DxcOverlay",
+        "DISNEY-WEB-PLAYER",
+      ],
+      inner: [
+        ".hive-subtitle-renderer-wrapper",
+        ".hive-subtitle-renderer-line",
+        "[class*='subtitle']",
+        "[class*='caption']",
+        "[class*='timed-text']",
+        "span",
+        "div",
       ],
     },
     {
@@ -290,27 +375,6 @@ const normalize = text =>
       inner: [
         ".vjs-text-track-cue",
         ".vjs-text-track-cue *",
-      ],
-    },
-    {
-      name: "Training / LMS generic",
-      mode: "incrementalTimed",
-      stable: [
-        "[class*='caption']",
-        "[class*='Caption']",
-        "[class*='subtitle']",
-        "[class*='Subtitle']",
-        "[class*='text-track']",
-        "[class*='textTrack']",
-        "[data-testid*='caption']",
-        "[data-testid*='subtitle']",
-        "[aria-live='polite']",
-        "[role='status']",
-      ],
-      inner: [
-        "span",
-        "div",
-        "p",
       ],
     },
     {
@@ -327,38 +391,7 @@ const normalize = text =>
       ],
     },
     {
-  name: "Disney / Hive",
-  mode: "settled",
-  stable: [
-    "timed-text-override-region",
-    ".timed-text-override-region",
-    ".DxcOverlay",
-    "DISNEY-WEB-PLAYER",
-  ],
-  inner: [
-    ".hive-subtitle-renderer-wrapper",
-    ".hive-subtitle-renderer-line",
-    "[class*='subtitle']",
-    "[class*='caption']",
-    "[class*='timed-text']",
-    "span",
-    "div",
-  ],
-},
-    {
-      name: "THEOplayer / Flow-like",
-        mode: "rollingSettled",
-      stable: [
-        ".theoplayer-texttracks",
-        "[class*='theoplayer'][class*='texttrack']",
-      ],
-      inner: [
-        ".theoplayer-texttracks *",
-        "[class*='texttrack']",
-      ],
-    },
-    {
-      name: "Netflix-like",
+      name: "Netflix-like renderer",
       mode: "settled",
       stable: [
         ".player-timedtext",
@@ -370,6 +403,27 @@ const normalize = text =>
         ".player-timedtext-text",
         ".player-timedtext span",
         "[data-uia*='subtitle'] span",
+      ],
+    },
+    {
+      name: "Generic caption container",
+      mode: "liveIncremental",
+      stable: [
+        "[class*='caption']",
+        "[class*='Caption']",
+        "[class*='subtitle']",
+        "[class*='Subtitle']",
+        "[class*='text-track']",
+        "[class*='textTrack']",
+        "[data-testid*='caption']",
+        "[data-testid*='subtitle']",
+        "[aria-live='polite']",
+        "[role='status']",
+      ],
+      inner: [
+        "span",
+        "div",
+        "p",
       ],
     },
   ];
@@ -404,42 +458,25 @@ const normalize = text =>
     return collapseRepeatedText(text);
   }
 
-// Busca elementos también dentro de shadowRoot.
-// Algunas plataformas esconden el reproductor en "cajitas cerradas".
-// Si no entramos ahí, SubtitleReader mira la puerta pero no ve los subtítulos.
-function queryAllDeep(root, selector, out = []) {
-  try {
-    root.querySelectorAll(selector).forEach(el => out.push(el));
-
-    root.querySelectorAll("*").forEach(el => {
-      if (el.shadowRoot) {
-        queryAllDeep(el.shadowRoot, selector, out);
-      }
-    });
-  } catch (_) {}
-
-  return out;
-}
-  
-function pickVisual() {
+  function pickVisual() {
     const candidates = [];
     const isYouTube = location.hostname.includes("youtube.com");
 
     for (const renderer of VISUAL_RENDERERS) {
-      if (isYouTube && renderer.name !== "YouTube") continue;
+      if (isYouTube && renderer.name !== "YouTube captions") continue;
 
       for (const sel of renderer.stable) {
         try {
           queryAllDeep(document, sel).forEach(el => {
             const text = getNodeText(el, renderer);
             if (!text) return;
-            if (text.length < 2 || text.length > 600) return;
+            if (text.length < 2 || text.length > 700) return;
 
             const r = el.getBoundingClientRect();
 
             let score = Math.min(text.length, 180);
             score += r.bottom > window.innerHeight * 0.45 ? 50 : 0;
-            score += renderer.name === "Training / LMS generic" ? 20 : 90;
+            score += renderer.name === "Generic caption container" ? 20 : 90;
 
             candidates.push({ el, renderer, text, score, selector: sel });
           });
@@ -488,9 +525,7 @@ function pickVisual() {
       }
     }
 
-    if (fp(previous).includes(fp(current))) {
-      return "";
-    }
+    if (fp(previous).includes(fp(current))) return "";
 
     return current;
   }
@@ -502,9 +537,7 @@ function pickVisual() {
     const context = normalize(`${KWSR.visualSpokenContext} ${KWSR.visualBuffer}`);
     if (!context) return delta;
 
-    if (fp(context).includes(fp(delta))) {
-      return "";
-    }
+    if (fp(context).includes(fp(delta))) return "";
 
     const deltaWords = wordsOf(delta);
 
@@ -512,9 +545,7 @@ function pickVisual() {
       const candidate = normalize(deltaWords.slice(cut).join(" "));
       if (!candidate) continue;
 
-      if (!fp(context).includes(fp(candidate))) {
-        return candidate;
-      }
+      if (!fp(context).includes(fp(candidate))) return candidate;
     }
 
     return delta;
@@ -533,26 +564,22 @@ function pickVisual() {
   }
 
   function queueVisualDelta(delta, rendererName = "") {
-    // Para YouTube no hacemos filtro por palabras ya leídas.
-// Su renderizador mueve una ventana de texto y ese filtro rompe la frase.
-  if (rendererName !== "YouTube") {
-    delta = removeAlreadySpoken(delta);
-  }
+    delta = normalize(delta);
+    if (!delta) return;
 
-  const isLiveRenderer =
-    rendererName === "YouTube" ||
-    rendererName === "THEOplayer / Flow-like" ||
-    rendererName === "Training / LMS generic";
+    const isLiveRenderer =
+      rendererName === "YouTube captions" ||
+      rendererName === "THEOplayer / Flow-like" ||
+      rendererName === "Generic caption container";
 
-  const flushMs = isLiveRenderer
-    ? KWSR.liveFlushMs
-    : KWSR.softFlushMs;
+    if (!isLiveRenderer) {
+      delta = removeAlreadySpoken(delta);
+    }
 
-  const minWords = isLiveRenderer
-    ? KWSR.liveMinWords
-      : KWSR.minFlushWords;
+    if (!delta) return;
 
-  if (!delta) return;
+    const flushMs = isLiveRenderer ? KWSR.liveFlushMs : KWSR.softFlushMs;
+    const minWords = isLiveRenderer ? KWSR.liveMinWords : KWSR.minFlushWords;
 
     KWSR.visualBuffer = normalize(`${KWSR.visualBuffer} ${delta}`);
 
@@ -603,12 +630,15 @@ function pickVisual() {
 
       KWSR.lastVisualRaw = text;
 
+      const clean = removeAlreadySpoken(text);
+      if (!clean) return;
+
       log(`VISUAL RAW (${picked.renderer.name}):`, text);
-      emit(text, `VISUAL:${picked.renderer.name}`);
+      emit(clean, `VISUAL:${picked.renderer.name}`);
     }, KWSR.settleMs);
   }
 
-  function handleIncrementalVisual(current, picked) {
+  function handleLiveIncrementalVisual(current, picked) {
     const previous = KWSR.lastVisualRaw;
     let delta = getDelta(previous, current);
 
@@ -616,32 +646,19 @@ function pickVisual() {
 
     if (!delta) return true;
 
-    // Solo descartamos repetición completa si el texto actual YA estaba en el anterior.
-// En YouTube traducido, a veces aparece una frase corta nueva como RAW completo.
-// Ejemplo: "vídeos cortos para Google." no debe descartarse solo por ser delta === current.
-if (
-  previous &&
-  fp(delta) === fp(current) &&
-  fp(previous).includes(fp(current))
-) {
-  log("VISUAL DELTA descartado por repetición completa:", delta);
-  return true;
-}
+    if (
+      previous &&
+      fp(delta) === fp(current) &&
+      fp(previous).includes(fp(current))
+    ) {
+      log("VISUAL DELTA descartado por repetición completa:", delta);
+      return true;
+    }
 
-    // YouTube usa una ventana móvil:
-// muestra una frase larga, recorta el principio y agrega palabras al final.
-// Si filtramos palabra por palabra, perdemos conectores como "nos", "los", "de".
-// Por eso YouTube entra al buffer sin removeAlreadySpoken().
-if (picked.renderer.name !== "YouTube") {
-  delta = removeAlreadySpoken(delta);
-}
+    log(`VISUAL RAW (${picked.renderer.name}):`, current);
+    log("VISUAL DELTA:", delta);
 
-if (!delta) return true;
-
-log(`VISUAL RAW (${picked.renderer.name}):`, current);
-log("VISUAL DELTA:", delta);
-
-queueVisualDelta(delta, picked.renderer.name);
+    queueVisualDelta(delta, picked.renderer.name);
 
     return true;
   }
@@ -654,40 +671,17 @@ queueVisualDelta(delta, picked.renderer.name);
 
     const current = normalize(picked.text);
     if (!current) return false;
-if (picked.renderer.mode === "rollingSettled") {
-  handleRollingSettledVisual(current, picked);
-  return true;
-}
-    
-if (picked.renderer.mode === "settled") {
+
+    if (picked.renderer.mode === "settled") {
       handleSettledVisual(current, picked);
       return true;
     }
 
-    handleIncrementalVisual(current, picked);
+    handleLiveIncrementalVisual(current, picked);
     return true;
   }
 
-function handleRollingSettledVisual(current, picked) {
-  clearTimeout(KWSR.visualSettleTimer);
-  KWSR.pendingVisualText = current;
-
-  KWSR.visualSettleTimer = setTimeout(() => {
-    const text = normalize(KWSR.pendingVisualText);
-    if (!text) return;
-
-    if (fp(text) === fp(KWSR.lastVisualRaw)) return;
-
-    KWSR.lastVisualRaw = text;
-
-    const clean = removeAlreadySpoken(text);
-    if (!clean) return;
-
-    emit(clean, `VISUAL:${picked.renderer.name}`);
-  }, 750);
-}
-  
-function tick() {
+  function tick() {
     if (!KWSR.enabled) return;
 
     const trackWorked = readTrack();
@@ -711,6 +705,237 @@ function tick() {
     KWSR.visualFlushTimer = null;
   }
 
+  function setEnabled(value) {
+    KWSR.enabled = Boolean(value);
+    resetReadingState();
+    announceStatus(KWSR.enabled ? "SubtitleReader activado" : "SubtitleReader desactivado");
+  }
+
+  function cycleReaderMode() {
+    KWSR.readerMode =
+      KWSR.readerMode === "lector" ? "voz" :
+      KWSR.readerMode === "voz" ? "off" :
+      "lector";
+
+    resetReadingState();
+
+    const label =
+      KWSR.readerMode === "lector" ? "lector de pantalla" :
+      KWSR.readerMode === "voz" ? "voz del navegador" :
+      "silencio";
+
+    announceStatus(`Salida: ${label}`);
+  }
+
+  function toggleDebug() {
+    KWSR.debug = !KWSR.debug;
+    announceStatus(`Debug ${KWSR.debug ? "activado" : "desactivado"}`);
+    console.log("[KWSR] Debug:", KWSR.debug ? "ON" : "OFF");
+  }
+
+  function getState() {
+    return {
+      version: KWSR.version,
+      enabled: KWSR.enabled,
+      readerMode: KWSR.readerMode,
+      debug: KWSR.debug,
+      lastTrackText: KWSR.lastTrackText,
+      lastVisualRaw: KWSR.lastVisualRaw,
+      visualBuffer: KWSR.visualBuffer,
+      visualSpokenContext: KWSR.visualSpokenContext,
+      pickedVisual: pickVisual()?.renderer?.name || null,
+      mainVideo: !!getMainVideo(),
+    };
+  }
+
+  function announceState() {
+    const picked = pickVisual();
+    const video = getMainVideo();
+
+    const mode =
+      KWSR.readerMode === "lector" ? "lector de pantalla" :
+      KWSR.readerMode === "voz" ? "voz del navegador" :
+      "silencio";
+
+    const status = [
+      `KathWare SubtitleReader ${KWSR.enabled ? "activado" : "desactivado"}`,
+      `Salida: ${mode}`,
+      picked ? `Renderizador: ${picked.renderer.name}` : "Sin renderizador visual detectado",
+      video ? "Video detectado" : "Video no detectado",
+      KWSR.debug ? "Debug activado" : "Debug desactivado",
+    ].join(". ");
+
+    console.log("[KWSR] Estado:", getState());
+    announceStatus(status);
+  }
+
+  function playPauseVideo() {
+    const video = getMainVideo();
+    if (!video) {
+      announceStatus("No se encontró video principal");
+      return;
+    }
+
+    if (video.paused) {
+      video.play()
+        .then(() => announceStatus("Reproducción iniciada"))
+        .catch(() => announceStatus("No se pudo iniciar la reproducción"));
+    } else {
+      video.pause();
+      announceStatus("Reproducción pausada");
+    }
+  }
+
+  function toggleMute() {
+    const video = getMainVideo();
+    if (!video) {
+      announceStatus("No se encontró video principal");
+      return;
+    }
+
+    video.muted = !video.muted;
+    announceStatus(video.muted ? "Video silenciado" : "Video con sonido");
+  }
+
+  function seekVideo(seconds) {
+    const video = getMainVideo();
+    if (!video) {
+      announceStatus("No se encontró video principal");
+      return;
+    }
+
+    try {
+      video.currentTime = Math.max(0, video.currentTime + seconds);
+      announceStatus(seconds > 0 ? "Avanzando" : "Retrocediendo");
+    } catch (_) {
+      announceStatus("No se pudo cambiar la posición del video");
+    }
+  }
+
+  function toggleFullscreen() {
+    const video = getMainVideo();
+    const target =
+      video?.closest?.("[class*='player'], [class*='video'], main, body") ||
+      video ||
+      document.documentElement;
+
+    if (!document.fullscreenElement) {
+      target.requestFullscreen?.()
+        .then(() => announceStatus("Pantalla completa activada"))
+        .catch(() => announceStatus("No se pudo activar pantalla completa"));
+    } else {
+      document.exitFullscreen?.()
+        .then(() => announceStatus("Pantalla completa desactivada"))
+        .catch(() => announceStatus("No se pudo salir de pantalla completa"));
+    }
+  }
+
+  function createButton(text, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = text;
+    btn.addEventListener("click", onClick);
+    Object.assign(btn.style, {
+      margin: "2px",
+      padding: "6px 8px",
+      fontSize: "13px",
+      cursor: "pointer",
+    });
+    return btn;
+  }
+
+  function createPanel() {
+    const panel = document.createElement("section");
+    panel.id = "kwsr-console-panel";
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "KathWare SubtitleReader consola");
+
+    Object.assign(panel.style, {
+      position: "fixed",
+      zIndex: "2147483647",
+      right: "12px",
+      bottom: "12px",
+      maxWidth: "360px",
+      background: "rgba(0, 0, 0, 0.88)",
+      color: "#fff",
+      padding: "10px",
+      borderRadius: "10px",
+      fontFamily: "Arial, sans-serif",
+      fontSize: "14px",
+      lineHeight: "1.4",
+      boxShadow: "0 4px 16px rgba(0,0,0,.35)",
+    });
+
+    const title = document.createElement("h2");
+    title.textContent = "KathWare SubtitleReader";
+    Object.assign(title.style, {
+      fontSize: "16px",
+      margin: "0 0 6px",
+    });
+
+    const status = document.createElement("p");
+    status.id = "kwsr-console-panel-status";
+    status.textContent = "Iniciando...";
+    Object.assign(status.style, {
+      margin: "0 0 6px",
+    });
+
+    const last = document.createElement("p");
+    last.id = "kwsr-console-panel-last";
+    last.textContent = "Último subtítulo: ninguno";
+    Object.assign(last.style, {
+      margin: "0 0 6px",
+      maxHeight: "80px",
+      overflow: "auto",
+    });
+
+    const controls = document.createElement("div");
+
+    controls.appendChild(createButton("Activar/desactivar", () => setEnabled(!KWSR.enabled)));
+    controls.appendChild(createButton("Cambiar salida", cycleReaderMode));
+    controls.appendChild(createButton("Estado", announceState));
+    controls.appendChild(createButton("Play/Pausa", playPauseVideo));
+    controls.appendChild(createButton("Retroceder", () => seekVideo(-10)));
+    controls.appendChild(createButton("Avanzar", () => seekVideo(10)));
+    controls.appendChild(createButton("Silenciar", toggleMute));
+    controls.appendChild(createButton("Pantalla completa", toggleFullscreen));
+    controls.appendChild(createButton("Debug", toggleDebug));
+
+    panel.appendChild(title);
+    panel.appendChild(status);
+    panel.appendChild(last);
+    panel.appendChild(controls);
+
+    document.documentElement.appendChild(panel);
+    KWSR.panel = panel;
+
+    updatePanel();
+  }
+
+  function updatePanel(lastText = "", source = "") {
+    if (!KWSR.panel) return;
+
+    const status = KWSR.panel.querySelector("#kwsr-console-panel-status");
+    const last = KWSR.panel.querySelector("#kwsr-console-panel-last");
+
+    const picked = pickVisual();
+    const mode =
+      KWSR.readerMode === "lector" ? "lector" :
+      KWSR.readerMode === "voz" ? "voz" :
+      "silencio";
+
+    if (status) {
+      status.textContent =
+        `Estado: ${KWSR.enabled ? "activo" : "apagado"}. ` +
+        `Salida: ${mode}. ` +
+        `Renderizador: ${picked?.renderer?.name || "no detectado"}.`;
+    }
+
+    if (lastText && last) {
+      last.textContent = `Último subtítulo (${source}): ${lastText}`;
+    }
+  }
+
   function bindHotkeys() {
     KWSR.keyHandler = e => {
       if (!e.shiftKey || !e.altKey) return;
@@ -718,48 +943,63 @@ function tick() {
       const key = e.key.toLowerCase();
 
       if (key === "k") {
-        KWSR.enabled = !KWSR.enabled;
-        resetReadingState();
-        log(KWSR.enabled ? "Activado" : "Desactivado");
+        setEnabled(!KWSR.enabled);
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
       }
 
       if (key === "l") {
-        KWSR.readerMode =
-          KWSR.readerMode === "lector" ? "voz" :
-          KWSR.readerMode === "voz" ? "off" :
-          "lector";
-
-        resetReadingState();
-        log("Salida:", KWSR.readerMode);
+        cycleReaderMode();
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
       }
 
       if (key === "d") {
-        KWSR.debug = !KWSR.debug;
-        console.log("[KWSR] Debug:", KWSR.debug ? "ON" : "OFF");
+        toggleDebug();
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
       }
 
       if (key === "o") {
-        console.log("[KWSR] Estado:", {
-          version: KWSR.version,
-          enabled: KWSR.enabled,
-          readerMode: KWSR.readerMode,
-          debug: KWSR.debug,
-          lastTrackText: KWSR.lastTrackText,
-          lastVisualRaw: KWSR.lastVisualRaw,
-          visualBuffer: KWSR.visualBuffer,
-          visualSpokenContext: KWSR.visualSpokenContext,
-          pickedVisual: pickVisual()?.renderer?.name || null,
-        });
+        announceState();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
 
+      if (key === "p") {
+        playPauseVideo();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      if (key === "m") {
+        toggleMute();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      if (key === "f") {
+        toggleFullscreen();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      if (key === "arrowleft") {
+        seekVideo(-10);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      if (key === "arrowright") {
+        seekVideo(10);
         e.preventDefault();
         e.stopImmediatePropagation();
         return;
@@ -783,6 +1023,17 @@ function tick() {
     KWSR.visualObserver = obs;
   }
 
+  function installFullscreenWatcher() {
+    document.addEventListener("fullscreenchange", () => {
+      resetReadingState();
+      announceStatus(
+        document.fullscreenElement
+          ? "Pantalla completa detectada. Reiniciando lectura."
+          : "Salida de pantalla completa detectada. Reiniciando lectura."
+      );
+    });
+  }
+
   function setTimer(fn, ms) {
     const id = setInterval(fn, ms);
     KWSR.timers.push(id);
@@ -804,15 +1055,23 @@ function tick() {
     } catch (_) {}
 
     try {
-      KWSR.liveRegion?.remove();
+      speechSynthesis?.cancel?.();
     } catch (_) {}
 
-    log("Destruido");
+    try {
+      KWSR.liveRegion?.remove();
+      KWSR.statusRegion?.remove();
+      KWSR.panel?.remove();
+    } catch (_) {}
+
+    console.log("[KWSR] Destruido");
   }
 
-  createLiveRegion();
+  createLiveRegions();
+  createPanel();
   bindHotkeys();
   installObserver();
+  installFullscreenWatcher();
   setTimer(tick, 650);
 
   window.__KATHWARE_SUBTITLE_READER_CONSOLE__ = {
@@ -823,8 +1082,18 @@ function tick() {
     readVisual,
     flushVisual,
     pickVisual,
+    getMainVideo,
+    getState,
+    announceState,
+    setEnabled,
+    cycleReaderMode,
+    playPauseVideo,
+    toggleMute,
+    seekVideo,
+    toggleFullscreen,
   };
 
+  announceStatus("KathWare SubtitleReader iniciado");
   console.log("[KWSR] Iniciado", KWSR.version);
-  console.log("[KWSR] Atajos: Alt+Shift+K ON/OFF | Alt+Shift+L lector/voz/off | Alt+Shift+O estado | Alt+Shift+D debug");
+  console.log("[KWSR] Atajos: Alt+Shift+K ON/OFF | Alt+Shift+L salida | Alt+Shift+O estado | Alt+Shift+D debug | Alt+Shift+P play/pausa | Alt+Shift+M mute | Alt+Shift+F pantalla completa | Alt+Shift+Flechas avanzar/retroceder");
 })();
