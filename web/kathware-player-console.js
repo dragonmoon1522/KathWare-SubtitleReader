@@ -16,7 +16,7 @@
   if (OLD?.destroy) OLD.destroy();
 
   const KWSR = {
-    version: "2.1.2-console-integrated",
+    version: "2.1.3-console-integrated",
 
     enabled: true,
     readerMode: "lector", // lector | voz | off
@@ -1123,5 +1123,5 @@ restartEngine,
 
   announceStatus("KathWare SubtitleReader iniciado");
   console.log("[KWSR] Iniciado", KWSR.version);
-  console.log("[KWSR] Atajos: Alt+Shift+K ON/OFF | Alt+Shift+L salida | Alt+Shift+O estado | Alt+Shift+D debug | Alt+Shift+P play/pausa | Alt+Shift+M mute | Alt+Shift+F pantalla completa | Alt+Shift+Flechas avanzar/retroceder");
+  console.log("[KWSR] Atajos: Alt+Shift+K ON/OFF | Alt+Shift+L salida | Alt+Shift+O estado | Alt+Shift+D debug | Alt+Shift+P play/pausa | Alt+Shift+M mute | Alt+Shift+F pantalla completa | Alt+Shift+Flechas avanzar/retroceder | Alt+Shift+R reiniciar motor");
 })();
