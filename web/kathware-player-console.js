@@ -1,6 +1,6 @@
 // ====================================================
 // KathWare SubtitleReader - Console Integrated
-// Version: 2.1.2-console-integrated
+// Version: 2.1.3-console-integrated
 // Consola de prueba con funciones cercanas a la extensión:
 // - lectura de subtítulos
 // - anuncios accesibles de estado
@@ -705,7 +705,27 @@
     KWSR.visualFlushTimer = null;
   }
 
-  function setEnabled(value) {
+  function restartEngine() {
+  resetReadingState();
+
+  try {
+    speechSynthesis?.cancel?.();
+  } catch (_) {}
+
+  // Fuerza una nueva detección inmediatamente
+  tick();
+
+  announceStatus("Motor reiniciado");
+
+  if (KWSR.debug) {
+    console.log("[KWSR] Motor reiniciado");
+    console.log(getState());
+  }
+}
+  
+  
+
+function setEnabled(value) {
     KWSR.enabled = Boolean(value);
     resetReadingState();
     announceStatus(KWSR.enabled ? "SubtitleReader activado" : "SubtitleReader desactivado");
@@ -1004,6 +1024,13 @@
         e.stopImmediatePropagation();
         return;
       }
+
+      if (key === "r") {
+  restartEngine();
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  return;
+}
     };
 
     document.addEventListener("keydown", KWSR.keyHandler, true);
@@ -1091,6 +1118,7 @@
     toggleMute,
     seekVideo,
     toggleFullscreen,
+restartEngine,
   };
 
   announceStatus("KathWare SubtitleReader iniciado");
