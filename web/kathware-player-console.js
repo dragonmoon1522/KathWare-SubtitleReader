@@ -862,52 +862,57 @@
           container
             .getBoundingClientRect();
 
-        let score = 0;
-
-        // Más abajo en pantalla suele
-        // corresponder a subtítulos.
-        score +=
-          rect.bottom >
-          window.innerHeight * 0.45
-            ? 100
-            : 0;
-
-        // Preferimos grupos explícitos.
-        score +=
-          lines.length * 40;
-
-        // Texto razonable.
-        score +=
-          Math.min(
-            text.length,
-            120
-          );
-
         candidates.push({
-          el: container,
+  el: container,
 
-          renderer: {
-            name:
-              "Visual grouped lines",
+  renderer: {
+    name:
+      "Visual grouped lines",
 
-            mode:
-              "settled"
-          },
+    mode:
+      "settled"
+  },
 
-          text,
+  text,
 
-          lines:
-            lines.length,
+  lines:
+    lines.length,
 
-          score
-        });
+  rect,
+
+  length:
+    text.length
+});
       }
     }
 
-    candidates.sort(
-      (a, b) =>
-        b.score - a.score
-    );
+    candidates.sort((a, b) => {
+  /*
+   * Primero preferimos el texto más completo.
+   *
+   * Si ambos tienen una longitud parecida,
+   * preferimos el grupo situado más abajo
+   * dentro del reproductor.
+   *
+   * Es el criterio que ya funcionó durante
+   * la prueba estructural original.
+   */
+
+  const lengthDifference =
+    b.length - a.length;
+
+  if (
+    Math.abs(lengthDifference) >
+    5
+  ) {
+    return lengthDifference;
+  }
+
+  return (
+    b.rect.bottom -
+    a.rect.bottom
+  );
+});
 
     return (
       candidates[0] ||
