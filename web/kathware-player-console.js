@@ -1589,33 +1589,30 @@
         KWSR.lastVisualRaw =
           text;
 
-        const clean =
-          removeAlreadySpoken(
-            text
-          );
+        /*
+ * Los renderizadores settled entregan el cue completo.
+ * No recortamos palabras contra el contexto hablado.
+ *
+ * La deduplicación completa ya se hizo comparando
+ * lastVisualRaw y fingerprint.
+ */
 
-        if (!clean) {
-          return;
-        }
+log(
+  `VISUAL RAW (${picked.renderer.name}):`,
+  text
+);
 
-        log(
-          `VISUAL RAW (${picked.renderer.name}):`,
-          text
-        );
+if (picked.lines) {
+  log(
+    "VISUAL LINES:",
+    picked.lines
+  );
+}
 
-        if (
-          picked.lines
-        ) {
-          log(
-            "VISUAL LINES:",
-            picked.lines
-          );
-        }
-
-        emit(
-          clean,
-          `VISUAL:${picked.renderer.name}`
-        );
+emit(
+  text,
+  `VISUAL:${picked.renderer.name}`
+);
       }, KWSR.settleMs);
   }
 
