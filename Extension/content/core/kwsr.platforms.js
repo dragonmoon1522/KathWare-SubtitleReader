@@ -64,6 +64,7 @@
     if (h.includes("vimeo")) return "vimeo";
     if (h.includes("twitch")) return "twitch";
     if (h.includes("flow.com.ar")) return "flow";
+    if (h.includes("vix.com")) return "vix";
 
     return "generic";
   }
@@ -93,6 +94,7 @@
       vimeo: "Vimeo",
       twitch: "Twitch",
       flow: "Flow",
+      vix: "ViX",
       generic: "Sitio"
     })[p] || "Sitio";
   }
@@ -132,7 +134,7 @@
     }
 
     // DOM extremadamente dinámico
-    if (p === "disney") {
+    if (p === "disney" || p === "vix") {
       caps.visualDocObserver = true;
     }
 
@@ -155,6 +157,17 @@
   // - Menos ruido = menos duplicados.
   // --------------------------------------------------
   function platformSelectors(p) {
+
+    // ------------------------------
+    // ViX / Lura - líneas visuales agrupadas
+    // La clase del contenedor es dinámica. El selector sólo localiza las líneas;
+    // kwsr.visual.js reconstruye el grupo por su padre estructural.
+    // ------------------------------
+    if (p === "vix") {
+      return [
+        "#video-player div > p"
+      ];
+    }
 
     // ------------------------------
     // Flow (THEOplayer)
@@ -204,10 +217,16 @@
     // ------------------------------
     if (p === "disney") {
       return [
+        "timed-text-override-region .hive-subtitle-renderer-line",
+        ".timed-text-override-region .hive-subtitle-renderer-line",
+        ".DxcOverlay .hive-subtitle-renderer-line",
+        "DISNEY-WEB-PLAYER .hive-subtitle-renderer-line",
+        "timed-text-override-region [class*='subtitle']",
+        ".timed-text-override-region [class*='subtitle']",
+        ".DxcOverlay [class*='subtitle']",
+        "DISNEY-WEB-PLAYER [class*='subtitle']",
         ".hive-subtitle-renderer-line",
-        "[class*='hive-subtitle']",
-        "[class*='subtitle']",
-        "[class*='caption']"
+        "[class*='hive-subtitle']"
       ];
     }
 
