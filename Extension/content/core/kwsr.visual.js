@@ -185,6 +185,63 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Líneas visuales agrupadas (ViX / Lura)
+  // ---------------------------------------------------------------------------
+  // El contenedor usa clases dinámicas. La señal estable validada es estructural:
+  // todos sus hijos directos son <p> visibles con display: table.
+  function getGroupedLineCandidate() {
+    if (platform() !== "vix") return null;
+
+    const root = document.querySelector("#video-player");
+    if (!root) return null;
+
+    const candidates = [];
+
+    for (const container of root.querySelectorAll("div")) {
+      if (!isVisible(container) || isInsideKathWareUI(container)) continue;
+
+      const children = Array.from(container.children || []);
+      if (!children.length || !children.every(el => el.tagName === "P")) continue;
+
+      const lines = [];
+      let valid = true;
+
+      for (const line of children) {
+        if (!isVisible(line)) { valid = false; break; }
+
+        let display = "";
+        try { display = getComputedStyle(line).display; } catch {}
+        if (display !== "table") { valid = false; break; }
+
+        const text = normalize(line.innerText || line.textContent || "");
+        if (!text || looksLikeNoise(line, text)) { valid = false; break; }
+        lines.push(text);
+      }
+
+      if (!valid || !lines.length) continue;
+
+      const text = smartJoinLines(lines);
+      if (text.length < 2 || text.length > 500) continue;
+
+      const rect = container.getBoundingClientRect?.() || { bottom: 0 };
+      candidates.push({
+        text,
+        key: containerKeyForNode(container),
+        lineParts: lines,
+        lineCount: lines.length,
+        bottom: Number(rect.bottom || 0)
+      });
+    }
+
+    candidates.sort((a, b) => {
+      if (Math.abs(b.text.length - a.text.length) > 5) return b.text.length - a.text.length;
+      return b.bottom - a.bottom;
+    });
+
+    return candidates[0] || null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Clave del contenedor
   // ---------------------------------------------------------------------------
   function containerKeyForNode(n) {
@@ -643,8 +700,16 @@
       if (!S.visualSelectorUsed) return;
     }
 
-    const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
-    const { text, key, lineParts, lineCount } = readTextFromNodes(nodes, p);
+    let visualResult = null;
+
+    if (p === "vix") {
+      visualResult = getGroupedLineCandidate();
+    } else {
+      const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
+      visualResult = readTextFromNodes(nodes, p);
+    }
+
+    const { text = "", key = "", lineParts = [], lineCount = 0 } = visualResult || {};
 
     // -------------------------------------------------------------------------
     // SIN TEXTO → RESET
@@ -900,7 +965,8 @@
     stopVisualObserver,
     pollVisualTick,
     visualReselectTick,
-    resetVisualDedupe
+    resetVisualDedupe,
+    getGroupedLineCandidate
   };
 
 })();
