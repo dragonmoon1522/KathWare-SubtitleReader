@@ -45,7 +45,8 @@
 
   function getVoices() {
     try {
-      return Array.from(speechSynthesis?.getVoices?.() || []);
+      if (typeof speechSynthesis === "undefined") return [];
+      return Array.from(speechSynthesis.getVoices?.() || []);
     } catch {
       return [];
     }
@@ -105,6 +106,8 @@
     } else {
       S.ttsVoiceURI = "";
       S.ttsVoiceName = "";
+      S.voiceES = null;
+      try { KWSR.voice?.cargarVozES?.(); } catch {}
     }
 
     persist({
@@ -185,17 +188,38 @@
 
     try {
       if (typeof speechSynthesis === "undefined") return false;
+      if (typeof speechSynthesis.speak !== "function") return false;
 
-      const proto = Object.getPrototypeOf(speechSynthesis);
-      if (!proto || typeof proto.speak !== "function") return false;
+      const synth = speechSynthesis;
+      const instanceSpeak = synth.speak;
 
-      originalSpeak = proto.speak;
-
-      proto.speak = function(utterance) {
+      const instanceWrapper = function(utterance) {
         try { applySettingsToUtterance(utterance); } catch {}
-        return originalSpeak.call(this, utterance);
+        return instanceSpeak.call(synth, utterance);
       };
 
+      try {
+        synth.speak = instanceWrapper;
+        if (synth.speak === instanceWrapper) {
+          originalSpeak = instanceSpeak;
+          speechPatched = true;
+          return true;
+        }
+      } catch {}
+
+      const proto = Object.getPrototypeOf(synth);
+      const protoSpeak = proto?.speak;
+      if (!proto || typeof protoSpeak !== "function") return false;
+
+      const protoWrapper = function(utterance) {
+        try { applySettingsToUtterance(utterance); } catch {}
+        return protoSpeak.call(this, utterance);
+      };
+
+      proto.speak = protoWrapper;
+      if (proto.speak !== protoWrapper) return false;
+
+      originalSpeak = protoSpeak;
       speechPatched = true;
       return true;
     } catch (e) {
