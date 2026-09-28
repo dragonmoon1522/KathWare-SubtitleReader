@@ -3,7 +3,8 @@
   "name": "KathWare SubtitleReader",
   "short_name": "KWSR",
   "description": "Lectura automática de subtítulos en plataformas de streaming con accesibilidad real y sin configuración.",
-  "version": "2.0.0",
+  "version": "2.2.0",
+  "version_name": "2.2.0-beta",
   "author": "Katherine Vargas (KathWare)",
   "minimum_chrome_version": "114",
 
@@ -41,6 +42,7 @@
         "content/core/kwsr.video.js",
         "content/core/kwsr.track.js",
         "content/core/kwsr.visual.js",
+        "content/adapters/kwsr.openShadowCaptions.js",
 
         "content/ui/kwsr.toast.js",
         "content/ui/kwsr.overlay.js",
