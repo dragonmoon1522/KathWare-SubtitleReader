@@ -42,10 +42,13 @@
         "content/core/kwsr.video.js",
         "content/core/kwsr.track.js",
         "content/core/kwsr.visual.js",
+
+        "content/adapters/kwsr.consoleRenderers.js",
         "content/adapters/kwsr.openShadowCaptions.js",
 
         "content/ui/kwsr.toast.js",
         "content/ui/kwsr.overlay.js",
+        "content/adapters/kwsr.betaTools.js",
 
         "content/adapters/kwsr.keepAlive.js",
         "content/adapters/kwsr.nonAccessible.platforms.js",
