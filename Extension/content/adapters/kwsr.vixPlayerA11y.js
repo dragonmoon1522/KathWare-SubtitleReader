@@ -53,9 +53,6 @@
     return (KWSR.platforms?.getPlatform?.() || "") === "vix";
   }
 
-  // ---------------------------------------------------------------------------
-  // Habilitar las capacidades que ViX necesita en la beta.
-  // ---------------------------------------------------------------------------
   const originalCapabilities = KWSR.platforms?.platformCapabilities?.bind(KWSR.platforms);
   if (originalCapabilities) {
     KWSR.platforms.platformCapabilities = (p) => {
@@ -171,8 +168,8 @@
     if (/forward|skip-?forward|forward-?10|seek-?forward|adelant/.test(blob)) return "Avanzar";
     if (/unmute|sound-?on|volume-?off/.test(blob)) return "Activar sonido";
     if (/mute|volume|sound|volumen|silencio/.test(blob)) return "Volumen o silenciar";
-    if (/fullscreen|full-?screen|pantalla completa/.test(blob)) return "Pantalla completa";
     if (/exit-?full|compress/.test(blob)) return "Salir de pantalla completa";
+    if (/fullscreen|full-?screen|pantalla completa/.test(blob)) return "Pantalla completa";
     if (/subtitle|caption|closed-?caption|\bcc\b|subt[ií]t/.test(blob)) return "Subtítulos";
     if (/audio/.test(blob)) return "Audio";
     if (/setting|config|gear/.test(blob)) return "Configuración";
@@ -193,8 +190,9 @@
 
       const realLabel = normalize(el.getAttribute("aria-label") || "");
       const ours = el.getAttribute("data-kw-autolabel") === "1";
+      const shouldSetLabel = !realLabel || (ours && realLabel !== label);
 
-      if (!realLabel || ours) {
+      if (shouldSetLabel) {
         el.setAttribute("aria-label", label);
         el.setAttribute("data-kw-autolabel", "1");
       }
@@ -208,7 +206,7 @@
         el.setAttribute("tabindex", "0");
       }
 
-      return true;
+      return shouldSetLabel;
     } catch {
       return false;
     }
@@ -243,7 +241,6 @@
       if (!isProbablyInteractive(el)) continue;
       if (!nearVideo(el, video, root)) continue;
 
-      // No convertir las líneas de subtítulos de ViX en botones.
       if (el.tagName === "P") continue;
       if (el.closest?.("#kwsr-tts-settings,#kwsr-beta-tools")) continue;
 
@@ -263,7 +260,7 @@
       }
     }
 
-    const result = { found: seen.size, labeled, unresolved };
+    const result = { found: candidates.length, labeled, unresolved };
     const summary = JSON.stringify(result);
 
     if (KWSR.CFG?.debug && summary !== lastSummary) {
@@ -293,14 +290,13 @@
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["class", "style", "aria-label", "aria-hidden", "tabindex"]
+        attributeFilter: ["class", "style", "aria-hidden"]
       });
     } catch {
       observer = null;
     }
   }
 
-  // Extendemos el tick general: primero corre lo existente y después el fallback ViX.
   const originalTick = KWSR.nonAccessiblePlatforms?.tick?.bind(KWSR.nonAccessiblePlatforms);
   if (KWSR.nonAccessiblePlatforms && originalTick) {
     KWSR.nonAccessiblePlatforms.tick = (...args) => {
