@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-09-28
+**Última actualización:** 2026-09-29
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -32,6 +32,18 @@ Versión beta orientada a consolidar en la extensión las funciones ya probadas 
 * Se mantiene la selección automática de fuente efectiva de subtítulos sin exigir configuración manual al usuario.
 
 #### Accesibilidad del reproductor
+
+Corrección ViX / overlay (2026-09-29):
+
+* ViX queda bajo un único adaptador de accesibilidad: el general ya no sobrescribe sus etiquetas. Se elimina la competencia que provocaba la alternancia repetida `labeled: 2/0`; el debug informa cambios del conjunto de controles, no el delta de cada pasada.
+* Los botones visibles y habilitados de ViX recuperan entrada con Tab aunque tengan `tabindex="-1"`. Los botones personalizados admiten Enter/Espacio, conservando nombres reales del sitio y sin convertir contenedores, sliders ni subtítulos en botones.
+* `keepAlive` usa un único destino en ViX y se solicita también antes de Tab. No se fuerzan visibles menús cerrados ni elementos ocultos/inertes.
+* La detección del player accesible verifica visibilidad de ancestros, estado habilitado y entrada real en Tab. Un `role` sin foco o una etiqueta genérica ya no bastan para retirar el fallback.
+* Las reglas del fallback no reaccionan a sus propias mutaciones ni reescriben atributos sin cambios. Solo ocultan la barra alternativa; configuración y «Cerrar panel» permanecen disponibles. Si el foco estaba en esa barra, pasa a «Cerrar panel» antes de ocultarla.
+* El overlay se monta dentro del contenedor de pantalla completa y se reconecta al actualizarse si el sitio retiró su nodo. Pantalla completa nativa sobre el elemento `video` sigue limitada por la interfaz del navegador.
+* Los atajos alternativos respetan controles enfocados. El botón de subtítulos se elimina desde la construcción del panel.
+* Pruebas de regresión en navegador con DOM de ejemplo para etiquetas estables, Tab/Enter/Espacio, controles ocultos/deshabilitados, fallback, observadores y pantalla completa. Sigue pendiente la validación en una sesión real de ViX con NVDA.
+* Sin cambios al lector de subtítulos ni refactor de 3.0.
 
 * Mejora del etiquetado automático de controles en reproductores poco accesibles.
 * Compatibilidad específica para controles de **ViX**, incluyendo componentes sin semántica HTML suficiente.

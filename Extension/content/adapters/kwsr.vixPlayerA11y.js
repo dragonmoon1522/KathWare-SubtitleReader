@@ -11,7 +11,7 @@
 //
 // Esta capa:
 // - habilita keepAlive + nonAccessibleFixes para ViX;
-// - deja correr el adaptador general existente;
+// - es el único adaptador que etiqueta ViX (evita competir con el general);
 // - agrega un barrido específico dentro de #video-player para controles que el
 //   detector general no ve;
 // - nunca toca subtítulos ni la UI de KathWare.
@@ -48,6 +48,8 @@
   let observer = null;
   let scheduled = false;
   let lastSummary = "";
+  const keyboardBound = new WeakSet();
+  const ownedLabels = new WeakMap();
 
   function isVix() {
     return (KWSR.platforms?.getPlatform?.() || "") === "vix";
@@ -70,9 +72,12 @@
       if (!el || !(el instanceof Element)) return false;
       if (el.closest?.(OUR_UI)) return false;
 
-      const cs = getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden") return false;
-      if (Number(cs.opacity || 1) < 0.05) return false;
+      for (let node = el; node; node = node.parentElement) {
+        if (node.hidden || node.inert || node.getAttribute("aria-hidden") === "true") return false;
+        const cs = getComputedStyle(node);
+        if (cs.display === "none" || cs.visibility === "hidden" || cs.visibility === "collapse") return false;
+        if (Number(cs.opacity || 1) < 0.05) return false;
+      }
 
       const r = el.getBoundingClientRect();
       return r.width >= 12 && r.height >= 12;
@@ -83,22 +88,18 @@
 
   function isProbablyInteractive(el) {
     try {
+      if (el.matches(":disabled") || el.closest('[aria-disabled="true"]')) return false;
       const tag = (el.tagName || "").toUpperCase();
-      if (["BUTTON", "A", "INPUT", "SELECT"].includes(tag)) return true;
+      if (tag === "BUTTON" || (tag === "A" && el.hasAttribute("href"))) return true;
       if ((el.getAttribute("role") || "").toLowerCase() === "button") return true;
-      if (el.hasAttribute("aria-controls")) return true;
-      if (el.hasAttribute("data-action") || el.hasAttribute("data-control") || el.hasAttribute("data-testid")) return true;
+      // No convertir sliders, menús, subtítulos ni wrappers con testid en botones.
+      if (el.hasAttribute("role") || ["INPUT", "SELECT", "TEXTAREA", "P", "SVG", "VIDEO"].includes(tag)) return false;
+      if (el.closest("button,a[href],[role='button'],[role='slider']")) return false;
+      if (el.querySelector("button,a[href],input,select,[role='button'],[role='slider'],[data-action],[data-control]")) return false;
+      if (el.hasAttribute("data-action") || el.hasAttribute("data-control")) return true;
       if (el.hasAttribute("onclick")) return true;
-
-      const ti = el.getAttribute("tabindex");
-      if (ti !== null && Number(ti) >= 0) return true;
-
-      const sig = `${el.id || ""} ${el.className || ""}`.toLowerCase();
-      if (/button|control|play|pause|mute|volume|fullscreen|caption|subtitle|setting|seek|forward|back|rewind/.test(sig)) {
-        return true;
-      }
-
-      return getComputedStyle(el).cursor === "pointer";
+      const sig = `${el.id || ""} ${el.className || ""} ${el.getAttribute("data-testid") || ""}`.toLowerCase();
+      return /button|(?:^|[-_\s])btn(?:$|[-_\s])/.test(sig);
     } catch {
       return false;
     }
@@ -151,7 +152,10 @@
 
   function guessLabel(el) {
     const existing = normalize(el.getAttribute("aria-label") || "");
-    if (existing && el.getAttribute("data-kw-autolabel") !== "1") return existing;
+    if (existing && existing !== ownedLabels.get(el)) return existing;
+    const labelledBy = normalize(el.getAttribute("aria-labelledby") || "");
+    const referenced = labelledBy.split(/\s+/).map(id => document.getElementById(id)?.textContent || "").join(" ");
+    if (normalize(referenced)) return normalize(referenced);
 
     const text = normalize(el.innerText || el.textContent || "");
     if (text && text.length <= 80) return text;
@@ -162,8 +166,9 @@
     const blob = signalBlob(el);
 
     if (/pause|pausa/.test(blob)) return "Pausar";
-    if (/play|reproduc/.test(blob)) return "Reproducir";
     if (/replay|restart|reiniciar/.test(blob)) return "Reiniciar reproducción";
+    // "player" aparece en clases de todos los controles; no significa play.
+    if (/(?:^|[^a-z])play(?:$|[^a-z])|reproduc/.test(blob)) return "Reproducir";
     if (/rewind|backward|back-?10|seek-?back|retroced/.test(blob)) return "Retroceder";
     if (/forward|skip-?forward|forward-?10|seek-?forward|adelant/.test(blob)) return "Avanzar";
     if (/unmute|sound-?on|volume-?off/.test(blob)) return "Activar sonido";
@@ -189,21 +194,37 @@
       if (!el || !label) return false;
 
       const realLabel = normalize(el.getAttribute("aria-label") || "");
-      const ours = el.getAttribute("data-kw-autolabel") === "1";
-      const shouldSetLabel = !realLabel || (ours && realLabel !== label);
+      const ours = realLabel === ownedLabels.get(el);
+      const hasLabelledBy = normalize(el.getAttribute("aria-labelledby") || "").split(/\s+/)
+        .some(id => normalize(document.getElementById(id)?.textContent || ""));
+      const shouldSetLabel = !hasLabelledBy && (!realLabel || (ours && realLabel !== label));
 
       if (shouldSetLabel) {
         el.setAttribute("aria-label", label);
         el.setAttribute("data-kw-autolabel", "1");
+        ownedLabels.set(el, label);
       }
 
       const tag = (el.tagName || "").toUpperCase();
-      if (!["BUTTON", "A", "INPUT", "SELECT"].includes(tag) && !el.getAttribute("role")) {
+      const nativeButton = tag === "BUTTON" || (tag === "A" && el.hasAttribute("href"));
+      if (!nativeButton && !el.getAttribute("role")) {
         el.setAttribute("role", "button");
       }
 
-      if (!["BUTTON", "A", "INPUT", "SELECT"].includes(tag) && !el.hasAttribute("tabindex")) {
+      if (el.tabIndex < 0) {
         el.setAttribute("tabindex", "0");
+      }
+
+      if (!nativeButton && !keyboardBound.has(el)) {
+        keyboardBound.add(el);
+        el.addEventListener("keydown", event => {
+          if (!S.extensionActiva || !isVix() || event.target !== el || event.defaultPrevented) return;
+          if (event.ctrlKey || event.altKey || event.metaKey || !["Enter", " "].includes(event.key)) return;
+          if (!isVisible(el) || !isProbablyInteractive(el)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) el.click();
+        });
       }
 
       return shouldSetLabel;
@@ -249,19 +270,18 @@
 
       if (applyLabel(el, label)) labeled++;
 
-      if (KWSR.CFG?.debug) {
-        debugControls.push({
+      debugControls.push({
           tag: el.tagName,
           label,
           id: el.id || "",
           className: String(el.className || "").slice(0, 100),
           testId: el.getAttribute("data-testid") || ""
         });
-      }
     }
 
     const result = { found: candidates.length, labeled, unresolved };
-    const summary = JSON.stringify(result);
+    // labeled es un delta por pasada, no un cambio de estado del reproductor.
+    const summary = JSON.stringify(debugControls);
 
     if (KWSR.CFG?.debug && summary !== lastSummary) {
       lastSummary = summary;
@@ -285,12 +305,14 @@
     if (observer || !isVix()) return;
 
     try {
-      observer = new MutationObserver(() => scheduleScan());
+      observer = new MutationObserver(records => {
+        if (records.some(record => !record.target.closest?.(OUR_UI))) scheduleScan();
+      });
       observer.observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["class", "style", "aria-hidden"]
+        attributeFilter: ["class", "style", "aria-hidden", "hidden", "inert", "tabindex", "role", "aria-label", "aria-labelledby", "disabled", "aria-disabled", "data-testid", "data-action", "data-icon"]
       });
     } catch {
       observer = null;
@@ -315,6 +337,15 @@
     guessLabel,
     signalBlob
   };
+
+  // Revelar controles antes de que el navegador resuelva el siguiente Tab.
+  // No forzar visibility/aria-hidden de menús cerrados ni mover el foco.
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Tab" || !S.extensionActiva || !isVix()) return;
+    KWSR.keepAlive?.tick?.(true);
+    scan();
+    scheduleScan();
+  }, true);
 
   startObserver();
 })();

@@ -130,11 +130,11 @@
   // Lo llama pipeline en un intervalo.
   // Si no corresponde correr, sale sin hacer nada.
   //
-  function tick() {
+  function tick(force = false) {
     if (!shouldRun()) return;
 
     const now = Date.now();
-    if (now - lastTickAt < THROTTLE_MS) return;
+    if (!force && now - lastTickAt < THROTTLE_MS) return;
     lastTickAt = now;
 
     const v = S.currentVideo || KWSR.video?.getMainVideo?.();
@@ -154,6 +154,17 @@
       // Coordenadas “cerca de controles”
       const x = r.left + r.width * 0.5;
       const y = r.top + r.height * Y_RATIO;
+
+      if (KWSR.platforms?.getPlatform?.() === "vix") {
+        // Un solo destino: cada evento ya burbujea. Enviar hover a video,
+        // padres, document y window multiplicaba las transiciones del player.
+        const root = v.closest("#video-player,[class*='player'],[class*='Player']") || v.parentElement;
+        const hit = document.elementFromPoint(x, y);
+        const target = hit && root?.contains(hit) && !hit.closest("#kathware-overlay-root") ? hit : v;
+        fire(target, "mousemove", x, y);
+        firePointer(target, "pointermove", x, y);
+        return;
+      }
 
       const targets = getTargets(v);
 

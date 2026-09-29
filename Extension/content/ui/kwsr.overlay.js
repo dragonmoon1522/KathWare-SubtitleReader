@@ -102,7 +102,10 @@
   // 2) Construcción del overlay (root + panel + pill)
   // -----------------------------------------------------------------------------
   function ensureOverlay() {
-    if (S.overlayRoot) return;
+    if (S.overlayRoot) {
+      mountOverlay();
+      return;
+    }
 
     // Root: contenedor fijo, arriba de todo (zIndex máximo)
     const root = document.createElement("div");
@@ -195,6 +198,7 @@
 
     // Controles del reproductor (botones)
     const controlsRow = document.createElement("div");
+    controlsRow.id = "kwsr-fallback-player-controls";
     Object.assign(controlsRow.style, {
       display: "flex",
       flexWrap: "wrap",
@@ -234,14 +238,13 @@
     const btnBack  = mkBtn("⏪", () => seekBy(-CFG.seekBig), "Atrasar 10 segundos");
     const btnFwd   = mkBtn("⏩", () => seekBy(+CFG.seekBig), "Adelantar 10 segundos");
     const btnMute  = mkBtn("M",   () => toggleMute(), "Silenciar / Activar sonido");
-    const btnCC    = mkBtn("C",   () => toggleCaptions(), "Subtítulos");
     const btnFull  = mkBtn("⛶",  () => requestFull(), "Pantalla completa");
     const btnClose = mkBtn("Cerrar", () => setPanelOpen(false), "Cerrar panel");
 
-    controlsRow.append(btnPlay, btnPause, btnBack, btnFwd, btnMute, btnCC, btnFull, btnClose);
+    controlsRow.append(btnPlay, btnPause, btnBack, btnFwd, btnMute, btnFull);
 
     // Composición del panel (orden: status -> texto -> modo -> hotkeys -> controles)
-    panel.append(status, text, settingsRow, hotkeys, controlsRow);
+    panel.append(status, text, settingsRow, hotkeys, controlsRow, btnClose);
 
     // Pill
     const pill = document.createElement("button");
@@ -267,7 +270,6 @@
     });
 
     root.append(panel, pill);
-    document.documentElement.appendChild(root);
 
     // Guardamos referencias
     S.overlayRoot = root;
@@ -276,6 +278,7 @@
     S.overlayStatus = status;
     S.overlayText = text;
     S.overlayModoSelect = modoSelect;
+    mountOverlay();
 
     // -----------------------------------------------------------------------------
     // 3) Listener de modo (blindado con safeExtCall)
@@ -300,8 +303,21 @@
   // -----------------------------------------------------------------------------
   // 3) Mostrar / ocultar overlay y panel
   // -----------------------------------------------------------------------------
+  function mountOverlay() {
+    const root = S.overlayRoot;
+    if (!root) return;
+    // Un overlay fuera del elemento fullscreen queda detrás de la top layer.
+    const fullscreen = document.fullscreenElement;
+    const host = fullscreen && !fullscreen.matches("video,audio")
+      ? fullscreen : document.documentElement;
+    if (root.parentElement !== host) host.appendChild(root);
+  }
+
+  document.addEventListener("fullscreenchange", mountOverlay);
+
   function setOverlayVisible(visible) {
     if (!S.overlayRoot) return;
+    mountOverlay();
     S.overlayRoot.style.display = visible ? "block" : "none";
     if (!visible) {
       try { S.overlayPanel.style.display = "none"; } catch {}
@@ -336,6 +352,7 @@
   // -----------------------------------------------------------------------------
   function updateOverlayStatus() {
     if (!S.overlayRoot) return;
+    mountOverlay();
 
     const p = KWSR.platforms?.getPlatform?.() || "generic";
     const label = KWSR.platforms?.platformLabel?.(p) || "Sitio";

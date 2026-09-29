@@ -70,6 +70,9 @@
     if (!S.extensionActiva) return false;
 
     const p = KWSR.platforms?.getPlatform?.() || "generic";
+    // ViX tiene un único propietario de etiquetas y semántica. Los dos
+    // adaptadores usaban data-kw-autolabel y se sobrescribían entre sí.
+    if (p === "vix" && KWSR.vixPlayerA11y) return false;
     const caps = KWSR.platforms?.platformCapabilities?.(p) || {};
     return !!caps.nonAccessibleFixes;
   }

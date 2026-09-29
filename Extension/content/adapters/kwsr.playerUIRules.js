@@ -36,9 +36,12 @@
       if (!el || !(el instanceof Element)) return false;
       if (el.closest?.(OUR_UI)) return false;
 
-      const cs = getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden") return false;
-      if (Number(cs.opacity || 1) < 0.05) return false;
+      for (let node = el; node; node = node.parentElement) {
+        if (node.hidden || node.inert || node.getAttribute("aria-hidden") === "true") return false;
+        const cs = getComputedStyle(node);
+        if (cs.display === "none" || cs.visibility === "hidden" || cs.visibility === "collapse") return false;
+        if (Number(cs.opacity || 1) < 0.05) return false;
+      }
 
       const r = el.getBoundingClientRect();
       return r.width >= 10 && r.height >= 10;
@@ -76,18 +79,10 @@
 
   function isKeyboardInteractive(el) {
     try {
-      const tag = (el.tagName || "").toUpperCase();
-      if (["BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(tag)) return !el.disabled;
-      if (tag === "A" && el.hasAttribute("href")) return true;
-
-      const role = (el.getAttribute("role") || "").toLowerCase();
-      if (["button", "slider", "menuitem", "option", "switch", "checkbox", "radio"].includes(role)) {
-        const ti = el.getAttribute("tabindex");
-        return ti === null || Number(ti) >= 0;
-      }
-
-      const ti = el.getAttribute("tabindex");
-      return ti !== null && Number(ti) >= 0;
+      if (el.matches(":disabled") || el.closest('[aria-disabled="true"]')) return false;
+      // role no hace enfocable a un div; tabindex=-1 también excluye botones.
+      if (el.tabIndex < 0) return false;
+      return el.matches("button,input,select,textarea,a[href],[role='button'],[role='slider'],[role='switch'],[role='checkbox'],[role='radio']");
     } catch {
       return false;
     }
@@ -141,7 +136,8 @@
     return all.filter(el => {
       if (!isVisible(el)) return false;
       if (!nearVideo(el, video, root)) return false;
-      return isKeyboardInteractive(el) && !!accessibleName(el);
+      const name = accessibleName(el);
+      return isKeyboardInteractive(el) && !!name && name !== "Control del reproductor";
     });
   }
 
@@ -153,7 +149,7 @@
 
     // El reproductor nativo del navegador ya tiene semántica y teclado propios.
     try {
-      if (video.controls) {
+      if (video.controls && isVisible(video)) {
         return { accessible: true, reason: "native-video-controls", namedControls: 1 };
       }
     } catch {}
@@ -211,18 +207,24 @@
     const row = getFallbackControlsRow();
     if (!row) return;
 
-    row.id = "kwsr-fallback-player-controls";
-    row.setAttribute("aria-label", "Controles alternativos del reproductor");
+    if (row.id !== "kwsr-fallback-player-controls") row.id = "kwsr-fallback-player-controls";
+    if (row.getAttribute("aria-label") !== "Controles alternativos del reproductor") {
+      row.setAttribute("aria-label", "Controles alternativos del reproductor");
+    }
 
     const info = nativePlayerAccessibility();
     const shouldShowFallback = !info.accessible;
     const wantedDisplay = shouldShowFallback ? "flex" : "none";
 
     if (row.style.display !== wantedDisplay) {
+      if (!shouldShowFallback && row.contains(document.activeElement)) {
+        S.overlayPanel?.querySelector("button[aria-label='Cerrar panel']")?.focus();
+      }
       row.style.display = wantedDisplay;
     }
 
-    row.setAttribute("aria-hidden", shouldShowFallback ? "false" : "true");
+    const hidden = shouldShowFallback ? "false" : "true";
+    if (row.getAttribute("aria-hidden") !== hidden) row.setAttribute("aria-hidden", hidden);
 
     if (CFG.debug && info.accessible !== lastAccessibleState) {
       console.log("[KathWare] fallback player UI", {
@@ -250,12 +252,14 @@
     if (observer) return;
 
     try {
-      observer = new MutationObserver(() => scheduleSync());
+      observer = new MutationObserver(records => {
+        if (records.some(record => !record.target.closest?.(OUR_UI))) scheduleSync();
+      });
       observer.observe(document.documentElement, {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["class", "style", "aria-label", "aria-labelledby", "role", "tabindex", "controls"]
+        attributeFilter: ["class", "style", "aria-label", "aria-labelledby", "role", "tabindex", "controls", "hidden", "inert", "aria-hidden", "disabled", "aria-disabled"]
       });
     } catch {
       observer = null;
@@ -294,6 +298,9 @@
 
   if (originalHandlePlayerHotkeys) {
     KWSR.overlay.handlePlayerHotkeys = (event) => {
+      // Dejar Enter/Espacio/flechas a los controles enfocados, incluso cuando
+      // el resto del reproductor todavía necesita el fallback.
+      if (event?.defaultPrevented || event?.target?.closest?.("button,a[href],input,select,textarea,[role='button'],[role='slider'],[role='menuitem'],[contenteditable='true']")) return false;
       const key = String(event?.key || "").toLowerCase();
 
       // Ya no existe control de alternar pistas en nuestro reproductor.
