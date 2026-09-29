@@ -1,7 +1,103 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-04-07
+**Última actualización:** 2026-09-28
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
+
+---
+
+### **Versión 2.2.0-beta — en desarrollo (2026-09-28)**
+
+Versión beta orientada a consolidar en la extensión las funciones ya probadas en consola, sin introducir todavía el cambio estructural previsto para 3.0.0.
+
+#### Alcance de esta versión
+
+* Integración de mejoras funcionales sobre la arquitectura 2.x existente.
+* Se mantiene la separación actual por módulos y adapters.
+* Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **3.0.0**.
+
+#### Lectura de subtítulos y renderizadores
+
+* Actualización de compatibilidad con **Disney+ / Hive** mediante nuevos selectores visuales.
+* Incorporación de fallback para subtítulos dentro de **Shadow DOM abierto**.
+* Mejora de lectura visual en **ViX**, agrupando líneas pertenecientes al mismo bloque de subtítulos.
+* Integración del comportamiento incremental validado en consola para:
+
+  * **YouTube**
+  * **Flow / THEOplayer**
+* Incorporación de selectores ya probados para renderizadores y reproductores como:
+
+  * Video.js
+  * PlayKit / Kaltura
+  * THEOplayer
+* Se mantiene la selección automática de fuente efectiva de subtítulos sin exigir configuración manual al usuario.
+
+#### Accesibilidad del reproductor
+
+* Mejora del etiquetado automático de controles en reproductores poco accesibles.
+* Compatibilidad específica para controles de **ViX**, incluyendo componentes sin semántica HTML suficiente.
+* Activación de `keepAlive` en ViX para evitar que los controles desaparezcan durante la navegación con lector de pantalla.
+* Detección dinámica del nivel de accesibilidad del reproductor nativo:
+
+  * si el reproductor ya ofrece controles accesibles, los controles alternativos de KathWare no se muestran;
+  * si no existe una interfaz usable por teclado y lector de pantalla, se muestran como fallback.
+* Eliminación del botón **Alternar pista de subtítulos** del reproductor alternativo de KathWare.
+* Eliminación del atajo `C` asociado a ese control.
+* Cuando el reproductor del sitio ya es accesible, SubtitleReader tampoco captura sus atajos de reproducción.
+
+#### Sintetizador de voz
+
+* Corrección del atraso del sintetizador respecto de subtítulos rápidos.
+* La velocidad de `SpeechSynthesisUtterance` deja de quedar fija en `1x`.
+* Nueva velocidad inicial para subtítulos mediante sintetizador: **1.75x**.
+* Selector de velocidad disponible entre **1x y 3x**.
+* Selector de voces disponibles a través de Web Speech API.
+* Opción automática con preferencia por voces en español.
+* Persistencia de voz y velocidad mediante `storage.local`.
+* Actualización automática del listado cuando el navegador carga voces mediante `voiceschanged`.
+* La velocidad del modo **Lector** sigue dependiendo exclusivamente del lector de pantalla del usuario.
+
+#### Interfaz, diagnóstico y pruebas
+
+* Incorporación de herramientas de prueba dentro del panel:
+
+  * Debug
+  * Diagnóstico
+  * Reiniciar lectura
+* Nuevos atajos de prueba:
+
+  * `Alt + Shift + D` → activar o desactivar debug
+  * `Alt + Shift + R` → reiniciar la lectura / diagnóstico según contexto
+* El diagnóstico informa, entre otros datos:
+
+  * versión
+  * plataforma detectada
+  * fuente efectiva TRACK / VISUAL
+  * selector visual activo
+  * estado del video
+  * pistas de texto disponibles
+  * estado de TTS
+  * voz y velocidad seleccionadas
+* Reinicio del pipeline al cambiar de pantalla completa para recuperar observadores y lectura cuando el DOM del reproductor cambia.
+
+#### Manifest y estado de la beta
+
+* `manifest.json` actualizado a:
+
+  * `version`: `2.2.0`
+  * `version_name`: `2.2.0-beta`
+* La rama `2.2.0-beta` se mantiene como banco de pruebas antes de fusionar los cambios con la versión estable.
+
+#### Pendiente antes de estabilizar 2.2.0
+
+* Validación manual en Chrome de:
+
+  * YouTube
+  * ViX
+  * Disney+
+  * Flow
+* Confirmar comportamiento del sintetizador con distintas voces y velocidades.
+* Confirmar que la detección de reproductor accesible no oculte controles alternativos cuando todavía son necesarios.
+* Revisar compatibilidad de pantalla completa y cambios dinámicos del DOM.
 
 ---
 
