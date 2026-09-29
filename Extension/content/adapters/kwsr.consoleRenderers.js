@@ -233,7 +233,7 @@
     }
 
     state.flushTimer = setTimeout(() => {
-      if (wordsOf(state.buffer).length >= 2) flush("pause");
+      flush("pause");
     }, 850);
   }
 

@@ -17,6 +17,8 @@ Versión beta orientada a consolidar en la extensión las funciones ya probadas 
 
 #### Lectura de subtítulos y renderizadores
 
+* YouTube y Flow/THEOplayer: la lectura incremental por pausa envía el texto acumulado después de 850 ms sin texto nuevo, sin mínimo de palabras. Respuestas aisladas como «Sí» o «No» ya no quedan pendientes por ese filtro. El envío de un buffer vacío sigue descartándose.
+
 Corrección de omisiones visuales ViX / Lura (2026-09-29):
 
 * Un bloque de líneas `<p>` con `display: table` ya no se descarta por conservar una línea vacía u oculta. Se siguen agrupando las líneas visibles, sin ampliar la detección a texto arbitrario del player.
