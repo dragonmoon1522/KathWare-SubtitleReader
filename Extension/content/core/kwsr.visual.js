@@ -199,6 +199,16 @@
 
     for (const container of root.querySelectorAll("div")) {
       if (!isVisible(container) || isInsideKathWareUI(container)) continue;
+      // Un padre transparente puede conservar dimensiones y texto en sus hijos.
+      let hidden = false;
+      for (let el = container; el; el = el.parentElement) {
+        const style = getComputedStyle(el);
+        if (el.hidden || style.display === "none" || style.visibility === "hidden" || Number(style.opacity || 1) <= 0.01) {
+          hidden = true;
+          break;
+        }
+      }
+      if (hidden) continue;
 
       const children = Array.from(container.children || []);
       if (!children.length || !children.every(el => el.tagName === "P")) continue;
@@ -207,14 +217,18 @@
       let valid = true;
 
       for (const line of children) {
-        if (!isVisible(line)) { valid = false; break; }
+        // Lura puede conservar una segunda línea vacía/oculta entre cues.
+        // Eso no invalida las otras líneas visibles del mismo grupo.
+        if (!isVisible(line)) continue;
+
+        const text = normalize(line.innerText || line.textContent || "");
+        if (!text) continue;
 
         let display = "";
         try { display = getComputedStyle(line).display; } catch {}
         if (display !== "table") { valid = false; break; }
 
-        const text = normalize(line.innerText || line.textContent || "");
-        if (!text || looksLikeNoise(line, text)) { valid = false; break; }
+        if (looksLikeNoise(line, text)) { valid = false; break; }
         lines.push(text);
       }
 
@@ -630,17 +644,13 @@
         let reasonNode = null;
 
         for (const m of mutations) {
-          if (m.target) {
+          if (m.target && !isInsideKathWareUI(m.target)) {
             reasonNode = m.target;
-            break;
-          }
-          if (m.addedNodes && m.addedNodes[0]) {
-            reasonNode = m.addedNodes[0];
             break;
           }
         }
 
-        if (reasonNode && isInsideKathWareUI(reasonNode)) return;
+        if (!reasonNode) return;
         scheduleVisualRead(reasonNode);
       });
 
@@ -651,7 +661,8 @@
       S.visualObserver.observe(target, {
         childList: true,
         subtree: true,
-        characterData: true
+        characterData: true,
+        ...(p === "vix" ? { attributes: true, attributeFilter: ["class", "style", "hidden"] } : {})
       });
 
       S.visualObserverActive = true;
@@ -680,7 +691,9 @@
     if (!KWSR.voice?.shouldReadNow?.()) return;
     if (S.effectiveFuente !== "visual") return;
 
-    if (!fromObserver && S.visualObserverActive) return;
+    // ViX también cambia cues por CSS y puede hacerlo mientras está pausado.
+    // Mantener el timer existente como respaldo al observador.
+    if (!fromObserver && S.visualObserverActive && platform() !== "vix") return;
 
     if (fromObserver) {
       if (!S.visualDirty) return;
@@ -695,7 +708,7 @@
       S.visualSelectors = getSelectors();
     }
 
-    if (!S.visualSelectorUsed) {
+    if (p !== "vix" && !S.visualSelectorUsed) {
       S.visualSelectorUsed = pickBestSelector(p);
       if (!S.visualSelectorUsed) return;
     }
@@ -704,6 +717,14 @@
 
     if (p === "vix") {
       visualResult = getGroupedLineCandidate();
+      S.visualSelectorUsed = "#video-player div > p";
+      if (DEBUG()) {
+        const snapshot = JSON.stringify({ text: visualResult?.text || "", lines: visualResult?.lineCount || 0 });
+        if (snapshot !== S._vixVisualDebugSnapshot) {
+          S._vixVisualDebugSnapshot = snapshot;
+          KWSR.log?.(`VISUAL ViX candidate ${snapshot}`);
+        }
+      }
     } else {
       const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
       visualResult = readTextFromNodes(nodes, p);
@@ -733,6 +754,11 @@
 
       S._visualCueActive = false;
       S._visualLastEmptyAt = emptyNow;
+      if (p === "vix") {
+        // Una frase idéntica después de un intervalo vacío es otro cue.
+        S._visualLastStrict = "";
+        S._visualLastLoose = "";
+      }
 
       S._visualPendingText = "";
       S._visualPendingStrict = "";

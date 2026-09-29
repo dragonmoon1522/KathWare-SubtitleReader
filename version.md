@@ -17,6 +17,16 @@ Versión beta orientada a consolidar en la extensión las funciones ya probadas 
 
 #### Lectura de subtítulos y renderizadores
 
+Corrección de omisiones visuales ViX / Lura (2026-09-29):
+
+* Un bloque de líneas `<p>` con `display: table` ya no se descarta por conservar una línea vacía u oculta. Se siguen agrupando las líneas visibles, sin ampliar la detección a texto arbitrario del player.
+* El observador atiende cambios de subtítulos aunque el mismo lote empiece por una mutación de la interfaz de KathWare.
+* En ViX se observan también cambios de clase/estilo/visibilidad y se mantiene el sondeo periódico como respaldo, incluso con observador activo. Esto recupera cues presentes al activar la lectura o al reanudarla sin otra mutación de texto.
+* La lectura agrupada no depende de que el selector genérico haya encontrado previamente texto. Un intervalo sin texto libera la deduplicación visual de ViX para permitir una frase idéntica posterior; se conserva el filtro anti-eco de salida.
+* Se excluyen bloques ocultos por sus ancestros. Debug registra el texto candidato y el número de líneas; el diagnóstico se imprime como JSON copiable e incluye candidato agrupado, último texto visual y última emisión.
+* Validación: seis pruebas nuevas del detector visual en Chrome y nueve pruebas de accesibilidad del player aprobadas. Las pruebas capturan la entrega a la capa de voz; la comprobación de cobertura en una sesión real de ViX con NVDA/TTS sigue pendiente.
+* Sin refactor de 3.0 ni cambios a la velocidad, síntesis o cola de voz.
+
 * Actualización de compatibilidad con **Disney+ / Hive** mediante nuevos selectores visuales.
 * Incorporación de fallback para subtítulos dentro de **Shadow DOM abierto**.
 * Mejora de lectura visual en **ViX**, agrupando líneas pertenecientes al mismo bloque de subtítulos.

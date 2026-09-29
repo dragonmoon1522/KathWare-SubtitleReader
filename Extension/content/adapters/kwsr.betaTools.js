@@ -91,6 +91,9 @@
       debug: !!CFG.debug,
       debugVisual: !!CFG.debugVisual,
       liveCandidate,
+      groupedLineCandidate: platform() === "vix" ? KWSR.visual?.getGroupedLineCandidate?.() : null,
+      lastVisualText: S._visualLastText || "",
+      lastEmittedText: S.lastEmitText || "",
       shadowCandidate,
       video: getVideoDebug(),
       url: location.href,
@@ -100,7 +103,7 @@
 
   function printDebugState(reason = "manual") {
     const data = getDebugState();
-    console.log(`[KWSR DEBUG] ${reason}`, data);
+    console.log(`[KWSR DEBUG] ${reason} ${JSON.stringify(data)}`);
     return data;
   }
 
