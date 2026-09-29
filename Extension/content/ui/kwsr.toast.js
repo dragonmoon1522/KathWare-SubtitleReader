@@ -21,6 +21,12 @@
 // - Debe ser fácil de excluir del motor VISUAL (por id).
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Muestra y anuncia avisos breves, por ejemplo al activar la extensión.
+// aria-live es una zona cuyo texto puede anunciar el lector de pantalla.
+// Buscá notify para seguir el recorrido de un aviso.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.toast) return;

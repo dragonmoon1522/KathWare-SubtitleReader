@@ -10,6 +10,12 @@
 // - cubrir renderizadores Hive/Disney y otros motores que adopten Shadow DOM.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Busca subtítulos dentro de componentes con una estructura interna separada.
+// Shadow DOM abierto = estructura interna que JavaScript puede consultar.
+// Buscá collectShadowRoots para encontrarla y getCandidate para elegir texto.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || !KWSR.visual || KWSR.openShadowCaptions) return;

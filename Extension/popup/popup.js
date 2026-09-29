@@ -9,6 +9,12 @@
 // Todo eso se detecta automáticamente en el content script.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Conecta los ajustes de la ventana de la extensión con la página abierta.
+// popup = ventana que aparece al pulsar el icono de la extensión.
+// Buscá notifyContentScript para ver cómo avisa a la página de un cambio.
+//
+
 document.addEventListener("DOMContentLoaded", () => {
   const api =
     (typeof chrome !== "undefined" && chrome?.runtime) ? chrome :

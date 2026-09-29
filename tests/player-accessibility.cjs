@@ -1,4 +1,9 @@
 // Requiere playwright y Chrome instalado. Ejecutar: node --test tests/player-accessibility.cjs
+// PARA UBICARTE
+// Estas pruebas abren páginas de ejemplo en Chrome sin una ventana visible.
+// Simulan Tab, Enter y Espacio y comprueban etiquetas, foco y panel.
+// No abren una cuenta de ViX. La prueba real con NVDA se hace por separado.
+// Esta carpeta no se carga como parte de la extensión.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -8,6 +13,8 @@ before(async () => { browser = await chromium.launch({ channel: 'chrome', headle
 after(async () => { await browser?.close(); });
 
 async function fixture(t, controls = '') {
+  // fixture significa escenario de prueba: una página pequeña y controlada.
+  // Cada prueba recibe una página nueva para no heredar el estado de otra.
   const page = await browser.newPage();
   t.after(() => page.close());
   await page.setContent(`<style>

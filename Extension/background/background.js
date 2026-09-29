@@ -19,6 +19,12 @@
 //    but the message channel closed before a response was received”
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Recibe órdenes del navegador y las comunica a la pestaña.
+// service worker = tarea de fondo que el navegador puede suspender.
+// Buscá pushLog para los registros y onCommand para el atajo global.
+//
+
 const LOG_KEY = "kathLogs"; // Clave donde guardamos los logs en storage.local
 const MAX_LOGS = 400;      // Límite para no crecer infinito (rendimiento + privacidad)
 

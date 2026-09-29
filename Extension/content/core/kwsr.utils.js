@@ -21,6 +21,12 @@
 // - Sin efectos colaterales raros.
 // ----------------------------------------------------
 
+// PARA UBICARTE
+// Reúne pequeñas operaciones que necesitan varios archivos.
+// Normalizar texto significa uniformar espacios para poder compararlo.
+// Limitar un número evita, por ejemplo, pedir un volumen mayor al permitido.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.utils) return;

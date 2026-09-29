@@ -82,6 +82,8 @@ Corrección ViX / overlay (2026-09-29):
 
 #### Interfaz, diagnóstico y pruebas
 
+* Revisión de comentarios para facilitar la lectura y el mantenimiento: guías «Para ubicarte» en los 21 archivos JavaScript de la extensión, orientación en HTML/CSS y explicación de las pruebas. Se aclaran términos técnicos con ejemplos y se documentan las decisiones de lectura, espera y accesibilidad. Cambio documental, sin modificar instrucciones ejecutables ni adelantar la publicación estable; siguen pendientes las pruebas de YouTube y Flow en vivo.
+
 * Incorporación de herramientas de prueba dentro del panel:
 
   * Debug

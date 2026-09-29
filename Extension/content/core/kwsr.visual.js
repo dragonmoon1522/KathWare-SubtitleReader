@@ -31,6 +31,12 @@
 //
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Busca subtítulos visibles, junta sus líneas y entrega el texto a la voz.
+// DOM = elementos de la página; observer = aviso cuando esos elementos cambian.
+// Buscá getGroupedLineCandidate para ViX y pollVisualTick para la lectura.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.visual) return;
@@ -217,7 +223,7 @@
       let valid = true;
 
       for (const line of children) {
-        // Lura puede conservar una segunda línea vacía/oculta entre cues.
+        // Lura puede conservar una segunda línea vacía/oculta entre subtítulos.
         // Eso no invalida las otras líneas visibles del mismo grupo.
         if (!isVisible(line)) continue;
 
@@ -321,6 +327,8 @@
   // ---------------------------------------------------------------------------
   // Fingerprints
   // ---------------------------------------------------------------------------
+  // Crea una versión comparable del texto: minúsculas y espacios uniformes.
+  // La huella (fingerprint) sirve para detectar repeticiones.
   function fpStrict(text) {
     return normalize(text)
       .replace(/\u00A0/g, " ")
@@ -330,6 +338,8 @@
       .toLowerCase();
   }
 
+  // Compara con más tolerancia: también ignora signos de puntuación.
+  // Por ejemplo, «Hola.» y «Hola» pueden representar el mismo subtítulo.
   function fpLoose(text) {
     return normalize(text)
       .replace(/\u00A0/g, " ")
@@ -687,11 +697,13 @@
   // ---------------------------------------------------------------------------
   // TICK PRINCIPAL
   // ---------------------------------------------------------------------------
+  // Revisa el subtítulo actual y decide si hay texto nuevo para leer.
+  // Puede llegar por un aviso de cambio o por la consulta periódica de respaldo.
   function pollVisualTick(fromObserver = false, reasonNode = null) {
     if (!KWSR.voice?.shouldReadNow?.()) return;
     if (S.effectiveFuente !== "visual") return;
 
-    // ViX también cambia cues por CSS y puede hacerlo mientras está pausado.
+    // ViX también cambia subtítulos mediante estilos y puede hacerlo mientras está pausado.
     // Mantener el timer existente como respaldo al observador.
     if (!fromObserver && S.visualObserverActive && platform() !== "vix") return;
 
@@ -739,8 +751,8 @@
       const emptyNow = performance.now();
       const p2 = platform();
 
-      // Netflix a veces vacía el cue un instante y lo vuelve a insertar igual.
-      // No soltamos el lock enseguida o el mismo subtítulo entra como "nuevo".
+      // Netflix a veces vacía el subtítulo un instante y lo vuelve a insertar igual.
+      // No liberamos el bloqueo de repetición enseguida o el mismo subtítulo entra como "nuevo".
       if (p2 === "netflix") {
         S._visualLastEmptyAt = emptyNow;
 
@@ -755,7 +767,7 @@
       S._visualCueActive = false;
       S._visualLastEmptyAt = emptyNow;
       if (p === "vix") {
-        // Una frase idéntica después de un intervalo vacío es otro cue.
+        // Una frase idéntica después de un intervalo vacío es otro subtítulo.
         S._visualLastStrict = "";
         S._visualLastLoose = "";
       }

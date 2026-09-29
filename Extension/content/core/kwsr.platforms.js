@@ -23,6 +23,12 @@
 // solo informa al pipeline.
 // ----------------------------------------------------
 
+// PARA UBICARTE
+// Reúne los sitios reconocidos y las reglas para encontrar sus subtítulos.
+// Un selector CSS es una dirección para buscar elementos en la página.
+// Por ejemplo, "#video-player div > p" busca párrafos dentro del player.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.platforms) return;

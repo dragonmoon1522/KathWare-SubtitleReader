@@ -28,6 +28,12 @@
 //
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Intenta mantener disponibles los controles que el sitio oculta por inactividad.
+// Simula movimiento del puntero; el sitio puede aceptar o ignorar ese aviso.
+// Buscá tick para el envío. force evita la espera mínima al navegar con Tab.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.keepAlive) return;

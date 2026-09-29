@@ -17,6 +17,12 @@
 // - nunca toca subtítulos ni la UI de KathWare.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Repara nombres y navegación por teclado de los botones de ViX.
+// A11y abrevia accesibilidad. Un botón necesita nombre, foco y activación.
+// scan busca botones; applyLabel los prepara. Los subtítulos se leen en visual.js.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.vixPlayerA11y) return;
@@ -189,6 +195,8 @@
     return "Control del reproductor";
   }
 
+  // Conserva los nombres del sitio y actualiza los que puso este adaptador.
+  // También permite Tab y agrega Enter/Espacio a botones que no son HTML nativo.
   function applyLabel(el, label) {
     try {
       if (!el || !label) return false;
@@ -291,6 +299,8 @@
     return result;
   }
 
+  // Agrupa varios avisos del DOM en una revisión antes del próximo dibujo.
+  // Evita recorrer los mismos controles una vez por cada pequeño cambio.
   function scheduleScan() {
     if (scheduled) return;
     scheduled = true;

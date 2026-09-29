@@ -1,3 +1,8 @@
+/* PARA UBICARTE
+   Este archivo define colores, tamaños y separación del popup.
+   :root reúne los colores; :focus-visible marca dónde está el teclado.
+   Cambiar estos estilos modifica la apariencia, no la lectura de subtítulos.
+*/
 /* -----------------------------------------------------------------------------
    KathWare SubtitleReader - popup.css
    Objetivo:

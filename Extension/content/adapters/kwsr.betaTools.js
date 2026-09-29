@@ -15,6 +15,12 @@
 // - Alt+Shift+R = reiniciar pipeline de lectura.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Agrega diagnóstico, debug y reinicio al panel de la beta.
+// debug = mensajes para investigar; diagnóstico = foto del estado actual.
+// Buscá getDebugState para los datos y printDebugState para imprimirlos.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || !KWSR.overlay || KWSR.betaTools) return;

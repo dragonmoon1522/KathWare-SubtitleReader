@@ -14,6 +14,12 @@
 // La arquitectura de motores por tipo de renderizado queda para 3.0.0.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Lee el texto que va creciendo en YouTube y Flow, evitando repetir lo anterior.
+// delta = parte nueva; buffer = texto guardado hasta enviarlo a lectura.
+// Ejemplo: "Hola" pasa a "Hola María"; la parte nueva es "María".
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || !KWSR.visual || KWSR.consoleRenderers) return;
@@ -145,6 +151,8 @@
     return { text: "", renderer: renderer.name };
   }
 
+  // Compara el texto anterior con el actual y devuelve solo la parte nueva.
+  // Las coincidencias parciales ayudan cuando el sitio desplaza líneas ya mostradas.
   function getDelta(previous, current) {
     previous = normalize(previous);
     current = normalize(current);
@@ -190,6 +198,8 @@
     state.flushTimer = null;
   }
 
+  // Envía lo acumulado a la capa de voz y vacía el texto pendiente.
+  // Si no hay texto, termina sin anunciar nada. reason explica por qué se envió.
   function flush(reason = "flush") {
     clearFlushTimer();
 
@@ -208,6 +218,8 @@
     KWSR.voice?.leerTextoAccesible?.(text);
   }
 
+  // Guarda texto nuevo y decide cuándo enviarlo.
+  // Puede salir antes por puntuación o longitud; si no, espera una pausa.
   function queueDelta(delta) {
     delta = normalize(delta);
     if (!delta) return;
@@ -232,6 +244,8 @@
       return;
     }
 
+    // Cada llegada de texto nuevo reinicia esta espera de 850 milisegundos.
+    // Al cumplirse, se lee lo guardado aunque sea una sola palabra, como «Sí».
     state.flushTimer = setTimeout(() => {
       flush("pause");
     }, 850);
@@ -257,7 +271,7 @@
 
     if (!delta) return true;
 
-    // Si cambió completamente el cue, terminamos primero la frase anterior.
+    // Si cambió completamente el subtítulo, terminamos primero la frase anterior.
     if (previous && fp(delta) === fp(current) && state.buffer) {
       flush("cue-change");
     }
@@ -304,6 +318,8 @@
     }
   }
 
+  // Cancela la espera y borra el texto pendiente al reiniciar este lector.
+  // Así el contenido anterior no se mezcla con una nueva sesión.
   function resetLiveState() {
     clearFlushTimer();
     state.lastRaw = "";

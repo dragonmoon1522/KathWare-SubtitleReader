@@ -42,6 +42,12 @@
 // - throttle interno por si el timer viene agresivo
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Agrega nombres y propiedades de teclado a controles que los necesitan.
+// aria-label = nombre anunciado; role = función; tabindex = acceso al foco.
+// ViX tiene su propio adaptador para que dos archivos no cambien lo mismo.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.nonAccessiblePlatforms) return;

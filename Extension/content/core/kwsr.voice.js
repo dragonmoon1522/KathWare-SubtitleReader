@@ -55,6 +55,12 @@
 // -----------------------------------------------------------------------------
 
 
+// PARA UBICARTE
+// Recibe texto y lo entrega al lector de pantalla o a la voz del navegador.
+// Deduplicar significa evitar que el mismo texto se anuncie varias veces.
+// Buscá leerTextoAccesible para la entrada y dedupeAndDelta para los filtros.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.voice) return;
@@ -300,6 +306,8 @@
   // - el modo narrador no puede ser "off"
   // - el video no debe estar pausado o terminado
   // ---------------------------------------------------------------------------
+  // Permite leer solo si la extensión y el modo de lectura están activados.
+  // Si hay un video pausado o terminado, la lectura espera.
   function shouldReadNow() {
     if (!S.extensionActiva) return false;
     if (!S.modoNarradorGlobal || S.modoNarradorGlobal === "off") return false;
@@ -520,6 +528,8 @@
   // - true si intentó hablar o consideró que ya estaba cubierto
   // - false si falló y conviene fallback a lector
   // ---------------------------------------------------------------------------
+  // Usa la voz del navegador. Cancela la cola anterior antes de enviar esta frase.
+  // El temporizador de vigilancia intenta detectar una síntesis que quedó trabada.
   function speakTTS(text) {
     if (!isTTSAvailable()) {
       markTTSBroken("speechSynthesis_not_available");

@@ -15,6 +15,12 @@
 // esa velocidad pertenece al lector de pantalla, no al navegador.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Aplica la voz y velocidad elegidas a la síntesis del navegador.
+// TTS significa convertir texto en voz; utterance es una frase para pronunciar.
+// Buscá applySettingsToUtterance. La velocidad de NVDA se configura en NVDA.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || !KWSR.voice || KWSR.ttsSettings) return;

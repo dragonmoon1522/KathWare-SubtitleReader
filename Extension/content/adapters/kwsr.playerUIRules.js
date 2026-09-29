@@ -12,6 +12,12 @@
 // Esta capa no toca el motor de lectura de subtítulos.
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Decide si necesitamos mostrar nuestros controles alternativos.
+// fallback = respaldo: aparece cuando los controles del sitio no alcanzan.
+// La decisión afecta la barra de reproducción; el panel de ajustes es aparte.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || !KWSR.overlay || KWSR.playerUIRules) return;
@@ -141,6 +147,8 @@
     });
   }
 
+  // Estima si el sitio ofrece controles utilizables según nombre, visibilidad y foco.
+  // Es una comprobación automática: no sustituye probar los botones con un lector.
   function nativePlayerAccessibility() {
     const video = S.currentVideo || KWSR.video?.getMainVideo?.();
     if (!video) {
@@ -201,6 +209,8 @@
     return removed;
   }
 
+  // Muestra u oculta solamente nuestra barra de reproducción.
+  // Si va a ocultar el botón enfocado, primero lleva el foco a «Cerrar panel».
   function syncFallbackPlayer() {
     removeSubtitleToggle();
 

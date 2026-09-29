@@ -1,4 +1,9 @@
 // Detector visual en Chrome real; la salida se captura antes de NVDA/TTS.
+// PARA UBICARTE
+// Creamos subtítulos de ejemplo y guardamos en spoken lo que el detector entrega.
+// Así podemos comprobar si falta una frase sin tener que escuchar una voz.
+// Esto verifica la detección, no lo que NVDA o el sintetizador pronuncian.
+// Ejecutar con Playwright y Chrome disponibles: node --test tests/vix-captions.cjs
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');

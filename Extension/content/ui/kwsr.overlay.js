@@ -10,12 +10,12 @@
 // 2) "Panel" (caja)
 //    - Muestra estado (ON/OFF, modo, plataforma, motor efectivo)
 //    - Muestra el último subtítulo leído (solo feedback visual)
-//    - Permite cambiar SOLO:
-//        - modo de lectura (off / sintetizador / lector)
+//    - Este archivo agrega el ajuste de modo; ttsSettings suma voz y velocidad.
+//    - Modo de lectura: desactivado / sintetizador / lector.
 //
 //    - Incluye controles accesibles del reproductor (play/pause/seek/vol/etc.)
 //
-// IMPORTANTE (Lazy UI):
+// IMPORTANTE (creación cuando hace falta):
 // - Este overlay NO se crea automáticamente al cargar la página.
 // - Se crea recién cuando el pipeline llama a ensureOverlay() (cuando el usuario activa ON).
 //
@@ -38,6 +38,12 @@
 // - Todo el overlay vive dentro de #kathware-overlay-root.
 // - El motor VISUAL debe excluir este root para NO auto-leerse.
 // -----------------------------------------------------------------------------
+
+// PARA UBICARTE
+// Construye el panel flotante y el botón KW dentro de la página.
+// overlay = panel sobre la página; foco = elemento que recibe el teclado.
+// ensureOverlay crea el panel; playerUIRules decide si hace falta su barra.
+//
 
 (() => {
   const KWSR = window.KWSR;
@@ -306,7 +312,7 @@
   function mountOverlay() {
     const root = S.overlayRoot;
     if (!root) return;
-    // Un overlay fuera del elemento fullscreen queda detrás de la top layer.
+    // Un overlay fuera del elemento fullscreen queda detrás de la capa superior que usa el navegador.
     const fullscreen = document.fullscreenElement;
     const host = fullscreen && !fullscreen.matches("video,audio")
       ? fullscreen : document.documentElement;

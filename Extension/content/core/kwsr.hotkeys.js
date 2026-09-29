@@ -48,6 +48,12 @@
 // - capturing: escuchar eventos antes que la página.
 // ----------------------------------------------------
 
+// PARA UBICARTE
+// Convierte atajos y mensajes del navegador en acciones.
+// Un listener es una función que espera un evento, como pulsar una tecla.
+// Para seguir una acción, empezá por el comentario HOTKEYS IN-PAGE.
+//
+
 (() => {
   // --------------------------------------------------
   // GUARDA DE DOBLE CARGA

@@ -34,6 +34,12 @@
 // Este archivo existe para que eso NO se note.
 // ----------------------------------------------------
 
+// PARA UBICARTE
+// Obtiene el texto de las pistas de subtítulos que expone el video.
+// Un cue es un fragmento de subtítulo con texto, inicio y final.
+// Buscá readActiveCues para obtener lo que corresponde al momento actual.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.track) return;

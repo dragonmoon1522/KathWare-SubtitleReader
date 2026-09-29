@@ -17,6 +17,12 @@
 // - Si el Shadow DOM es “closed”, no se puede acceder (y está bien).
 // -----------------------------------------------------------------------------
 
+// PARA UBICARTE
+// Elige qué video de la página vamos a seguir y controlar.
+// Puede haber varios videos: contenido principal, anuncios o vistas previas.
+// Buscá scoreVideo para entender qué señales favorecen a un candidato.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.video) return;

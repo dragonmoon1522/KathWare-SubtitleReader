@@ -28,6 +28,12 @@
 // sino una secuencia de decisiones bien delimitadas.
 // ----------------------------------------------------
 
+// PARA UBICARTE
+// Coordina encendido, video y forma de obtener los subtítulos.
+// TRACK usa pistas del video; VISUAL usa texto dibujado en la página.
+// Buscá pickEffectiveSource para la elección y restartPipeline para el reinicio.
+//
+
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.pipeline) return;

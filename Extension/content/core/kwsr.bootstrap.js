@@ -4,7 +4,7 @@
 //
 // ARCHIVO: bootstrap (arranque)
 // - Es el PRIMER archivo del content-script.
-// - Prepara el terreno: namespace + cfg/state + logs + storage loader.
+// - Prepara el objeto compartido, las opciones, el estado y la carga de ajustes.
 //
 // NO debe hacer:
 // - NO UI
@@ -15,6 +15,12 @@
 // - Seguro para ejecutar 1 sola vez.
 // - Si se ejecuta 2 veces: bugs graves (duplicados, timers dobles).
 // ----------------------------------------------------
+
+// PARA UBICARTE
+// Prepara los datos compartidos antes de iniciar los demás archivos.
+// CFG guarda opciones; state guarda lo que está ocurriendo ahora.
+// Por ejemplo: la velocidad es una opción; el video actual es un estado.
+//
 
 (() => {
   // --------------------------------------------------
