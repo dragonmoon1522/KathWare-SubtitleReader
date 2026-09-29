@@ -54,6 +54,7 @@
         "content/adapters/kwsr.keepAlive.js",
         "content/adapters/kwsr.nonAccessible.platforms.js",
         "content/adapters/kwsr.vixPlayerA11y.js",
+        "content/adapters/kwsr.playerUIRules.js",
 
         "content/core/kwsr.pipeline.js",
         "content/core/kwsr.hotkeys.js"
