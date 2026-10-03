@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-09-29
+**Última actualización:** 2026-10-03
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -17,7 +17,16 @@ Versión beta orientada a consolidar en la extensión las funciones ya probadas 
 
 #### Lectura de subtítulos y renderizadores
 
-* YouTube y Flow/THEOplayer: la lectura incremental por pausa envía el texto acumulado después de 850 ms sin texto nuevo, sin mínimo de palabras. Respuestas aisladas como «Sí» o «No» ya no quedan pendientes por ese filtro. El envío de un buffer vacío sigue descartándose.
+Corrección de texto incremental Flow / THEOplayer (2026-10-03):
+
+* Se conserva la frase actual separada del texto ya enviado. Las letras que completan una palabra pendiente reemplazan su versión parcial, en lugar de descartarse por tener la misma cantidad de palabras («TR» → «TRABAJO»).
+* Flow espera 350 ms sin cambios para enviar el texto, incluso si tiene una sola palabra. Durante escritura continua hay un límite de 850 ms que no se reinicia con cada letra: envía hasta el último espacio y conserva la palabra final en formación. El límite no fuerza la salida de una palabra sin separación; esa palabra espera a estabilizarse.
+* Al desplazarse las líneas se compara el final anterior con el principio actual, evitando quitar coincidencias en mitad de una frase. Se conserva el texto pendiente que sale de pantalla.
+* Se cancelan temporizadores al reiniciar y se comprueba que la lectura siga habilitada antes de entregar texto. YouTube conserva su comportamiento previo.
+* Los registros `CONSOLE RENDERER live/flush` de Flow incluyen JSON copiable con texto detectado, pendiente y tiempo de espera de la extensión.
+* Pruebas con reloj controlado cubren palabras en formación, correcciones, pausas, escritura continua, líneas desplazadas y cancelación. Falta medir la experiencia en Flow real con NVDA: estos tiempos no incluyen el atraso del subtitulado de origen ni del lector de pantalla.
+
+* Cambio del 2026-09-29: YouTube y Flow/THEOplayer eliminaron el mínimo de palabras para la pausa de 850 ms. Flow ajusta luego esos tiempos con la corrección del 2026-10-03 descrita arriba. El envío de un buffer vacío sigue descartándose.
 
 Corrección de omisiones visuales ViX / Lura (2026-09-29):
 

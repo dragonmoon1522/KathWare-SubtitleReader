@@ -62,6 +62,97 @@
     activeRenderer: ""
   };
 
+  // Flow puede escribir letra por letra. Conservamos el texto actual completo,
+  // separado de lo ya enviado: «TR» todavía puede convertirse en «TRABAJO».
+  const flow = { raw: "", sent: "", settleTimer: null, limitTimer: null, since: 0 };
+  const FLOW_SETTLE_MS = 350;
+  const FLOW_LIMIT_MS = 850;
+
+  function clearFlowTimers() {
+    clearTimeout(flow.settleTimer);
+    clearTimeout(flow.limitTimer);
+    flow.settleTimer = flow.limitTimer = null;
+  }
+
+  // Solo quitamos palabras completas ya enviadas y el solapamiento al principio
+  // de una línea desplazada. Una coincidencia en mitad de la frase no basta.
+  function flowRemainder(previous, current) {
+    const prev = wordsOf(previous);
+    const curr = wordsOf(current);
+    if (!prev.length) return current;
+    for (let size = Math.min(prev.length, curr.length); size > 0; size--) {
+      if (prev.slice(-size).every((word, i) => fp(word) === fp(curr[i]))) {
+        return curr.slice(size).join(" ");
+      }
+    }
+    return current;
+  }
+
+  function flushFlow(reason, completeOnly = false) {
+    if (completeOnly) {
+      clearTimeout(flow.limitTimer);
+      flow.limitTimer = null;
+    } else {
+      clearFlowTimers();
+    }
+    if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "flow" || !KWSR.voice?.shouldReadNow?.()) {
+      flow.raw = flow.sent = "";
+      return;
+    }
+    // Durante escritura continua, la última palabra puede estar incompleta.
+    // Enviamos hasta el último espacio; tras una pausa enviamos también el final.
+    const end = completeOnly ? flow.raw.lastIndexOf(" ") : flow.raw.length;
+    if (end <= 0) return;
+    const snapshot = flow.raw.slice(0, end);
+    // No retroceder si el sondeo repite un texto que ya enviamos completo.
+    if (flow.sent === flow.raw) return;
+    const text = flowRemainder(flow.sent, snapshot);
+    flow.sent = snapshot;
+    if (!text) return;
+    if (CFG.debug) {
+      KWSR.log?.(`CONSOLE RENDERER flush ${JSON.stringify({ renderer: RENDERERS.flow.name, reason, text, pendingMs: Date.now() - flow.since })}`);
+    }
+    KWSR.voice?.leerTextoAccesible?.(text);
+  }
+
+  function pollFlow(picked) {
+    const current = normalize(picked.text);
+    if (!current) {
+      if (flow.raw) flushFlow("cue-end");
+      flow.raw = flow.sent = "";
+      return false;
+    }
+    if (current === flow.raw) return true;
+    const previous = flow.raw;
+    // Si desaparece la frase anterior, entregamos su pendiente antes de cambiar.
+    // Las extensiones y correcciones del final reemplazan el texto pendiente.
+    const oldWords = wordsOf(previous);
+    const newWords = wordsOf(current);
+    const sharedStart = oldWords.length && newWords.length &&
+      (fp(oldWords[0]) === fp(newWords[0]) || current.startsWith(previous) || previous.startsWith(current));
+    const rolling = previous && flowRemainder(previous, current) !== current;
+    if (previous && !sharedStart && !rolling) {
+      flushFlow("cue-change");
+      flow.sent = "";
+    } else if (rolling) {
+      // Mantener también lo pendiente que sale de pantalla al desplazarse líneas.
+      const oldPending = flowRemainder(flow.sent, previous);
+      if (oldPending && !current.includes(oldPending)) flushFlow("line-roll");
+    }
+    flow.raw = current;
+    if (CFG.debug) {
+      KWSR.log?.(`CONSOLE RENDERER live ${JSON.stringify({ renderer: picked.renderer, selector: picked.selector, raw: current, pending: flowRemainder(flow.sent, current) })}`);
+    }
+    clearTimeout(flow.settleTimer);
+    flow.settleTimer = setTimeout(() => flushFlow("pause"), FLOW_SETTLE_MS);
+    // Este reloj no se reinicia con cada letra. Así no esperamos indefinidamente.
+    if (!flow.limitTimer) {
+      flow.since = Date.now();
+      flow.limitTimer = setTimeout(() => flushFlow("continuous", true), FLOW_LIMIT_MS);
+    }
+    return true;
+  }
+
   const originalStart = KWSR.visual.startVisual?.bind(KWSR.visual);
   const originalStop = KWSR.visual.stopVisualObserver?.bind(KWSR.visual);
   const originalPoll = KWSR.visual.pollVisualTick?.bind(KWSR.visual);
@@ -260,6 +351,7 @@
     if (!LIVE_PLATFORMS.has(p)) return false;
 
     const picked = getRendererText(p);
+    if (p === "flow") return pollFlow(picked);
     const current = normalize(picked.text);
     state.activeRenderer = picked.renderer || p;
 
@@ -321,6 +413,8 @@
   // Cancela la espera y borra el texto pendiente al reiniciar este lector.
   // Así el contenido anterior no se mezcla con una nueva sesión.
   function resetLiveState() {
+    clearFlowTimers();
+    flow.raw = flow.sent = "";
     clearFlushTimer();
     state.lastRaw = "";
     state.buffer = "";
