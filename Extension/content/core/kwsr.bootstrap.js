@@ -37,12 +37,13 @@
     (typeof chrome !== "undefined" && chrome?.runtime) ? chrome :
     (typeof browser !== "undefined" && browser?.runtime) ? browser :
     null;
+  const manifest = api?.runtime?.getManifest?.() || {};
 
   // --------------------------------------------------
   // Objeto central KWSR (namespace)
   // --------------------------------------------------
   const KWSR = {
-    version: "2.0.0",
+    version: manifest.version_name || manifest.version || "3.0.0-beta",
     api,
 
     // ------------------------------------------------

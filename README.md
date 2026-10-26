@@ -1,7 +1,20 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-04-07
+**Última actualización:** 2026-10-26
+
+### Estado de esta rama: 3.0.0-beta
+
+Esta beta reúne las mejoras funcionales desarrolladas en `2.2.0-beta`: Disney+ /
+Hive, ViX, YouTube, Flow en vivo, voces y velocidad configurables, controles
+accesibles y herramientas de diagnóstico. Conserva la arquitectura actual; la
+reorganización por tipos de renderizado queda para una versión posterior.
+
+**El paso a estable queda pendiente de las pruebas y de la confirmación expresa
+de Katherine.** La versión pública estable anterior continúa siendo 2.0.0.
+
+Los paquetes para Chrome y otros Chromium se generan desde una única base.
+Firefox queda aplazado. Ver [paquetes y navegadores](docs/navegadores.md).
 
 ---
 
@@ -39,15 +52,22 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 
 ---
 
-### Plataformas soportadas (versión actual)
+### Plataformas y estado de validación de 3.0.0-beta
 
-**Compatibilidad verificada:**
+| Plataforma | Evidencia disponible | Pendiente para esta entrega |
+| --- | --- | --- |
+| Netflix, Max y Flow a demanda | Katherine confirmó funcionamiento el 07/10/2026. | Comprobación con el paquete final. |
+| Disney+ / Hive | Corrección integrada; funcionamiento confirmado el 07/10/2026. | Comprobación con el paquete final. |
+| ViX | Lectura confirmada el 07/10/2026; pruebas automatizadas de lectura y controles. | Cierre conjunto con lector/TTS y controles accesibles. |
+| YouTube | Lectura incremental incorporada. | Validación manual final. |
+| Flow en vivo | Corrección incremental del 03/10/2026 con pruebas automatizadas. | Sesión real con NVDA: integridad, repetición y atraso. |
+| Paramount+ | Compatibilidad documentada en la estable 2.0.0. | Revalidar con el paquete final. |
+| Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
 
-* Netflix
-* Disney+
-* Max
-* Paramount+
-* Flow
+Otros sitios y reproductores pueden funcionar mediante las pistas o selectores
+incluidos, pero no se anuncian como verificados sin una prueba concreta. Algunas
+plataformas no se han podido probar por limitaciones de acceso o presupuesto;
+se agradecen reportes de funcionamiento y errores.
 
 > Las plataformas pueden modificar su funcionamiento interno sin previo aviso.
 > KathWare SubtitleReader está diseñado para adaptarse dinámicamente, pero pueden producirse fallos temporales.
@@ -191,13 +211,19 @@ Principios clave:
 
 https://chrome.google.com/webstore/detail/mbdjoamfljkbajlppfpahibnfjdiecbe/
 
-#### Chrome / Edge
+#### Chrome / Edge y otros Chromium
 
 1. Clonar o descargar el repositorio
-2. Abrir: `chrome://extensions/`
+2. Abrir la administración de extensiones, por ejemplo `chrome://extensions/` o `edge://extensions/`.
 3. Activar **Modo de desarrollador**
 4. Seleccionar **Cargar sin comprimir**
-5. Elegir la carpeta del proyecto
+5. Elegir la carpeta `Extension/` del proyecto.
+
+También se pueden generar los ZIP con `python3 scripts/package_extension.py`,
+descomprimir el correspondiente al navegador y cargar la carpeta que contiene
+su `manifest.json`. El paquete `chromium` sirve como base para Edge, Brave,
+Opera y Vivaldi, pendientes de sus pruebas específicas y procesos de tienda.
+Las instrucciones completas están en [paquetes y navegadores](docs/navegadores.md).
 
 ---
 
@@ -227,7 +253,13 @@ Podés:
 
 ### Estado del proyecto
 
-**Versión estable 2.0.0**
+**Versión de esta rama: 3.0.0-beta. Versión pública estable anterior: 2.0.0.**
+
+La rama `3.0.0-beta` continúa la línea funcional de `2.2.0-beta`. La consola de
+`web/` se conserva como herramienta experimental independiente y no se incluye
+en los paquetes. El refactor por renderizadores y Firefox quedan para después.
+La promoción a estable y la publicación en tiendas esperan la confirmación de
+Katherine.
 
 El proyecto continúa en desarrollo activo, con foco en:
 

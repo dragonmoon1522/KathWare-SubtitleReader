@@ -1,17 +1,17 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.consoleRenderers.js
 // -----------------------------------------------------------------------------
-// Capa de compatibilidad para 2.2.0-beta.
+// Capa de compatibilidad para 3.0.0-beta.
 //
 // Porta a la extensión comportamientos ya validados en la consola sin hacer
-// todavía el refactor estructural previsto para 3.0.0.
+// todavía el refactor estructural, reservado para una versión posterior.
 //
 // Incluye:
 // - YouTube: lectura visual incremental por frases.
 // - Flow / THEOplayer: lectura visual incremental por frases.
 // - Selectores visuales ya probados para Video.js / Percipio y PlayKit / Kaltura.
 //
-// La arquitectura de motores por tipo de renderizado queda para 3.0.0.
+// La arquitectura de motores por tipo de renderizado queda para otra entrega.
 // -----------------------------------------------------------------------------
 
 // PARA UBICARTE
@@ -27,8 +27,6 @@
   const S = KWSR.state;
   const CFG = KWSR.CFG || {};
   const normalize = KWSR.utils?.normalize || ((x) => String(x ?? "").replace(/\s+/g, " ").trim());
-
-  KWSR.version = "2.2.0-beta";
 
   const LIVE_PLATFORMS = new Set(["youtube", "flow"]);
 

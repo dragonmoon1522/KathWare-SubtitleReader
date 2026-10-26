@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.betaTools.js
 // -----------------------------------------------------------------------------
-// Herramientas de prueba para 2.2.0-beta.
+// Herramientas de prueba para 3.0.0-beta.
 //
 // Añade a la interfaz existente:
 // - nombres de controles accesibles y textuales;

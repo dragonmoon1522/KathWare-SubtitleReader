@@ -1,19 +1,37 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-10-03
+**Última actualización:** 2026-10-26
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
 
-### **Versión 2.2.0-beta — en desarrollo (2026-09-28)**
+### **Versión 3.0.0-beta — en pruebas (2026-10-26)**
 
-Versión beta orientada a consolidar en la extensión las funciones ya probadas en consola, sin introducir todavía el cambio estructural previsto para 3.0.0.
+Continúa el trabajo iniciado como 2.2.0-beta el 28/09/2026. Reúne las mejoras
+funcionales de la extensión sin introducir el refactor por renderizadores,
+aplazado para una versión posterior. El paso a estable queda sujeto a las
+pruebas y a la confirmación expresa de Katherine.
+
+#### Preparación de 3.0.0-beta (2026-10-26)
+
+* Manifest actualizado a `version: "3.0.0"` y `version_name: "3.0.0-beta"`.
+* El núcleo toma su versión del manifest y los reportes conservan la etiqueta
+  beta; se elimina la versión 2.2.0 fijada por el adaptador incremental.
+* Se conserva el historial de ambas ramas y la consola experimental de la
+  antigua `3.0.0-beta`, independiente de la extensión empaquetada.
+* Empaquetado reproducible desde la misma fuente para Chrome y otros Chromium.
+  El paquete `chromium` prepara la distribución en Edge, Brave, Opera y Vivaldi;
+  sus pruebas específicas y la publicación en tiendas siguen pendientes.
+* README actualizado con el estado de las plataformas y documentación de
+  instalación y empaquetado en `docs/navegadores.md`.
+* Firefox queda aplazado tras una evaluación inicial de manifest y APIs.
+* No se cambia `main`, no se publica una estable y no se suben paquetes a tiendas.
 
 #### Alcance de esta versión
 
 * Integración de mejoras funcionales sobre la arquitectura 2.x existente.
 * Se mantiene la separación actual por módulos y adapters.
-* Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **3.0.0**.
+* Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **una versión posterior**.
 
 #### Lectura de subtítulos y renderizadores
 
@@ -36,7 +54,7 @@ Corrección de omisiones visuales ViX / Lura (2026-09-29):
 * La lectura agrupada no depende de que el selector genérico haya encontrado previamente texto. Un intervalo sin texto libera la deduplicación visual de ViX para permitir una frase idéntica posterior; se conserva el filtro anti-eco de salida.
 * Se excluyen bloques ocultos por sus ancestros. Debug registra el texto candidato y el número de líneas; el diagnóstico se imprime como JSON copiable e incluye candidato agrupado, último texto visual y última emisión.
 * Validación: seis pruebas nuevas del detector visual en Chrome y nueve pruebas de accesibilidad del player aprobadas. Las pruebas capturan la entrega a la capa de voz; la comprobación de cobertura en una sesión real de ViX con NVDA/TTS sigue pendiente.
-* Sin refactor de 3.0 ni cambios a la velocidad, síntesis o cola de voz.
+* Sin refactor estructural ni cambios a la velocidad, síntesis o cola de voz.
 
 * Actualización de compatibilidad con **Disney+ / Hive** mediante nuevos selectores visuales.
 * Incorporación de fallback para subtítulos dentro de **Shadow DOM abierto**.
@@ -64,7 +82,7 @@ Corrección ViX / overlay (2026-09-29):
 * El overlay se monta dentro del contenedor de pantalla completa y se reconecta al actualizarse si el sitio retiró su nodo. Pantalla completa nativa sobre el elemento `video` sigue limitada por la interfaz del navegador.
 * Los atajos alternativos respetan controles enfocados. El botón de subtítulos se elimina desde la construcción del panel.
 * Pruebas de regresión en navegador con DOM de ejemplo para etiquetas estables, Tab/Enter/Espacio, controles ocultos/deshabilitados, fallback, observadores y pantalla completa. Sigue pendiente la validación en una sesión real de ViX con NVDA.
-* Sin cambios al lector de subtítulos ni refactor de 3.0.
+* Sin cambios al lector de subtítulos ni refactor estructural.
 
 * Mejora del etiquetado automático de controles en reproductores poco accesibles.
 * Compatibilidad específica para controles de **ViX**, incluyendo componentes sin semántica HTML suficiente.
@@ -118,11 +136,12 @@ Corrección ViX / overlay (2026-09-29):
 
 * `manifest.json` actualizado a:
 
-  * `version`: `2.2.0`
-  * `version_name`: `2.2.0-beta`
-* La rama `2.2.0-beta` se mantiene como banco de pruebas antes de fusionar los cambios con la versión estable.
+  * `version`: `3.0.0`
+  * `version_name`: `3.0.0-beta`
+* La rama `3.0.0-beta` es la candidata de pruebas; `2.2.0-beta` se conserva como
+  antecedente. La estable se preparará solo cuando Katherine la confirme.
 
-#### Pendiente antes de estabilizar 2.2.0
+#### Pendiente antes de estabilizar 3.0.0
 
 * Validación manual en Chrome de:
 
@@ -133,6 +152,11 @@ Corrección ViX / overlay (2026-09-29):
 * Confirmar comportamiento del sintetizador con distintas voces y velocidades.
 * Confirmar que la detección de reproductor accesible no oculte controles alternativos cuando todavía son necesarios.
 * Revisar compatibilidad de pantalla completa y cambios dinámicos del DOM.
+* Revalidar Netflix, Max, Flow a demanda y Paramount+ con el paquete final.
+* Dailymotion / Telefe solo se anunciará como verificado si se completa una
+  prueba específica; no hay cierre documentado en esta entrega.
+* Probar cada navegador Chromium antes de anunciar compatibilidad verificada.
+* Recibir la confirmación expresa de Katherine para preparar la estable.
 
 ---
 

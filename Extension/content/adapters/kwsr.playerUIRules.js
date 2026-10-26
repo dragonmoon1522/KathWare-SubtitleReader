@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.playerUIRules.js
 // -----------------------------------------------------------------------------
-// Reglas de interfaz del reproductor alternativo para 2.2.0-beta.
+// Reglas de interfaz del reproductor alternativo para 3.0.0-beta.
 //
 // Principios:
 // - SubtitleReader no reemplaza un reproductor que ya es accesible.

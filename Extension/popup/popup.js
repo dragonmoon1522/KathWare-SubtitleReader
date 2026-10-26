@@ -171,10 +171,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const manifest = api.runtime.getManifest();
     const reporte = {
       mensaje,
       fecha: new Date().toISOString(),
-      version: api.runtime.getManifest().version,
+      version: manifest.version_name || manifest.version,
       modoNarrador: modoNarrador?.value || "desconocido",
       url: "",
       platform: "",

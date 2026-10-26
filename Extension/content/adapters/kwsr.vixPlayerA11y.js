@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.vixPlayerA11y.js
 // -----------------------------------------------------------------------------
-// Compatibilidad 2.2.0-beta para el reproductor de ViX.
+// Compatibilidad 3.0.0-beta para el reproductor de ViX.
 //
 // Problema:
 // - ViX puede renderizar controles sin nombre o sin semántica suficiente.
