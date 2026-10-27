@@ -16,6 +16,9 @@ de Katherine.** La versión pública estable anterior continúa siendo 2.0.0.
 Los paquetes para Chrome y otros Chromium se generan desde una única base.
 Firefox queda aplazado. Ver [paquetes y navegadores](docs/navegadores.md).
 
+La [integración con Audiocinemateca](docs/audiocinemateca-plan.md) se evaluará
+después del lanzamiento de 3.0.0, como función de una versión posterior.
+
 ---
 
 ### **Descripción del Proyecto**
