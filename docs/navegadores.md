@@ -4,6 +4,22 @@ La extensión se mantiene en `Extension/`, con una única base de HTML, CSS y
 JavaScript. Se preparan paquetes diferentes a partir de esa misma fuente. No
 hace falta mantener una rama de código por cada navegador basado en Chromium.
 
+## Orden de publicación acordado el 28/10/2026
+
+1. Publicar primero 3.0.0 como actualización de la extensión de Chrome, una vez
+   cerradas las pruebas y recibida la confirmación de Katherine.
+2. Observar su funcionamiento durante aproximadamente dos semanas desde esa
+   publicación. El plazo es orientativo y depende de la estabilidad real.
+3. Distribuir la misma versión funcional estabilizada para otros navegadores,
+   después de sus pruebas y adaptaciones de empaquetado.
+
+Los paquetes preparados para otros Chromium sirven para esa segunda etapa.
+Su generación local no adelanta su publicación ni los convierte en un requisito
+para cerrar la salida inicial de Chrome. Firefox sigue pendiente de adaptación
+y pruebas, sin fecha específica comprometida.
+
+Ver el [plan de salida y trabajo posterior](plan-de-versiones.md).
+
 ## Generar los paquetes
 
 Requiere Python 3.9 o posterior, sin instalar bibliotecas adicionales:
@@ -27,10 +43,10 @@ verifica el ZIP e informa su SHA-256. No sube paquetes ni cambia la versión.
 
 | Destino | Paquete | Estado |
 | --- | --- | --- |
-| Chrome | `chrome` | Beta; validación final de plataformas y lector pendiente. |
-| Edge | `chromium` | Preparado para carga manual y posterior envío a Edge Add-ons; falta prueba específica. |
-| Brave y Vivaldi | `chromium` | Preparado para carga manual; falta prueba específica. |
-| Opera | `chromium` | Preparado para carga manual y evaluación para su tienda; falta prueba específica. |
+| Chrome | `chrome` | Primera publicación; beta pendiente de las últimas pruebas y confirmación. |
+| Edge | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y envío a Edge Add-ons. |
+| Brave y Vivaldi | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica. |
+| Opera | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y evaluación para su tienda. |
 | Firefox | Sin paquete en esta entrega | Adaptación y pruebas aplazadas. |
 
 Ambos paquetes usan Manifest V3. El destino `chromium` elimina `update_url` y
@@ -101,6 +117,8 @@ antecedente. La extensión mantiene `version: "3.0.0"` y
 El paso a estable y la publicación en tiendas requieren la confirmación expresa
 de Katherine después de las pruebas. Antes de esa confirmación no se elimina la
 etiqueta beta, no se crea una entrega estable y no se actualiza `main`.
+La primera publicación será en Chrome; las siguientes seguirán el orden
+acordado en el plan de versiones.
 
 El refactor por tipos de renderizado queda para una versión posterior. La
 consola histórica en `web/kathware-player-console.js` conserva sus experimentos;

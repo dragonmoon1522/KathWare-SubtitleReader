@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-10-26
+**Última actualización:** 2026-10-28
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -11,6 +11,21 @@ Continúa el trabajo iniciado como 2.2.0-beta el 28/09/2026. Reúne las mejoras
 funcionales de la extensión sin introducir el refactor por renderizadores,
 aplazado para una versión posterior. El paso a estable queda sujeto a las
 pruebas y a la confirmación expresa de Katherine.
+
+#### Plan de salida definido el 28/10/2026
+
+* La primera distribución estable será la actualización de la extensión de
+  Chrome, después de terminar las pruebas y recibir la confirmación de Katherine.
+* Tras unas dos semanas de uso estable desde su publicación en Chrome, se
+  preparará la misma versión funcional para otros navegadores. El plazo es
+  aproximado y depende de los resultados de estabilidad y de las pruebas
+  específicas de cada navegador.
+* Las pruebas y adaptaciones para otros navegadores forman parte de esa segunda
+  etapa, no de los requisitos para cerrar la salida inicial en Chrome.
+* La reorganización por renderizadores, Audiocinemateca, la versión en inglés y
+  la detección automática de idiomas quedan para versiones posteriores. Las
+  demás ideas anotadas se conservan para evaluación futura.
+* El detalle se mantiene en `docs/plan-de-versiones.md`.
 
 #### Preparación de 3.0.0-beta (2026-10-26)
 
@@ -155,8 +170,10 @@ Corrección ViX / overlay (2026-09-29):
 * Revalidar Netflix, Max, Flow a demanda y Paramount+ con el paquete final.
 * Dailymotion / Telefe solo se anunciará como verificado si se completa una
   prueba específica; no hay cierre documentado en esta entrega.
-* Probar cada navegador Chromium antes de anunciar compatibilidad verificada.
 * Recibir la confirmación expresa de Katherine para preparar la estable.
+
+Las pruebas específicas para otros navegadores se harán en la segunda etapa
+del lanzamiento, antes de anunciar su compatibilidad verificada.
 
 ---
 

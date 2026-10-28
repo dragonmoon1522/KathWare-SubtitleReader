@@ -1,6 +1,9 @@
 # Integración futura con Audiocinemateca
 
 Decisiones de Katherine del 26/10/2026. Estado: planificación; no implementada.
+El [plan de versiones del 28/10/2026](plan-de-versiones.md) mantiene esta
+integración como trabajo posterior, fuera del lanzamiento de 3.0.0 y de su
+distribución equivalente para otros navegadores.
 
 ## Alcance y momento
 

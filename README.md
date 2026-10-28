@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-10-26
+**Última actualización:** 2026-10-28
 
 ### Estado de esta rama: 3.0.0-beta
 
@@ -13,11 +13,19 @@ reorganización por tipos de renderizado queda para una versión posterior.
 **El paso a estable queda pendiente de las pruebas y de la confirmación expresa
 de Katherine.** La versión pública estable anterior continúa siendo 2.0.0.
 
-Los paquetes para Chrome y otros Chromium se generan desde una única base.
-Firefox queda aplazado. Ver [paquetes y navegadores](docs/navegadores.md).
+La salida inicial de 3.0.0 será la actualización de la extensión de **Chrome**.
+Tras aproximadamente **dos semanas de uso estable desde esa publicación**, se
+distribuirá la misma versión funcional para otros navegadores, con las pruebas
+y ajustes de empaquetado que correspondan. El plazo es orientativo y depende
+de la estabilidad comprobada en Chrome.
 
-La [integración con Audiocinemateca](docs/audiocinemateca-plan.md) se evaluará
-después del lanzamiento de 3.0.0, como función de una versión posterior.
+La reorganización por renderizadores, la integración con Audiocinemateca, la
+versión de la aplicación en inglés y la detección automática de idiomas quedan
+para versiones posteriores. El selector de voces ya integrado sigue formando
+parte de 3.0.0.
+
+Ver el [plan de salida y trabajo posterior](docs/plan-de-versiones.md) y los
+[paquetes por navegador](docs/navegadores.md).
 
 ---
 
