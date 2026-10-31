@@ -98,23 +98,33 @@ Documentación consultada el 26/10/2026:
 
 ## Paso a estable
 
-### Corrección de Flow preparada el 31/10/2026
+### Correcciones de Flow y YouTube preparadas el 31/10/2026
 
-- Las 31 pruebas de `tests/flow-incremental.cjs` pasan, incluidas las secuencias
-  de Flow enviadas durante las pruebas manuales y la recuperación de un texto
-  que desaparece brevemente del DOM. Los intervalos del ensayo son simulados;
-  todavía falta escuchar la corrección en Flow real con NVDA/TTS.
+- Pasan las 45 pruebas de lectura incremental: 31 de la suite existente de Flow
+  y 14 específicas de YouTube. Cubren las secuencias recibidas, plazos de entrega,
+  palabras repetidas, puntuación y recuperación de nodos. Los intervalos del
+  ensayo son simulados; todavía falta escuchar estas revisiones con NVDA/TTS.
+- Se pueden ejecutar juntas con:
+
+  ```sh
+  node --test tests/flow-incremental.cjs tests/youtube-incremental.cjs
+  ```
 - Para probar el nuevo ZIP de Chrome, descomprimirlo en la carpeta usada para
   cargar la beta, reemplazar sus archivos y recargar la extensión desde su
-  administrador. Después recargar la pestaña de Flow para sustituir también los
-  scripts que ya estaban ejecutándose.
-- El botón **Diagnóstico** debe informar `flowReaderRevision: 3`. Con debug
-  activo, los registros Flow `CONSOLE RENDERER live/flush` contienen `revision: 3`.
+  administrador. Después recargar la pestaña de Flow o YouTube para sustituir
+  también los scripts que ya estaban ejecutándose.
+- El botón **Diagnóstico** debe informar `flowReaderRevision: 3` y
+  `youtubeReaderRevision: 1`. Con debug activo, los registros `CONSOLE RENDERER`
+  de cada plataforma llevan su revisión correspondiente y son JSON copiables.
   Ese nombre histórico no significa que se esté ejecutando la consola
   experimental de `web/`; el ZIP utiliza el adaptador de la extensión.
 - La revisión 3 confirma los vacíos del subtítulo durante 250 ms antes de borrar
   su memoria. El debug registra `gap` y `reset` para distinguir una desaparición
   breve de un vacío confirmado o un reinicio del lector.
+- YouTube entrega frases terminadas con la puntuación disponible y agrega un
+  plazo de 850 ms que no se reinicia al llegar más palabras. La última palabra
+  visible puede esperar a la pausa para evitar cortarla. Conserva también las
+  repeticiones entre segmentos distintos del subtítulo.
 - El modo debug registra cada cambio del subtítulo, por lo que puede producir
   muchos mensajes. Se puede desactivar con Alt+Shift+D al terminar la prueba.
 

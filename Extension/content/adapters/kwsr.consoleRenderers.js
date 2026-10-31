@@ -51,14 +51,21 @@
     }
   };
 
+  // YouTube conserva la frase pendiente para actualizar palabras y puntuación
+  // antes de leerla; los índices separan el texto visible del que ya se entregó.
   const state = {
     observer: null,
     scheduled: false,
     lastRaw: "",
-    buffer: "",
+    words: [], rawStart: 0, sentCount: 0,
     flushTimer: null,
-    activeRenderer: ""
+    limitTimer: null, limitDue: null, since: 0,
+    gapTimer: null, emptySince: null
   };
+  const YOUTUBE_READER_REVISION = 1;
+  const YOUTUBE_PAUSE_MS = 850;
+  const YOUTUBE_LIMIT_MS = 850;
+  const YOUTUBE_GAP_MS = 250;
 
   // Flow puede completar una palabra mientras desplaza la línea anterior.
   // words conserva también lo pendiente que ya salió de pantalla; rawStart
@@ -101,7 +108,7 @@
     return normalize(normalize(text).replace(/(^|\s)>+(?=\s|$)/g, " "));
   }
 
-  function flowWordMatches(previous, current, canGrow = false) {
+  function captionWordMatches(previous, current, canGrow = false) {
     const before = fp(previous);
     const after = fp(current);
     return before === after || (canGrow && before && after.startsWith(before) && !/[.!?…:;,]$/.test(previous));
@@ -110,16 +117,16 @@
   // Alineamos el final anterior con el principio actual. La última palabra
   // anterior puede crecer: «EL DO» y «EL DOLOR» siguen siendo la misma línea.
   // No buscamos coincidencias en mitad del texto nuevo.
-  function flowOverlap(previous, current) {
+  function captionOverlap(previous, current) {
     for (let size = Math.min(previous.length, current.length); size > 0; size--) {
       const start = previous.length - size;
-      if (previous.slice(start).every((word, i) => flowWordMatches(word, current[i], size > 1 && i === size - 1))) {
+      if (previous.slice(start).every((word, i) => captionWordMatches(word, current[i], size > 1 && i === size - 1))) {
         return start;
       }
     }
     // Una corrección dentro de la misma línea puede no conservar todo el final.
     // Antes preferimos el solapamiento completo, aunque repita la primera palabra.
-    if (flowWordMatches(previous[0], current[0], previous.length === 1)) return 0;
+    if (captionWordMatches(previous[0], current[0], previous.length === 1)) return 0;
     return -1;
   }
 
@@ -215,7 +222,7 @@
     }
     const oldWords = wordsOf(flow.raw);
     const newWords = wordsOf(current);
-    const overlap = oldWords.length ? flowOverlap(oldWords, newWords) : -1;
+    const overlap = oldWords.length ? captionOverlap(oldWords, newWords) : -1;
     if (oldWords.length && overlap < 0) {
       flushFlow("cue-change");
       resetFlow("cue-change");
@@ -312,7 +319,9 @@
         if (!text || looksLikeNoise(el, text)) continue;
 
         const key = fp(text);
-        if (!key || seen.has(key)) continue;
+        // En YouTube dos segmentos distintos pueden repetir una palabra de
+        // forma intencional («arriba, abajo, arriba»), o contener solo una coma.
+        if (p !== "youtube" && (!key || seen.has(key))) continue;
         seen.add(key);
         parts.push(text);
       }
@@ -329,143 +338,181 @@
     return { text: "", renderer: renderer.name };
   }
 
-  // Compara el texto anterior con el actual y devuelve solo la parte nueva.
-  // Las coincidencias parciales ayudan cuando el sitio desplaza líneas ya mostradas.
-  function getDelta(previous, current) {
-    previous = normalize(previous);
-    current = normalize(current);
+  function cleanYouTubeText(text) {
+    return normalize(normalize(text).replace(/\s+([,.;:!?…])/g, "$1").replace(/^[,.;:!?…]+\s*/, ""));
+  }
 
+  function logYouTube(event, data) {
+    if (CFG.debug) {
+      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.youtube.name, revision: YOUTUBE_READER_REVISION, ...data })}`);
+    }
+  }
+
+  // Se conserva esta utilidad de diagnóstico. La lectura usa las palabras
+  // pendientes completas, para poder corregirlas sin concatenar sus versiones.
+  function getDelta(previous, current) {
+    previous = cleanYouTubeText(previous);
+    current = cleanYouTubeText(current);
     if (!previous) return current;
     if (!current || current === previous) return "";
-    if (fp(current) === fp(previous)) return "";
-
-    const prevWords = wordsOf(previous);
-    const currWords = wordsOf(current);
-
-    if (current.startsWith(previous)) {
-      return normalize(currWords.slice(prevWords.length).join(" "));
+    const prev = wordsOf(previous), curr = wordsOf(current);
+    const start = captionOverlap(prev, curr);
+    if (start < 0) return current;
+    const count = Math.min(prev.length - start, curr.length);
+    for (let i = 0; i < count; i++) {
+      if (prev[start + i] !== curr[i]) return curr.slice(i).join(" ");
     }
-
-    const maxOverlap = Math.min(prevWords.length, currWords.length);
-
-    for (let size = maxOverlap; size >= 2; size--) {
-      const prevTail = fp(prevWords.slice(-size).join(" "));
-
-      for (let start = 0; start <= currWords.length - size; start++) {
-        const currChunk = fp(currWords.slice(start, start + size).join(" "));
-        if (prevTail && prevTail === currChunk) {
-          return normalize(currWords.slice(start + size).join(" "));
-        }
-      }
-    }
-
-    if (fp(previous).includes(fp(current))) return "";
-    return current;
+    return curr.slice(count).join(" ");
   }
 
-  function hasHardBoundary(text) {
-    return /[.!?…:]\s*$/.test(normalize(text));
+  function clearFlushTimer(preserveLimit = false) {
+    clearTimeout(state.flushTimer);
+    clearTimeout(state.limitTimer);
+    state.flushTimer = state.limitTimer = null;
+    if (!preserveLimit) state.limitDue = null;
   }
 
-  function hasSoftBoundary(text) {
-    return /[,;]\s*$/.test(normalize(text));
-  }
-
-  function clearFlushTimer() {
-    if (state.flushTimer) clearTimeout(state.flushTimer);
-    state.flushTimer = null;
-  }
-
-  // Envía lo acumulado a la capa de voz y vacía el texto pendiente.
-  // Si no hay texto, termina sin anunciar nada. reason explica por qué se envió.
-  function flush(reason = "flush") {
+  function resetYouTube(reason = "manual") {
+    if (state.lastRaw) logYouTube("reset", { reason });
     clearFlushTimer();
+    clearTimeout(state.gapTimer);
+    state.gapTimer = state.emptySince = null;
+    state.lastRaw = "";
+    state.words = [];
+    state.rawStart = state.sentCount = 0;
+  }
 
-    const text = normalize(state.buffer);
-    state.buffer = "";
-    if (!text) return;
+  function trimYouTubeHistory() {
+    const count = Math.min(state.rawStart, state.sentCount);
+    if (!count) return;
+    state.words = state.words.slice(count);
+    state.rawStart -= count;
+    state.sentCount -= count;
+  }
 
-    if (CFG.debug) {
-      KWSR.log?.("CONSOLE RENDERER flush", {
-        renderer: state.activeRenderer,
-        reason,
-        text
-      });
+  // Entrega un prefijo de las palabras pendientes. Un plazo continuo conserva
+  // el temporizador de pausa para que la última palabra no quede sin entregar.
+  function flush(reason = "flush", end = state.words.length) {
+    if (reason === "continuous") {
+      clearTimeout(state.limitTimer);
+      state.limitTimer = state.limitDue = null;
+    } else {
+      clearFlushTimer();
     }
-
+    if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "youtube" || !KWSR.voice?.shouldReadNow?.()) {
+      resetYouTube("inactive");
+      return;
+    }
+    if (end <= state.sentCount) return;
+    const text = cleanYouTubeText(state.words.slice(state.sentCount, end).join(" "));
+    state.sentCount = end;
+    trimYouTubeHistory();
+    if (!text) return;
+    logYouTube("flush", { reason, text, pendingMs: Date.now() - state.since });
     KWSR.voice?.leerTextoAccesible?.(text);
   }
 
-  // Guarda texto nuevo y decide cuándo enviarlo.
-  // Puede salir antes por puntuación o longitud; si no, espera una pausa.
-  function queueDelta(delta) {
-    delta = normalize(delta);
-    if (!delta) return;
-
-    state.buffer = normalize(`${state.buffer} ${delta}`);
-    clearFlushTimer();
-
-    const wordCount = wordsOf(state.buffer).length;
-
-    if (hasHardBoundary(state.buffer) && wordCount >= 3) {
-      flush("sentence");
-      return;
+  function youtubeBoundary() {
+    let boundary = null;
+    for (let i = state.sentCount; i < state.words.length; i++) {
+      const word = state.words[i];
+      const length = state.words.slice(state.sentCount, i + 1).join(" ").length;
+      if (/[.!?…:]["”’')]*$/.test(word)) {
+        boundary = { end: i + 1, reason: "sentence" };
+      } else if (/[,;]["”’')]*$/.test(word) && length >= 45 && i - state.sentCount >= 2) {
+        boundary = { end: i + 1, reason: "soft" };
+      }
+      if (length >= 140 && i - state.sentCount >= 2) {
+        // Preferir una pausa natural; con texto continuo, no cortar la última
+        // palabra visible porque todavía puede estar en formación.
+        return boundary || (i < state.words.length - 1 ? { end: i + 1, reason: "limit" } : null);
+      }
     }
+    return boundary;
+  }
 
-    if (hasSoftBoundary(state.buffer) && state.buffer.length >= 45 && wordCount >= 3) {
-      flush("soft");
-      return;
+  function queueYouTubeDelivery() {
+    clearTimeout(state.flushTimer);
+    state.flushTimer = null;
+    if (state.sentCount < state.words.length && state.limitDue === null) state.since = Date.now();
+    const boundary = youtubeBoundary();
+    if (boundary) flush(boundary.reason, boundary.end);
+    if (state.sentCount >= state.words.length) return;
+    state.flushTimer = setTimeout(() => flush("pause"), YOUTUBE_PAUSE_MS);
+    // Este límite se inicia con la primera palabra pendiente y no se reinicia
+    // al llegar más palabras. La pausa por sí sola podía demorar toda la frase.
+    if (state.limitTimer === null) {
+      if (state.limitDue === null) {
+        state.since = Date.now();
+        state.limitDue = state.since + YOUTUBE_LIMIT_MS;
+      }
+      state.limitTimer = setTimeout(() => flush("continuous", state.words.length - 1), Math.max(0, state.limitDue - Date.now()));
     }
+  }
 
-    if (state.buffer.length >= 140 && wordCount >= 3) {
-      flush("limit");
-      return;
+  function pollYouTube(picked) {
+    const current = cleanYouTubeText(picked.text);
+    if (!current) {
+      if (state.lastRaw && state.emptySince === null) {
+        clearFlushTimer(true);
+        state.emptySince = Date.now();
+        logYouTube("gap", { phase: "start" });
+        state.gapTimer = setTimeout(() => {
+          state.gapTimer = null;
+          if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "youtube" || !KWSR.voice?.shouldReadNow?.()) {
+            resetYouTube("inactive");
+            return;
+          }
+          const next = getRendererText("youtube");
+          if (cleanYouTubeText(next.text)) return pollYouTube(next);
+          logYouTube("gap", { phase: "confirmed", gapMs: Date.now() - state.emptySince });
+          flush("cue-end");
+          resetYouTube("empty-gap");
+        }, YOUTUBE_GAP_MS);
+      }
+      return false;
     }
-
-    // Cada llegada de texto nuevo reinicia esta espera de 850 milisegundos.
-    // Al cumplirse, se lee lo guardado aunque sea una sola palabra, como «Sí».
-    state.flushTimer = setTimeout(() => {
-      flush("pause");
-    }, 850);
+    const hadGap = state.emptySince !== null;
+    if (hadGap) {
+      clearTimeout(state.gapTimer);
+      state.gapTimer = null;
+      logYouTube("gap", { phase: "restored", gapMs: Date.now() - state.emptySince });
+      state.emptySince = null;
+    }
+    if (current === state.lastRaw) {
+      if (hadGap) queueYouTubeDelivery();
+      return true;
+    }
+    const prev = wordsOf(state.lastRaw), curr = wordsOf(current);
+    const overlap = prev.length ? captionOverlap(prev, curr) : -1;
+    if (prev.length && overlap < 0) {
+      flush("cue-change");
+      resetYouTube("cue-change");
+    }
+    const start = overlap < 0 ? 0 : state.rawStart + overlap;
+    const updated = [...state.words.slice(0, start), ...curr];
+    for (let i = start; i < Math.min(state.sentCount, updated.length); i++) {
+      if (fp(state.words[i]) !== fp(updated[i])) {
+        state.sentCount = i;
+        break;
+      }
+    }
+    state.words = updated;
+    state.rawStart = start;
+    state.sentCount = Math.min(state.sentCount, updated.length);
+    state.lastRaw = current;
+    trimYouTubeHistory();
+    logYouTube("live", { selector: picked.selector || "", raw: normalize(picked.text), pending: state.words.slice(state.sentCount).join(" ") });
+    queueYouTubeDelivery();
+    return true;
   }
 
   function livePoll() {
-    if (!S.extensionActiva) return false;
-    if (S.effectiveFuente !== "visual") return false;
-    if (!KWSR.voice?.shouldReadNow?.()) return false;
-
+    if (!S.extensionActiva || S.effectiveFuente !== "visual" || !KWSR.voice?.shouldReadNow?.()) return false;
     const p = platform();
     if (!LIVE_PLATFORMS.has(p)) return false;
-
     const picked = getRendererText(p);
-    if (p === "flow") return pollFlow(picked);
-    const current = normalize(picked.text);
-    state.activeRenderer = picked.renderer || p;
-
-    if (!current) return false;
-
-    const previous = state.lastRaw;
-    let delta = getDelta(previous, current);
-    state.lastRaw = current;
-
-    if (!delta) return true;
-
-    // Si cambió completamente el subtítulo, terminamos primero la frase anterior.
-    if (previous && fp(delta) === fp(current) && state.buffer) {
-      flush("cue-change");
-    }
-
-    if (CFG.debug) {
-      KWSR.log?.("CONSOLE RENDERER live", {
-        renderer: state.activeRenderer,
-        selector: picked.selector || "",
-        raw: current,
-        delta
-      });
-    }
-
-    queueDelta(delta);
-    return true;
+    return p === "flow" ? pollFlow(picked) : pollYouTube(picked);
   }
 
   function scheduleLivePoll() {
@@ -501,10 +548,7 @@
   // Así el contenido anterior no se mezcla con una nueva sesión.
   function resetLiveState(reason = "manual") {
     resetFlow(reason);
-    clearFlushTimer();
-    state.lastRaw = "";
-    state.buffer = "";
-    state.activeRenderer = "";
+    resetYouTube(reason);
   }
 
   // Extiende la lista 2.x con renderizadores ya probados en consola.
@@ -573,6 +617,7 @@
 
   KWSR.consoleRenderers = {
     flowReaderRevision: FLOW_READER_REVISION,
+    youtubeReaderRevision: YOUTUBE_READER_REVISION,
     livePoll,
     flush,
     getRendererText,

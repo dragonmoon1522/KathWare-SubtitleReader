@@ -70,7 +70,7 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | Netflix, Max y Flow a demanda | Katherine confirmó funcionamiento el 07/10/2026. | Comprobación con el paquete final. |
 | Disney+ / Hive | Corrección integrada; funcionamiento confirmado el 07/10/2026. | Comprobación con el paquete final. |
 | ViX | Lectura confirmada el 07/10/2026; pruebas automatizadas de lectura y controles. | Cierre conjunto con lector/TTS y controles accesibles. |
-| YouTube | Lectura incremental incorporada. | Validación manual final. |
+| YouTube | Corrección del 31/10/2026 de espera continua, puntuación y palabras repetidas; 14 pruebas específicas. | Repetir la sesión con NVDA/TTS sobre la revisión 1: integridad, repetición y atraso. |
 | Flow en vivo | Correcciones del 31/10/2026 para palabras en formación y recambios breves del DOM; 31 pruebas automatizadas. | Repetir la sesión con NVDA sobre la revisión 3: integridad, repetición y atraso. |
 | Paramount+ | Compatibilidad documentada en la estable 2.0.0. | Revalidar con el paquete final. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |

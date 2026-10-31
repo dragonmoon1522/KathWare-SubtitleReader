@@ -50,6 +50,38 @@ pruebas y a la confirmación expresa de Katherine.
 
 #### Lectura de subtítulos y renderizadores
 
+Corrección de lectura incremental de YouTube (2026-10-31, revisión 1):
+
+* En el registro de un tutorial de guitarra, cada palabra nueva reiniciaba la
+  espera de 850 ms. Al seguir hablando, la entrega se demoraba hasta una pausa
+  o hasta acumular bastante texto. Además, el cálculo por diferencias omitía
+  puntos y comas añadidos a palabras anteriores.
+* YouTube conserva las palabras pendientes completas y sus correcciones. Las
+  frases terminadas pueden entregarse aunque la misma actualización ya incluya
+  palabras de la siguiente. Se conserva la puntuación disponible antes de la
+  entrega y se evitan puntos o comas aislados al comienzo de una línea desplazada.
+* Durante escritura continua hay un plazo de 850 ms que no se reinicia con cada
+  palabra. Entrega las palabras anteriores a la última visible, que todavía
+  puede estar formándose; la pausa de 850 ms termina de entregar lo pendiente.
+  Se mantienen los cortes por puntuación o longitud. Estos tiempos no incluyen
+  el atraso del subtitulado de origen ni de NVDA/TTS.
+* Dos segmentos visibles distintos de YouTube ya no se descartan por contener
+  el mismo texto. Se conservan repeticiones intencionales como
+  `arriba, abajo, arriba, abajo` y segmentos que solo contienen puntuación.
+* Se conservan las palabras al desplazarse o sustituirse brevemente los nodos.
+  Un vacío de 250 ms se confirma releyendo el DOM antes de liberar la memoria.
+  Los temporizadores comprueban que la extensión, la fuente y la lectura sigan
+  activas antes de entregar texto, y se cancelan al reiniciar.
+* El diagnóstico informa `youtubeReaderRevision: 1`. Los registros de YouTube
+  son JSON copiables con `revision: 1`, texto detectado, pendiente y tiempo de
+  espera. Flow mantiene su revisión 3; solo se comparte la comparación pura
+  entre palabras, sin cambiar sus tiempos ni su estado.
+* Validación: 45 pruebas aprobadas (31 de la suite existente y 14 específicas
+  de YouTube). Se reutiliza el DOM y reloj simulados en `tests/helpers/`.
+  La secuencia recibida conserva todas sus palabras en el ensayo; sus intervalos
+  son simulados. Sigue pendiente escuchar esta revisión con NVDA/TTS en YouTube.
+* La extensión sigue en `3.0.0-beta`, con la arquitectura actual por plataformas.
+
 Corrección de repeticiones tras recambios breves del DOM de Flow (2026-10-31, revisión 3):
 
 * En un nuevo registro, `ES LO MISMO. TENGO QUE IR. A JUGAR.` reaparece entero
