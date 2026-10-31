@@ -187,6 +187,11 @@
   }
 
   function flowTimingMessage(data) {
+    if (data.phase === "snapshot") {
+      return data.pauseSucceeded
+        ? "Captura guardada y video pausado. Compará las últimas palabras del texto capturado con el diálogo que acabás de escuchar. No hace falta escribir nada."
+        : "Captura guardada. No se pudo pausar automáticamente el video; podés pausarlo con sus controles para revisar el texto.";
+    }
     if (data.phase === "matched") {
       const seconds = (data.caption.observedAfterAudioMarkMs / 1000).toFixed(1).replace(".", ",");
       return `Flow mostró «${data.word}» aproximadamente ${seconds} segundos después de tu marca del audio. El diagnóstico contiene los tiempos de salida.`;
@@ -197,17 +202,17 @@
     if (data.phase === "history-incomplete") return "El registro se llenó antes de identificar la palabra. Repetí la marca y escribila antes.";
     if (data.phase === "waiting") return `Esperando que aparezca «${data.word}» en el subtítulo de Flow. Dejá el video reproduciéndose.`;
     if (data.phase === "need-word") return "Marca de audio registrada. Escribí la palabra que acabás de escuchar y presioná Enter. Dejá el video reproduciéndose.";
-    return "Al escuchar una palabra distintiva en el audio original del video, pulsá Alt+Shift+M. Después escribila y presioná Enter.";
+    return "Pulsá Alt+Shift+M mientras escuchás el video: se captura el subtítulo y se pausa para compararlo sin apuro.";
   }
 
   function markFlowAudio() {
-    const result = KWSR.flowTiming?.markAudio?.();
+    const result = KWSR.flowTiming?.captureSnapshot?.();
     if (!result) return;
     KWSR.overlay?.setPanelOpen?.(true);
-    const input = document.querySelector("#kwsr-flow-timing-word");
+    const input = document.querySelector("#kwsr-flow-timing-snapshot");
     if (input) {
-      input.value = "";
-      if (result.running) input.focus();
+      input.value = result.sourceText?.replace(/>+/g, " ").replace(/\s+/g, " ").trim() || "No se encontró texto de subtítulos en esta captura.";
+      input.focus();
     }
     const status = document.querySelector("#kwsr-flow-timing-status");
     if (status) status.textContent = flowTimingMessage(result);
@@ -217,30 +222,26 @@
     if (platform() !== "flow" || !KWSR.flowTiming) return;
     const section = document.createElement("div");
     section.setAttribute("role", "group");
-    section.setAttribute("aria-label", "Medir atraso de Flow");
+    section.setAttribute("aria-label", "Capturar subtítulo de Flow y pausar");
     const label = document.createElement("label");
-    label.setAttribute("for", "kwsr-flow-timing-word");
-    label.textContent = "Palabra distintiva escuchada en el audio del video";
-    const input = document.createElement("input");
-    input.id = "kwsr-flow-timing-word";
-    input.type = "text";
-    input.maxLength = 80;
+    label.setAttribute("for", "kwsr-flow-timing-snapshot");
+    label.textContent = "Subtítulo encontrado en Flow al capturar";
+    const input = document.createElement("textarea");
+    input.id = "kwsr-flow-timing-snapshot";
+    input.readOnly = true;
+    input.rows = 4;
+    input.style.width = "100%";
     const status = document.createElement("p");
     status.id = "kwsr-flow-timing-status";
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     status.textContent = flowTimingMessage({ phase: "idle" });
-    const submit = () => KWSR.flowTiming.setWord(input.value);
-    input.addEventListener("keydown", e => {
-      if (e.key !== "Enter") return;
-      e.preventDefault();
-      e.stopPropagation();
-      submit();
-    });
     section.append(
-      makeButton("Marcar audio de Flow", "Marcar una palabra escuchada ahora en el audio de Flow", markFlowAudio),
+      makeButton("Capturar subtítulo y pausar", "Capturar el subtítulo de Flow y pausar el video", markFlowAudio),
       label, input,
-      makeButton("Buscar palabra marcada", "Buscar la palabra marcada en el subtítulo de Flow", submit),
+      makeButton("Reanudar video", "Reanudar el video de Flow después de revisar la captura", () => {
+        try { S.currentVideo?.play?.()?.catch?.(() => {}); } catch {}
+      }),
       status
     );
     tools.append(section);
@@ -248,8 +249,9 @@
     KWSR.flowTiming.setListener(data => {
       const message = flowTimingMessage(data);
       if (status.textContent !== message) status.textContent = message;
-      const signature = JSON.stringify([data.phase, data.caption, data.output]);
-      if (["matched", "already-visible", "invalid", "not-found", "history-incomplete"].includes(data.phase) && signature !== lastPrinted) {
+      if (data.phase === "snapshot") input.value = data.sourceText.replace(/>+/g, " ").replace(/\s+/g, " ").trim() || "No se encontró texto de subtítulos en esta captura.";
+      const signature = JSON.stringify([data.phase, data.caption, data.output, data.capturedAtMs, data.sourceText]);
+      if (["snapshot", "matched", "already-visible", "invalid", "not-found", "history-incomplete"].includes(data.phase) && signature !== lastPrinted) {
         lastPrinted = signature;
         console.log(`[KWSR FLOW TIMING] ${JSON.stringify(data)}`);
       }
@@ -316,7 +318,7 @@
       hotkeys.textContent =
         "Atajos: Alt+Shift+K activar/desactivar; Alt+Shift+L cambiar salida; " +
         "Alt+Shift+O abrir/cerrar panel; Alt+Shift+D debug; Alt+Shift+R reiniciar lectura." +
-        (platform() === "flow" ? " Alt+Shift+M marcar audio para medir el atraso de Flow." : "");
+        (platform() === "flow" ? " Alt+Shift+M capturar subtítulo de Flow y pausar." : "");
     }
 
     // Si el módulo original vuelve a escribir el status, lo corregimos a texto simple.

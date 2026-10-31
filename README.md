@@ -81,9 +81,10 @@ Disney+, Max, Paramount+ y YouTube. Se mantienen las comprobaciones generales de
 controles, pantalla completa y la confirmación expresa para pasar a estable.
 
 Para localizar el atraso de Flow en vivo está disponible la
-[medición con una marca del audio](docs/flow-timing.md), mediante Alt+Shift+M.
-Se compara cuándo aparece una palabra en el subtítulo con su entrega al lector
-o al sintetizador. La causa del atraso sigue pendiente de esa prueba real.
+[captura de subtítulo con pausa](docs/flow-timing.md), mediante Alt+Shift+M.
+Se guarda el texto antes de pausar el video y se enfoca un campo de solo lectura
+para compararlo con el diálogo escuchado. La causa del atraso sigue pendiente
+de esa comprobación real.
 
 Otros sitios y reproductores pueden funcionar mediante las pistas o selectores
 incluidos, pero no se anuncian como verificados sin una prueba concreta. Algunas

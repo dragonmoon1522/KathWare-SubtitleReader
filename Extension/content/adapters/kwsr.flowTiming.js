@@ -6,15 +6,17 @@
 // PARA UBICARTE
 // No escucha ni graba audio. La marca manual es la referencia del diálogo.
 // Un observador independiente consulta el subtítulo sin esperar al lector.
-// Solo se activa al marcar; conserva una prueba de 30 segundos en memoria.
+// La captura simple pausa el video y conserva el texto para revisarlo sin apuro.
+// La medición manual detallada conserva una prueba de 30 segundos en memoria.
 // -----------------------------------------------------------------------------
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.flowTiming) return;
-  const REVISION = 1;
+  const REVISION = 2;
   const WINDOW_MS = 30000;
   const MAX_SAMPLES = 800;
   let session = null;
+  let snapshot = null;
   let listener = null;
 
   const clock = () => typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -35,6 +37,7 @@
   }
 
   function getReport() {
+    if (snapshot) return { ...snapshot };
     if (!session) return { revision: REVISION, phase: "idle", running: false };
     const s = session;
     let phase = s.invalid ? "invalid" : !s.word ? "need-word" : s.expired ? "not-found" : "waiting";
@@ -125,6 +128,7 @@
   }
 
   function markAudio() {
+    snapshot = null;
     detach();
     const v = video();
     if (platform() !== "flow" || !KWSR.state?.extensionActiva || !v || v.paused || v.ended || !Number.isFinite(v.currentTime)) {
@@ -160,6 +164,34 @@
     return getReport();
   }
 
+  // Capturar antes de pausar: algunos reproductores retiran sus subtítulos
+  // al recibir pause. La referencia del audio la conserva la persona al oírlo.
+  function captureSnapshot() {
+    detach();
+    const v = video();
+    if (platform() !== "flow" || !KWSR.state?.extensionActiva || !v || !Number.isFinite(v.currentTime)) {
+      snapshot = { revision: REVISION, phase: "invalid", running: false, invalidReason: "play-a-flow-video" };
+      publish();
+      return getReport();
+    }
+    const candidate = KWSR.consoleRenderers?.getRendererText?.("flow");
+    const lastAt = Number(KWSR.state.lastEmitAt || 0);
+    snapshot = {
+      revision: REVISION, phase: "snapshot", running: false,
+      capturedAtMs: Date.now(), videoTime: Number(v.currentTime), wasPaused: !!v.paused,
+      sourceText: String(candidate?.text || "").replace(/\s+/g, " ").trim(),
+      selector: candidate?.selector || "",
+      lastDeliveredText: KWSR.state.lastEmitText || "",
+      lastDeliveredAgoMs: lastAt ? Math.max(0, Date.now() - lastAt) : null,
+      pauseSucceeded: false, reference: "paused-source-snapshot", audioOffsetMeasured: false
+    };
+    try { KWSR.voice?.detenerLectura?.(); } catch {}
+    try { v.pause(); } catch {}
+    snapshot.pauseSucceeded = !!v.paused;
+    publish();
+    return getReport();
+  }
+
   function setWord(value) {
     if (!session) return getReport();
     const word = String(value || "").trim().slice(0, 80);
@@ -177,8 +209,8 @@
   }
 
   KWSR.flowTiming = {
-    revision: REVISION, markAudio, setWord, noteOutput, getReport,
+    revision: REVISION, captureSnapshot, markAudio, setWord, noteOutput, getReport,
     setListener(fn) { listener = typeof fn === "function" ? fn : null; publish(); },
-    cancel() { invalidate("cancelled"); }
+    cancel() { snapshot = null; invalidate("cancelled"); }
   };
 })();

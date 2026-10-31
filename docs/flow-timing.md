@@ -1,62 +1,72 @@
-# Medir el atraso de Flow en vivo
+# Revisar el atraso de Flow en vivo
 
-Herramienta de diagnóstico de 3.0.0-beta, revisión 1. El atraso reportado de unos
-10 segundos ocurre tanto con NVDA como con el sintetizador del navegador. La
-medición busca separar la disponibilidad del texto de su entrega a la voz.
+Diagnóstico de 3.0.0-beta, revisión 2. El atraso reportado de unos 10 segundos
+ocurre tanto con NVDA como con el sintetizador del navegador. La prueba simple
+congela el texto encontrado en Flow para compararlo con el diálogo escuchado.
 
-## Hacer una marca
+## Prueba simple: capturar y pausar
 
 1. Actualizar desde la rama `3.0.0-beta`, recargar la extensión y la pestaña de
-   Flow. El diagnóstico debe incluir `flowTiming` con `revision: 1`.
-2. Con el foco en la página y el video reproduciéndose, escuchar una palabra
-   distintiva en **el audio original del video** y pulsar **Alt+Shift+M** en ese
-   momento. También está el botón **Marcar audio de Flow** en el panel.
-3. Se abre el panel y el foco pasa al campo **Palabra distintiva escuchada en el
-   audio del video**. Escribir esa palabra y presionar **Enter**. Escribirla
-   después no cambia la marca de tiempo, que ya quedó registrada.
-4. Dejar el video reproduciéndose, sin pausarlo, adelantarlo ni cambiar su
-   velocidad. El observador captura durante un máximo de 30 segundos. El
-   resultado aparece como un mensaje de estado en el panel.
-5. Copiar el diagnóstico, que incluye `flowTiming`, o los registros
-   **`[KWSR FLOW TIMING]`** de la consola. Pueden aparecer varias líneas al llegar
-   el subtítulo y después las salidas; la última contiene los datos más completos.
+   Flow. El diagnóstico debe incluir `flowTiming` con `revision: 2`.
+2. Con el foco en la página y mientras se escucha el audio original del video,
+   pulsar **Alt+Shift+M**. No hace falta esperar una palabra concreta. También
+   está el botón **Capturar subtítulo y pausar** en el panel.
+3. KathWare guarda primero el texto del subtítulo y después pausa el video.
+   Se abre el panel y el foco pasa a **Subtítulo encontrado en Flow al capturar**,
+   un campo de solo lectura. Comparar especialmente las últimas palabras: las
+   líneas anteriores pueden seguir visibles por el desplazamiento del subtítulo.
+   Revisar si ese final corresponde al diálogo que se acababa de escuchar o
+   a una frase anterior. Se puede copiar con los comandos normales
+   del campo de texto.
+4. El botón **Reanudar video** permite continuar. El diagnóstico conserva la
+   captura y la consola registra **`[KWSR FLOW TIMING]`** para compartirla.
 
-Elegir una palabra concreta, poco repetida en ese diálogo. Una palabra común
-puede coincidir con otro subtítulo de la misma pantalla. Si ya estaba visible al
-marcar, se informa que su llegada anterior es desconocida y se debe repetir con
-otra palabra; nunca se convierte esa situación en un atraso de cero segundos.
+Capturar antes de pausar evita perder el texto si el reproductor retira sus
+subtítulos al recibir la pausa. La captura queda fija aunque el DOM cambie
+más tarde. Si la pausa automática falla, el informe lo indica y el texto se
+conserva para revisarlo usando los controles normales del video.
 
-## Qué mide el informe
+## Qué contiene la captura
 
 | Campo | Significado |
 | --- | --- |
-| `audioMark` | Referencia manual del audio y tiempo del video en ese instante. |
-| `caption.observedAfterAudioMarkMs` | Milisegundos entre la marca y la primera observación de la palabra completa en el texto de Flow. |
-| `caption.videoSecondsAfterAudioMark` | Diferencia entre los tiempos del video en esos mismos dos instantes. |
-| `output.adapter.afterCaptionMs` | Tiempo desde esa observación hasta que el adaptador entrega la palabra a la capa de voz. |
-| `output.live-region.afterCaptionMs` | Tiempo hasta que se actualiza realmente el texto de la región accesible. No es el instante en que NVDA lo pronuncia. |
-| `output.tts-start.afterCaptionMs` | Tiempo hasta el evento de inicio de la frase del sintetizador del navegador, si se usó esa salida. No identifica el inicio acústico de cada palabra dentro de la frase. |
+| `phase: snapshot` | Se hizo una captura, no una medición exacta del desfase con el audio. |
+| `videoTime` | Posición del video al capturar. |
+| `sourceText` | Texto encontrado en Flow antes de solicitar la pausa. |
+| `selector` | Selector que encontró el texto. |
+| `lastDeliveredText` | Último texto entregado a la capa de salida. |
+| `lastDeliveredAgoMs` | Tiempo desde esa entrega hasta la captura, si se conoce. |
+| `pauseSucceeded` | Indica si el video quedó pausado. |
+| `audioOffsetMeasured: false` | La comparación con el audio es de la persona; la captura no inventa una cantidad de segundos. |
 
-Si el texto aparece unos 10000 ms después de la marca y la entrega del adaptador
-es de unos cientos de milisegundos, la demora está antes de preparar la salida de
-KathWare, en la disponibilidad, renderizado o detección del subtítulo de Flow.
-Eso por sí solo no identifica qué parte del servicio o reproductor originó el
-desfase. Si el texto aparece pronto y el evento de voz tarda mucho, se investiga
-la salida. Los campos sin coincidencia quedan en `null`.
+Si la propia captura contiene un diálogo anterior al que se escuchaba, el
+atraso ya existe en el texto disponible para el lector. Eso ayuda a localizar
+la demora antes de la salida de voz, pero no identifica por sí solo si se debe
+al servicio, al renderizado de Flow o a la selección/detección del texto. Si
+la captura corresponde al diálogo actual y la voz iba atrás, se investiga el
+tramo de entrega y salida.
 
-Cada salida informa también `afterAudioMarkMs`. Si la palabra ya estaba visible
-al marcar, se puede conservar ese tiempo desde la marca hasta la salida; el
-tiempo desde la llegada desconocida del subtítulo permanece en `null`.
+Se necesita esa comparación humana: estos datos no contienen el audio de la
+transmisión. Los registros `live/flush` por sí solos no permiten medir cuándo
+se dijo una frase en el video. Los datos de la prueba se conservan en memoria
+de la pestaña.
 
-La referencia depende de la reacción de la persona y de que identifique la misma
-palabra. El instante del texto es el observado por JavaScript, no una medición
-del primer píxel dibujado. No se captura audio ni se analiza la transmisión, y
-no se puede observar desde la página el inicio real del habla de NVDA. Los
-datos se conservan en memoria de esa pestaña, con un historial acotado.
+## Medición detallada conservada
 
-Pausar, buscar otra posición, cambiar de video o velocidad invalida la
-comparación. Una nueva marca reemplaza la prueba anterior. La medición termina
-automáticamente y conserva el informe para copiarlo.
+La API de diagnóstico conserva `markAudio` y `setWord` para una medición manual
+más detallada desde el contexto de desarrollo de la extensión. Ya no es el
+flujo predeterminado del panel ni del atajo.
+
+Esa medición relaciona una marca manual con la primera observación de una palabra
+completa mediante un observador independiente. Durante hasta 30 segundos registra
+por separado la entrega del adaptador, la actualización real de la región
+accesible y el evento de inicio de una frase del sintetizador del navegador.
+No observa cuándo NVDA pronuncia el texto. Una palabra ya presente tiene un
+instante de llegada desconocido; no se presenta como un atraso de cero.
+
+Pausar, buscar otra posición o cambiar de video/velocidad invalida la medición
+manual detallada. La captura simple, en cambio, pausa el video deliberadamente
+y reemplaza cualquier medición anterior.
 
 ## Verificación automatizada
 
@@ -64,10 +74,10 @@ automáticamente y conserva el informe para copiarlo.
 node --test tests/flow-timing.cjs tests/flow-incremental.cjs tests/youtube-incremental.cjs
 ```
 
-Las 65 pruebas pasan: 45 regresiones de lectura incremental y 20 de medición,
-incluidos el marcador por teclado, el foco del campo, las etapas de salida,
-la cancelación y el historial acotado. Se usan reloj y DOM simulados; la prueba
-en Flow real con la marca manual sigue pendiente.
+Las 69 pruebas pasan: 45 regresiones de lectura incremental y 24 de medición y
+captura, incluidos el atajo, el foco del campo de solo lectura, la conservación
+del texto antes de pausar, etapas de salida y límites del historial. Se usan
+reloj y DOM simulados; la comparación con el audio de Flow real sigue pendiente.
 
 El significado del evento del sintetizador se documenta en
 [SpeechSynthesisUtterance: start](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance/start_event).

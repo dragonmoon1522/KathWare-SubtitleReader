@@ -14,6 +14,8 @@ function fixture() {
   const timers = new Map(), observers = [], events = new Map();
   const video = {
     currentTime: 100, playbackRate: 1, paused: false, ended: false, currentSrc: 'blob:flow',
+    pause() { this.paused = true; for (const fn of [...(events.get('pause') || [])]) fn(); },
+    play() { this.paused = false; return Promise.resolve(); },
     addEventListener(event, fn) { if (!events.has(event)) events.set(event, new Set()); events.get(event).add(fn); },
     removeEventListener(event, fn) { events.get(event)?.delete(fn); }
   };
@@ -254,31 +256,69 @@ function installUI(f) {
   return { nodes, handlers, doc };
 }
 
-test('Alt+Shift+M records the reference before focusing the labelled word field', () => {
+test('Alt+Shift+M captures and pauses before focusing a read-only result', () => {
   const f = fixture(), ui = installUI(f);
+  f.source('>> EL TEXTO DE FLOW.');
   let prevented = false;
   ui.handlers.get('keydown')({ key: 'm', altKey: true, shiftKey: true, ctrlKey: false, metaKey: false,
     preventDefault() { prevented = true; }, stopImmediatePropagation() {} });
-  const input = ui.nodes.get('kwsr-flow-timing-word');
+  const input = ui.nodes.get('kwsr-flow-timing-snapshot');
   assert.equal(prevented, true);
   assert.equal(ui.doc.activeElement, input);
-  assert.equal(f.report().phase, 'need-word');
-  input.value = 'Danielsan';
-  f.advance(1000);
-  input.handlers.get('keydown')({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
-  f.advance(9000); f.source('DANIELSAN.');
-  assert.equal(f.report().caption.observedAfterAudioMarkMs, 10000);
+  assert.equal(f.report().phase, 'snapshot');
+  assert.equal(f.video.paused, true);
+  assert.equal(input.readOnly, true);
+  assert.equal(input.value, 'EL TEXTO DE FLOW.');
+  assert.equal(f.report().sourceText, '>> EL TEXTO DE FLOW.');
   const status = ui.nodes.get('kwsr-flow-timing-status');
   assert.equal(status.attrs.role, 'status');
-  assert.match(status.textContent, /10,0 segundos/);
+  assert.match(status.textContent, /video pausado/);
 });
 
 test('the measurement shortcut and fields are scoped to Flow', () => {
   const f = fixture(); f.platform('youtube'); const ui = installUI(f);
-  assert.equal(ui.nodes.has('kwsr-flow-timing-word'), false);
+  assert.equal(ui.nodes.has('kwsr-flow-timing-snapshot'), false);
   let prevented = false;
   ui.handlers.get('keydown')({ key: 'm', altKey: true, shiftKey: true, ctrlKey: false, metaKey: false,
     preventDefault() { prevented = true; }, stopImmediatePropagation() {} });
   assert.equal(prevented, false);
   assert.equal(f.report().phase, 'idle');
+});
+
+test('the snapshot reads captions and last delivery before pause or stop can clear them', () => {
+  const f = fixture(); f.source('Texto antes de pausar');
+  f.KWSR.state.lastEmitText = 'Última lectura';
+  f.KWSR.state.lastEmitAt = f.context.Date.now() - 450;
+  f.KWSR.voice = { detenerLectura() { f.KWSR.state.lastEmitText = ''; } };
+  f.video.pause = () => { f.source(''); f.video.paused = true; };
+  const r = f.KWSR.flowTiming.captureSnapshot();
+  assert.equal(r.sourceText, 'Texto antes de pausar');
+  assert.equal(r.lastDeliveredText, 'Última lectura');
+  assert.equal(r.lastDeliveredAgoMs, 450);
+  assert.equal(r.audioOffsetMeasured, false);
+});
+
+test('a snapshot replaces the running probe and stays fixed after later DOM changes', () => {
+  const f = fixture(); f.KWSR.flowTiming.markAudio(); f.KWSR.flowTiming.setWord('palabra');
+  f.source('Captura fija'); f.KWSR.flowTiming.captureSnapshot();
+  assert.equal(f.activeObservers(), 0);
+  f.source('Otro texto'); f.advance(40000);
+  assert.equal(f.report().phase, 'snapshot');
+  assert.equal(f.report().sourceText, 'Captura fija');
+  assert.equal(f.report().videoTime, 100);
+});
+
+test('a failed pause is reported without losing the captured text', () => {
+  const f = fixture(); f.source('Texto');
+  f.video.pause = () => { throw new Error('pause'); };
+  const r = f.KWSR.flowTiming.captureSnapshot();
+  assert.equal(r.sourceText, 'Texto');
+  assert.equal(r.pauseSucceeded, false);
+});
+
+test('snapshot capture cannot pause another platform', () => {
+  const f = fixture(); f.platform('youtube');
+  const r = f.KWSR.flowTiming.captureSnapshot();
+  assert.equal(r.phase, 'invalid');
+  assert.equal(f.video.paused, false);
 });

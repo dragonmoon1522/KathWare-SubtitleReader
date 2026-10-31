@@ -50,6 +50,25 @@ pruebas y a la confirmación expresa de Katherine.
 
 #### Lectura de subtítulos y renderizadores
 
+Captura simple para revisar la sincronización de Flow (2026-10-31):
+
+* Se simplifica la prueba que requería marcar y escribir una palabra durante
+  el diálogo. Alt+Shift+M y el botón del panel ahora capturan el texto encontrado
+  en Flow y después pausan el video. El foco pasa a un campo de solo lectura,
+  para comparar la captura con lo que se acababa de escuchar.
+* La captura conserva el último texto entregado y su antigüedad, la posición
+  del video y si la pausa tuvo éxito. El resultado queda fijo y se puede
+  continuar con **Reanudar video**. No se presenta como una medición exacta
+  del desfase con el audio, ni atribuye la causa automáticamente a Flow.
+* `flowTiming` pasa a revisión 2. La medición detallada por marca manual queda
+  disponible en la API de desarrollo; deja de ser la interacción predeterminada.
+  Los nuevos archivos recibidos contienen registros de lectura sin una marca
+  de audio o captura, por lo que no cierran la identificación del atraso.
+* Validación: 69 pruebas aprobadas, incluidas cuatro nuevas para capturar antes
+  de que pause borre el subtítulo, conservar la captura, informar una pausa
+  fallida y mantener el alcance exclusivo a Flow. Se actualizan las pruebas
+  del atajo y del foco. La comparación real con el audio sigue pendiente.
+
 Medición independiente del atraso de Flow (2026-10-31):
 
 * Katherine confirma que el atraso ocurre también con el sintetizador del
