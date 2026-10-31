@@ -60,9 +60,14 @@
     activeRenderer: ""
   };
 
-  // Flow puede escribir letra por letra. Conservamos el texto actual completo,
-  // separado de lo ya enviado: «TR» todavía puede convertirse en «TRABAJO».
-  const flow = { raw: "", sent: "", settleTimer: null, limitTimer: null, since: 0 };
+  // Flow puede completar una palabra mientras desplaza la línea anterior.
+  // words conserva también lo pendiente que ya salió de pantalla; rawStart
+  // ubica la línea visible y sentCount separa las palabras ya entregadas.
+  const flow = {
+    raw: "", words: [], rawStart: 0, sentCount: 0,
+    settleTimer: null, limitTimer: null, since: 0
+  };
+  const FLOW_READER_REVISION = 2;
   const FLOW_SETTLE_MS = 350;
   const FLOW_LIMIT_MS = 850;
 
@@ -72,18 +77,47 @@
     flow.settleTimer = flow.limitTimer = null;
   }
 
-  // Solo quitamos palabras completas ya enviadas y el solapamiento al principio
-  // de una línea desplazada. Una coincidencia en mitad de la frase no basta.
-  function flowRemainder(previous, current) {
-    const prev = wordsOf(previous);
-    const curr = wordsOf(current);
-    if (!prev.length) return current;
-    for (let size = Math.min(prev.length, curr.length); size > 0; size--) {
-      if (prev.slice(-size).every((word, i) => fp(word) === fp(curr[i]))) {
-        return curr.slice(size).join(" ");
+  function resetFlow() {
+    clearFlowTimers();
+    flow.raw = "";
+    flow.words = [];
+    flow.rawStart = flow.sentCount = 0;
+  }
+
+  function cleanFlowText(text) {
+    // > y >> son marcas de cambio de hablante que también llegan por partes.
+    return normalize(normalize(text).replace(/(^|\s)>+(?=\s|$)/g, " "));
+  }
+
+  function flowWordMatches(previous, current, canGrow = false) {
+    const before = fp(previous);
+    const after = fp(current);
+    return before === after || (canGrow && before && after.startsWith(before) && !/[.!?…:;,]$/.test(previous));
+  }
+
+  // Alineamos el final anterior con el principio actual. La última palabra
+  // anterior puede crecer: «EL DO» y «EL DOLOR» siguen siendo la misma línea.
+  // No buscamos coincidencias en mitad del texto nuevo.
+  function flowOverlap(previous, current) {
+    for (let size = Math.min(previous.length, current.length); size > 0; size--) {
+      const start = previous.length - size;
+      if (previous.slice(start).every((word, i) => flowWordMatches(word, current[i], size > 1 && i === size - 1))) {
+        return start;
       }
     }
-    return current;
+    // Una corrección dentro de la misma línea puede no conservar todo el final.
+    // Antes preferimos el solapamiento completo, aunque repita la primera palabra.
+    if (flowWordMatches(previous[0], current[0], previous.length === 1)) return 0;
+    return -1;
+  }
+
+  function trimFlowHistory() {
+    // Lo ya leído y fuera de pantalla no hace falta para la próxima comparación.
+    const count = Math.min(flow.rawStart, flow.sentCount);
+    if (!count) return;
+    flow.words = flow.words.slice(count);
+    flow.rawStart -= count;
+    flow.sentCount -= count;
   }
 
   function flushFlow(reason, completeOnly = false) {
@@ -94,52 +128,54 @@
       clearFlowTimers();
     }
     if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "flow" || !KWSR.voice?.shouldReadNow?.()) {
-      flow.raw = flow.sent = "";
+      resetFlow();
       return;
     }
     // Durante escritura continua, la última palabra puede estar incompleta.
     // Enviamos hasta el último espacio; tras una pausa enviamos también el final.
-    const end = completeOnly ? flow.raw.lastIndexOf(" ") : flow.raw.length;
-    if (end <= 0) return;
-    const snapshot = flow.raw.slice(0, end);
-    // No retroceder si el sondeo repite un texto que ya enviamos completo.
-    if (flow.sent === flow.raw) return;
-    const text = flowRemainder(flow.sent, snapshot);
-    flow.sent = snapshot;
-    if (!text) return;
+    const end = flow.words.length - (completeOnly ? 1 : 0);
+    if (end <= flow.sentCount) return;
+    const text = flow.words.slice(flow.sentCount, end).join(" ");
+    flow.sentCount = end;
+    trimFlowHistory();
     if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER flush ${JSON.stringify({ renderer: RENDERERS.flow.name, reason, text, pendingMs: Date.now() - flow.since })}`);
+      KWSR.log?.(`CONSOLE RENDERER flush ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, reason, text, pendingMs: Date.now() - flow.since })}`);
     }
     KWSR.voice?.leerTextoAccesible?.(text);
   }
 
   function pollFlow(picked) {
-    const current = normalize(picked.text);
+    const current = cleanFlowText(picked.text);
     if (!current) {
       if (flow.raw) flushFlow("cue-end");
-      flow.raw = flow.sent = "";
+      resetFlow();
       return false;
     }
     if (current === flow.raw) return true;
-    const previous = flow.raw;
-    // Si desaparece la frase anterior, entregamos su pendiente antes de cambiar.
-    // Las extensiones y correcciones del final reemplazan el texto pendiente.
-    const oldWords = wordsOf(previous);
+    const oldWords = wordsOf(flow.raw);
     const newWords = wordsOf(current);
-    const sharedStart = oldWords.length && newWords.length &&
-      (fp(oldWords[0]) === fp(newWords[0]) || current.startsWith(previous) || previous.startsWith(current));
-    const rolling = previous && flowRemainder(previous, current) !== current;
-    if (previous && !sharedStart && !rolling) {
+    const overlap = oldWords.length ? flowOverlap(oldWords, newWords) : -1;
+    if (oldWords.length && overlap < 0) {
       flushFlow("cue-change");
-      flow.sent = "";
-    } else if (rolling) {
-      // Mantener también lo pendiente que sale de pantalla al desplazarse líneas.
-      const oldPending = flowRemainder(flow.sent, previous);
-      if (oldPending && !current.includes(oldPending)) flushFlow("line-roll");
+      resetFlow();
     }
+    const start = overlap < 0 ? 0 : flow.rawStart + overlap;
+    const updated = [...flow.words.slice(0, start), ...newWords];
+    // Si el origen completa una palabra después de haberla leído, repetimos
+    // solo desde esa corrección; el prefijo sin cambios no vuelve a salir.
+    for (let i = start; i < Math.min(flow.sentCount, updated.length); i++) {
+      if (fp(flow.words[i]) !== fp(updated[i])) {
+        flow.sentCount = i;
+        break;
+      }
+    }
+    flow.words = updated;
+    flow.rawStart = start;
+    flow.sentCount = Math.min(flow.sentCount, updated.length);
     flow.raw = current;
+    trimFlowHistory();
     if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER live ${JSON.stringify({ renderer: picked.renderer, selector: picked.selector, raw: current, pending: flowRemainder(flow.sent, current) })}`);
+      KWSR.log?.(`CONSOLE RENDERER live ${JSON.stringify({ renderer: picked.renderer, revision: FLOW_READER_REVISION, selector: picked.selector, raw: normalize(picked.text), pending: flow.words.slice(flow.sentCount).join(" ") })}`);
     }
     clearTimeout(flow.settleTimer);
     flow.settleTimer = setTimeout(() => flushFlow("pause"), FLOW_SETTLE_MS);
@@ -411,8 +447,7 @@
   // Cancela la espera y borra el texto pendiente al reiniciar este lector.
   // Así el contenido anterior no se mezcla con una nueva sesión.
   function resetLiveState() {
-    clearFlowTimers();
-    flow.raw = flow.sent = "";
+    resetFlow();
     clearFlushTimer();
     state.lastRaw = "";
     state.buffer = "";
@@ -484,6 +519,7 @@
   };
 
   KWSR.consoleRenderers = {
+    flowReaderRevision: FLOW_READER_REVISION,
     livePoll,
     flush,
     getRendererText,

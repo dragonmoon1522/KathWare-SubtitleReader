@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-10-28
+**Última actualización:** 2026-10-31
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -49,6 +49,33 @@ pruebas y a la confirmación expresa de Katherine.
 * Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **una versión posterior**.
 
 #### Lectura de subtítulos y renderizadores
+
+Corrección de palabras y líneas desplazadas en Flow / THEOplayer (2026-10-31):
+
+* Los registros de Flow mostraron que una palabra podía completarse justo al
+  desplazarse las líneas: `EL DO` → `EL DOLOR.` y `CUCHILLOS. Y E` →
+  `CUCHILLOS. Y ES`. Se interpretaba como otro subtítulo, se enviaba el fragmento
+  anterior y se repetía parte del texto ya leído.
+* El adaptador de Flow conserva las palabras pendientes que salen de pantalla
+  y alinea el final anterior con el principio actual, admitiendo que la última
+  palabra siga creciendo. El desplazamiento por sí solo ya no fuerza una lectura
+  del fragmento. Se libera el historial ya leído que dejó de ser visible.
+* Se eliminan de la salida las marcas de hablante `>` y `>>`, incluso durante
+  su construcción. Los registros mantienen el texto original para diagnóstico.
+* Si una palabra cambia después de la pausa que ya provocó su lectura, se
+  entrega la corrección desde esa palabra, sin repetir el prefijo sin cambios.
+  No se puede retirar lo que el lector ya anunció: los 350 ms siguen siendo
+  una espera heurística, y el límite de escritura continua se mantiene en 850 ms.
+* Los registros Flow incluyen `revision: 2`; el diagnóstico general incluye
+  `flowReaderRevision: 2` para distinguir esta corrección de paquetes anteriores.
+  `CONSOLE RENDERER` es el nombre histórico de estos registros del adaptador.
+* Validación: 23 pruebas con reloj controlado aprobadas, incluidas las dos
+  secuencias recibidas y casos de corrección, marcas de hablante, repetición y
+  cancelación. Los intervalos de las secuencias son simulados porque los registros
+  no incluyen tiempos entre actualizaciones. Sigue pendiente la comprobación
+  auditiva de esta revisión en Flow real con NVDA/TTS.
+* Cambio acotado al adaptador incremental de Flow y su diagnóstico; se mantiene
+  la arquitectura actual y la condición beta de 3.0.0.
 
 Corrección de texto incremental Flow / THEOplayer (2026-10-03):
 

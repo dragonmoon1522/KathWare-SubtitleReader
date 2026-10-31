@@ -98,6 +98,22 @@ Documentación consultada el 26/10/2026:
 
 ## Paso a estable
 
+### Corrección de Flow preparada el 31/10/2026
+
+- Las 23 pruebas de `tests/flow-incremental.cjs` pasan, incluidas las secuencias
+  de Flow enviadas durante las pruebas manuales. Los intervalos del ensayo son
+  simulados; todavía falta escuchar la corrección en Flow real con NVDA/TTS.
+- Para probar el nuevo ZIP de Chrome, descomprimirlo en la carpeta usada para
+  cargar la beta, reemplazar sus archivos y recargar la extensión desde su
+  administrador. Después recargar la pestaña de Flow para sustituir también los
+  scripts que ya estaban ejecutándose.
+- El botón **Diagnóstico** debe informar `flowReaderRevision: 2`. Con debug
+  activo, los registros Flow `CONSOLE RENDERER live/flush` contienen `revision: 2`.
+  Ese nombre histórico no significa que se esté ejecutando la consola
+  experimental de `web/`; el ZIP utiliza el adaptador de la extensión.
+- El modo debug registra cada cambio del subtítulo, por lo que puede producir
+  muchos mensajes. Se puede desactivar con Alt+Shift+D al terminar la prueba.
+
 ### Verificación de esta preparación (26/10/2026)
 
 - Las 13 pruebas de `tests/flow-incremental.cjs` pasaron.

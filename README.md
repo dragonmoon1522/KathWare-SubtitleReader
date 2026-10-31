@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-10-28
+**Última actualización:** 2026-10-31
 
 ### Estado de esta rama: 3.0.0-beta
 
@@ -71,7 +71,7 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | Disney+ / Hive | Corrección integrada; funcionamiento confirmado el 07/10/2026. | Comprobación con el paquete final. |
 | ViX | Lectura confirmada el 07/10/2026; pruebas automatizadas de lectura y controles. | Cierre conjunto con lector/TTS y controles accesibles. |
 | YouTube | Lectura incremental incorporada. | Validación manual final. |
-| Flow en vivo | Corrección incremental del 03/10/2026 con pruebas automatizadas. | Sesión real con NVDA: integridad, repetición y atraso. |
+| Flow en vivo | Corrección del 31/10/2026 para palabras en formación al desplazar líneas; 23 pruebas automatizadas. | Repetir la sesión con NVDA sobre la revisión 2: integridad, repetición y atraso. |
 | Paramount+ | Compatibilidad documentada en la estable 2.0.0. | Revalidar con el paquete final. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
 

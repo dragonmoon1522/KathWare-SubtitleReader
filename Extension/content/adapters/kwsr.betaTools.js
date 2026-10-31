@@ -81,6 +81,7 @@
 
     return {
       version: KWSR.version,
+      flowReaderRevision: KWSR.consoleRenderers?.flowReaderRevision || null,
       platform: platform(),
       extensionActiva: !!S.extensionActiva,
       modoNarrador: S.modoNarradorGlobal,
