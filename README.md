@@ -67,13 +67,18 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 
 | Plataforma | Evidencia disponible | Pendiente para esta entrega |
 | --- | --- | --- |
-| Netflix, Max y Flow a demanda | Katherine confirmó funcionamiento el 07/10/2026. | Comprobación con el paquete final. |
-| Disney+ / Hive | Corrección integrada; funcionamiento confirmado el 07/10/2026. | Comprobación con el paquete final. |
+| Netflix y Max | Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
+| Disney+ / Hive | Corrección integrada; Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
+| Flow a demanda | Katherine confirmó funcionamiento el 07/10/2026. | Comprobación con el paquete final. |
 | ViX | Lectura confirmada el 07/10/2026; pruebas automatizadas de lectura y controles. | Cierre conjunto con lector/TTS y controles accesibles. |
 | YouTube | Corrección del 31/10/2026 de espera continua, puntuación y palabras repetidas; 14 pruebas específicas. | Repetir la sesión con NVDA/TTS sobre la revisión 1: integridad, repetición y atraso. |
 | Flow en vivo | Correcciones del 31/10/2026 para palabras en formación y recambios breves del DOM; 31 pruebas automatizadas. | Repetir la sesión con NVDA sobre la revisión 3: integridad, repetición y atraso. |
-| Paramount+ | Compatibilidad documentada en la estable 2.0.0. | Revalidar con el paquete final. |
+| Paramount+ | Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
+
+La confirmación del 31/10/2026 cierra la prueba funcional reportada para Netflix,
+Disney+, Max y Paramount+. Se mantienen las comprobaciones generales de voces,
+controles, pantalla completa y la confirmación expresa para pasar a estable.
 
 Otros sitios y reproductores pueden funcionar mediante las pistas o selectores
 incluidos, pero no se anuncian como verificados sin una prueba concreta. Algunas

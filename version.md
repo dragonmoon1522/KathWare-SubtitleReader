@@ -240,18 +240,27 @@ Corrección ViX / overlay (2026-09-29):
 * La rama `3.0.0-beta` es la candidata de pruebas; `2.2.0-beta` se conserva como
   antecedente. La estable se preparará solo cuando Katherine la confirme.
 
+#### Validación funcional confirmada el 31/10/2026
+
+* Katherine confirmó que **Netflix, Disney+, Max y Paramount+** funcionan bien
+  en sus pruebas de la beta. Se cierra la comprobación funcional reportada de
+  estas cuatro plataformas y se actualiza su estado en README.
+* YouTube y Flow en vivo conservan pendientes las pruebas de sus correcciones
+  recientes. Flow a demanda y ViX mantienen el estado de validación anterior.
+* Esta confirmación de funcionamiento no adelanta el paso a estable. Se conservan
+  las comprobaciones generales de salida indicadas a continuación.
+
 #### Pendiente antes de estabilizar 3.0.0
 
 * Validación manual en Chrome de:
 
   * YouTube
   * ViX
-  * Disney+
   * Flow
 * Confirmar comportamiento del sintetizador con distintas voces y velocidades.
 * Confirmar que la detección de reproductor accesible no oculte controles alternativos cuando todavía son necesarios.
 * Revisar compatibilidad de pantalla completa y cambios dinámicos del DOM.
-* Revalidar Netflix, Max, Flow a demanda y Paramount+ con el paquete final.
+* Revalidar Flow a demanda con el paquete final.
 * Dailymotion / Telefe solo se anunciará como verificado si se completa una
   prueba específica; no hay cierre documentado en esta entrega.
 * Recibir la confirmación expresa de Katherine para preparar la estable.
