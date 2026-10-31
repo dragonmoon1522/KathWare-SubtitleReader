@@ -103,7 +103,9 @@ Documentación consultada el 26/10/2026:
 - Pasan las 45 pruebas de lectura incremental: 31 de la suite existente de Flow
   y 14 específicas de YouTube. Cubren las secuencias recibidas, plazos de entrega,
   palabras repetidas, puntuación y recuperación de nodos. Los intervalos del
-  ensayo son simulados; todavía falta escuchar estas revisiones con NVDA/TTS.
+  ensayo son simulados. Katherine confirmó el funcionamiento de YouTube revisión
+  1 el 31/10/2026. En Flow revisión 3 reporta unos 10 segundos de atraso respecto
+  de la transmisión, todavía pendientes de diagnóstico.
 - Se pueden ejecutar juntas con:
 
   ```sh
@@ -127,6 +129,14 @@ Documentación consultada el 26/10/2026:
   repeticiones entre segmentos distintos del subtítulo.
 - El modo debug registra cada cambio del subtítulo, por lo que puede producir
   muchos mensajes. Se puede desactivar con Alt+Shift+D al terminar la prueba.
+
+El registro recibido de Flow contiene 12 entregas de una o dos palabras, con
+`pendingMs` entre 355 y 983 ms. Este valor mide la espera registrada por el
+adaptador para ese grupo; no mide el desfase con el audio ni el instante en que
+NVDA pronuncia el texto. Los valores no deben sumarse para inferir un atraso
+total. Sigue pendiente distinguir la llegada del subtítulo de su anuncio por
+el lector de pantalla; el registro no confirma cuál de esos tramos aporta los
+diez segundos reportados.
 
 ### Verificación de esta preparación (26/10/2026)
 

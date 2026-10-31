@@ -245,8 +245,15 @@ Corrección ViX / overlay (2026-09-29):
 * Katherine confirmó que **Netflix, Disney+, Max y Paramount+** funcionan bien
   en sus pruebas de la beta. Se cierra la comprobación funcional reportada de
   estas cuatro plataformas y se actualiza su estado en README.
-* YouTube y Flow en vivo conservan pendientes las pruebas de sus correcciones
-  recientes. Flow a demanda y ViX mantienen el estado de validación anterior.
+* Katherine confirmó después el funcionamiento correcto de **YouTube revisión
+  1**. Se cierra también su comprobación funcional reportada.
+* **Flow en vivo revisión 3** mantiene pendiente la sincronización: Katherine
+  reporta unos 10 segundos de atraso frente a la transmisión. El registro
+  contiene 12 entregas de una o dos palabras con `pendingMs` de 355 a 983 ms;
+  no mide cuándo NVDA las pronuncia ni cuándo debían aparecer respecto del audio.
+  La causa sigue abierta, sin atribuirla al proveedor ni al lector de pantalla
+  solo a partir de esos valores.
+* Flow a demanda y ViX mantienen el estado de validación anterior.
 * Esta confirmación de funcionamiento no adelanta el paso a estable. Se conservan
   las comprobaciones generales de salida indicadas a continuación.
 
@@ -254,9 +261,8 @@ Corrección ViX / overlay (2026-09-29):
 
 * Validación manual en Chrome de:
 
-  * YouTube
   * ViX
-  * Flow
+  * Flow en vivo: identificar y resolver o delimitar el atraso reportado.
 * Confirmar comportamiento del sintetizador con distintas voces y velocidades.
 * Confirmar que la detección de reproductor accesible no oculte controles alternativos cuando todavía son necesarios.
 * Revisar compatibilidad de pantalla completa y cambios dinámicos del DOM.
