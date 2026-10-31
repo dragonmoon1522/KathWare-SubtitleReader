@@ -97,6 +97,11 @@
     }
   }
 
+  // Diagnóstico optativo: registrar la entrega no debe afectar la lectura.
+  function traceFlowOutput(stage, text) {
+    try { KWSR.flowTiming?.noteOutput?.(stage, text); } catch {}
+  }
+
   function isRerenderPlatform() {
     const p = platform();
     return (p === "netflix" || p === "max");
@@ -164,6 +169,7 @@
       setTimeout(() => {
         if (!S.liveRegion) return;
         S.liveRegion.textContent = String(text ?? "");
+        traceFlowOutput("live-region", text);
       }, 10);
     } catch {}
   }
@@ -575,6 +581,7 @@
       let finished = false;
 
       u.onstart = () => {
+        traceFlowOutput("tts-start", text);
         lastSpeakAt = Date.now();
         S.lastSpokenKey = tKey || "";
         S.lastSpokenAt = Date.now();

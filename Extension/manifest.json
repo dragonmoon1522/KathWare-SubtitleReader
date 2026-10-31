@@ -44,6 +44,7 @@
         "content/core/kwsr.visual.js",
 
         "content/adapters/kwsr.consoleRenderers.js",
+        "content/adapters/kwsr.flowTiming.js",
         "content/adapters/kwsr.openShadowCaptions.js",
 
         "content/ui/kwsr.toast.js",

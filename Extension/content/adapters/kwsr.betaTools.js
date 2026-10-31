@@ -83,6 +83,7 @@
       version: KWSR.version,
       flowReaderRevision: KWSR.consoleRenderers?.flowReaderRevision || null,
       youtubeReaderRevision: KWSR.consoleRenderers?.youtubeReaderRevision || null,
+      flowTiming: platform() === "flow" ? KWSR.flowTiming?.getReport?.() || null : null,
       platform: platform(),
       extensionActiva: !!S.extensionActiva,
       modoNarrador: S.modoNarradorGlobal,
@@ -185,6 +186,76 @@
     return b;
   }
 
+  function flowTimingMessage(data) {
+    if (data.phase === "matched") {
+      const seconds = (data.caption.observedAfterAudioMarkMs / 1000).toFixed(1).replace(".", ",");
+      return `Flow mostró «${data.word}» aproximadamente ${seconds} segundos después de tu marca del audio. El diagnóstico contiene los tiempos de salida.`;
+    }
+    if (data.phase === "already-visible") return "La palabra ya estaba en el subtítulo al marcar. Su llegada anterior no se puede medir: repetí con otra palabra distintiva.";
+    if (data.phase === "invalid") return "Medición interrumpida o no disponible. Repetí con un video de Flow reproduciéndose, sin pausarlo ni avanzar.";
+    if (data.phase === "not-found") return "No se encontró esa palabra durante los 30 segundos de medición. Revisá la palabra o repetí la prueba.";
+    if (data.phase === "history-incomplete") return "El registro se llenó antes de identificar la palabra. Repetí la marca y escribila antes.";
+    if (data.phase === "waiting") return `Esperando que aparezca «${data.word}» en el subtítulo de Flow. Dejá el video reproduciéndose.`;
+    if (data.phase === "need-word") return "Marca de audio registrada. Escribí la palabra que acabás de escuchar y presioná Enter. Dejá el video reproduciéndose.";
+    return "Al escuchar una palabra distintiva en el audio original del video, pulsá Alt+Shift+M. Después escribila y presioná Enter.";
+  }
+
+  function markFlowAudio() {
+    const result = KWSR.flowTiming?.markAudio?.();
+    if (!result) return;
+    KWSR.overlay?.setPanelOpen?.(true);
+    const input = document.querySelector("#kwsr-flow-timing-word");
+    if (input) {
+      input.value = "";
+      if (result.running) input.focus();
+    }
+    const status = document.querySelector("#kwsr-flow-timing-status");
+    if (status) status.textContent = flowTimingMessage(result);
+  }
+
+  function addFlowTimingTools(tools) {
+    if (platform() !== "flow" || !KWSR.flowTiming) return;
+    const section = document.createElement("div");
+    section.setAttribute("role", "group");
+    section.setAttribute("aria-label", "Medir atraso de Flow");
+    const label = document.createElement("label");
+    label.setAttribute("for", "kwsr-flow-timing-word");
+    label.textContent = "Palabra distintiva escuchada en el audio del video";
+    const input = document.createElement("input");
+    input.id = "kwsr-flow-timing-word";
+    input.type = "text";
+    input.maxLength = 80;
+    const status = document.createElement("p");
+    status.id = "kwsr-flow-timing-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.textContent = flowTimingMessage({ phase: "idle" });
+    const submit = () => KWSR.flowTiming.setWord(input.value);
+    input.addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      e.stopPropagation();
+      submit();
+    });
+    section.append(
+      makeButton("Marcar audio de Flow", "Marcar una palabra escuchada ahora en el audio de Flow", markFlowAudio),
+      label, input,
+      makeButton("Buscar palabra marcada", "Buscar la palabra marcada en el subtítulo de Flow", submit),
+      status
+    );
+    tools.append(section);
+    let lastPrinted = "";
+    KWSR.flowTiming.setListener(data => {
+      const message = flowTimingMessage(data);
+      if (status.textContent !== message) status.textContent = message;
+      const signature = JSON.stringify([data.phase, data.caption, data.output]);
+      if (["matched", "already-visible", "invalid", "not-found", "history-incomplete"].includes(data.phase) && signature !== lastPrinted) {
+        lastPrinted = signature;
+        console.log(`[KWSR FLOW TIMING] ${JSON.stringify(data)}`);
+      }
+    });
+  }
+
   function enhanceOverlay() {
     const panel = S.overlayPanel;
     if (!panel || panel.dataset.kwsrBetaEnhanced === "1") {
@@ -235,6 +306,8 @@
         makeButton("Reiniciar lectura", "Reiniciar lectura de subtítulos", () => restartReading("button"))
       );
 
+      addFlowTimingTools(tools);
+
       panel.appendChild(tools);
     }
 
@@ -242,7 +315,8 @@
     if (hotkeys) {
       hotkeys.textContent =
         "Atajos: Alt+Shift+K activar/desactivar; Alt+Shift+L cambiar salida; " +
-        "Alt+Shift+O abrir/cerrar panel; Alt+Shift+D debug; Alt+Shift+R reiniciar lectura.";
+        "Alt+Shift+O abrir/cerrar panel; Alt+Shift+D debug; Alt+Shift+R reiniciar lectura." +
+        (platform() === "flow" ? " Alt+Shift+M marcar audio para medir el atraso de Flow." : "");
     }
 
     // Si el módulo original vuelve a escribir el status, lo corregimos a texto simple.
@@ -287,10 +361,16 @@
     if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
 
     const key = String(e.key || "").toLowerCase();
-    if (key !== "d" && key !== "r") return;
+    const flowMark = key === "m" && platform() === "flow" && S.extensionActiva && KWSR.flowTiming;
+    if (key !== "d" && key !== "r" && !flowMark) return;
 
     e.preventDefault();
     e.stopImmediatePropagation();
+
+    if (flowMark) {
+      markFlowAudio();
+      return;
+    }
 
     if (key === "d") {
       toggleDebug();

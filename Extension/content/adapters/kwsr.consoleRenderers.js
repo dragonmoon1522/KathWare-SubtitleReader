@@ -158,6 +158,7 @@
     flow.sentCount = end;
     trimFlowHistory();
     logFlow("flush", { reason, text, pendingMs: Date.now() - flow.since });
+    try { KWSR.flowTiming?.noteOutput?.("adapter", text); } catch {}
     KWSR.voice?.leerTextoAccesible?.(text);
   }
 

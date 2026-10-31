@@ -50,6 +50,30 @@ pruebas y a la confirmación expresa de Katherine.
 
 #### Lectura de subtítulos y renderizadores
 
+Medición independiente del atraso de Flow (2026-10-31):
+
+* Katherine confirma que el atraso ocurre también con el sintetizador del
+  navegador y que NVDA está callado cuando aparece el subtítulo. La hipótesis
+  de una acumulación exclusiva en NVDA pierde fuerza; la causa sigue abierta.
+* Se incorpora un diagnóstico optativo para Flow, sin cambiar sus esperas de
+  lectura: Alt+Shift+M marca una palabra escuchada en el audio original, abre
+  el panel y enfoca un campo para escribirla. Un observador independiente mide
+  su primera aparición en el texto del reproductor durante hasta 30 segundos.
+* Se registran por separado la entrega del adaptador, la actualización de la
+  región accesible y el evento de inicio del sintetizador del navegador. La
+  medición no afirma observar cuándo NVDA pronuncia el texto ni permite
+  atribuir el desfase a un servidor específico de Flow.
+* Una palabra ya visible, una pausa, búsqueda, cambio de video o un historial
+  insuficiente se informan sin inventar un tiempo de llegada. El registro se
+  acota en memoria y el observador termina automáticamente.
+* Los resultados se incluyen en el diagnóstico como `flowTiming`, revisión 1,
+  y en la consola bajo `[KWSR FLOW TIMING]`. Instrucciones e interpretación en
+  `docs/flow-timing.md`.
+* Validación: 65 pruebas aprobadas, incluidas 20 de medición y los 45 casos
+  previos de lectura incremental. Se comprueban las etapas de salida y el
+  flujo de teclado/foco con DOM y reloj simulados. Falta el ensayo en Flow real.
+  La extensión continúa como `3.0.0-beta`.
+
 Corrección de lectura incremental de YouTube (2026-10-31, revisión 1):
 
 * En el registro de un tutorial de guitarra, cada palabra nueva reiniciaba la
