@@ -100,17 +100,21 @@ Documentación consultada el 26/10/2026:
 
 ### Corrección de Flow preparada el 31/10/2026
 
-- Las 23 pruebas de `tests/flow-incremental.cjs` pasan, incluidas las secuencias
-  de Flow enviadas durante las pruebas manuales. Los intervalos del ensayo son
-  simulados; todavía falta escuchar la corrección en Flow real con NVDA/TTS.
+- Las 31 pruebas de `tests/flow-incremental.cjs` pasan, incluidas las secuencias
+  de Flow enviadas durante las pruebas manuales y la recuperación de un texto
+  que desaparece brevemente del DOM. Los intervalos del ensayo son simulados;
+  todavía falta escuchar la corrección en Flow real con NVDA/TTS.
 - Para probar el nuevo ZIP de Chrome, descomprimirlo en la carpeta usada para
   cargar la beta, reemplazar sus archivos y recargar la extensión desde su
   administrador. Después recargar la pestaña de Flow para sustituir también los
   scripts que ya estaban ejecutándose.
-- El botón **Diagnóstico** debe informar `flowReaderRevision: 2`. Con debug
-  activo, los registros Flow `CONSOLE RENDERER live/flush` contienen `revision: 2`.
+- El botón **Diagnóstico** debe informar `flowReaderRevision: 3`. Con debug
+  activo, los registros Flow `CONSOLE RENDERER live/flush` contienen `revision: 3`.
   Ese nombre histórico no significa que se esté ejecutando la consola
   experimental de `web/`; el ZIP utiliza el adaptador de la extensión.
+- La revisión 3 confirma los vacíos del subtítulo durante 250 ms antes de borrar
+  su memoria. El debug registra `gap` y `reset` para distinguir una desaparición
+  breve de un vacío confirmado o un reinicio del lector.
 - El modo debug registra cada cambio del subtítulo, por lo que puede producir
   muchos mensajes. Se puede desactivar con Alt+Shift+D al terminar la prueba.
 

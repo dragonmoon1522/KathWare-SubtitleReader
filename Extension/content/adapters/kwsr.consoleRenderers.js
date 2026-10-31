@@ -65,20 +65,32 @@
   // ubica la línea visible y sentCount separa las palabras ya entregadas.
   const flow = {
     raw: "", words: [], rawStart: 0, sentCount: 0,
-    settleTimer: null, limitTimer: null, since: 0
+    settleTimer: null, limitTimer: null, limitDue: null, since: 0,
+    gapTimer: null, emptySince: null
   };
-  const FLOW_READER_REVISION = 2;
+  const FLOW_READER_REVISION = 3;
   const FLOW_SETTLE_MS = 350;
   const FLOW_LIMIT_MS = 850;
+  const FLOW_GAP_MS = 250;
 
-  function clearFlowTimers() {
+  function logFlow(event, data) {
+    if (CFG.debug) {
+      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, ...data })}`);
+    }
+  }
+
+  function clearFlowTimers(preserveLimit = false) {
     clearTimeout(flow.settleTimer);
     clearTimeout(flow.limitTimer);
     flow.settleTimer = flow.limitTimer = null;
+    if (!preserveLimit) flow.limitDue = null;
   }
 
-  function resetFlow() {
+  function resetFlow(reason = "manual") {
+    if (flow.raw) logFlow("reset", { reason, raw: flow.raw, pending: flow.words.slice(flow.sentCount).join(" ") });
     clearFlowTimers();
+    clearTimeout(flow.gapTimer);
+    flow.gapTimer = flow.emptySince = null;
     flow.raw = "";
     flow.words = [];
     flow.rawStart = flow.sentCount = 0;
@@ -123,12 +135,12 @@
   function flushFlow(reason, completeOnly = false) {
     if (completeOnly) {
       clearTimeout(flow.limitTimer);
-      flow.limitTimer = null;
+      flow.limitTimer = flow.limitDue = null;
     } else {
       clearFlowTimers();
     }
     if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "flow" || !KWSR.voice?.shouldReadNow?.()) {
-      resetFlow();
+      resetFlow("inactive");
       return;
     }
     // Durante escritura continua, la última palabra puede estar incompleta.
@@ -138,26 +150,75 @@
     const text = flow.words.slice(flow.sentCount, end).join(" ");
     flow.sentCount = end;
     trimFlowHistory();
-    if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER flush ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, reason, text, pendingMs: Date.now() - flow.since })}`);
-    }
+    logFlow("flush", { reason, text, pendingMs: Date.now() - flow.since });
     KWSR.voice?.leerTextoAccesible?.(text);
+  }
+
+  function queueFlowDelivery() {
+    clearTimeout(flow.settleTimer);
+    flow.settleTimer = null;
+    if (flow.sentCount >= flow.words.length) {
+      clearFlowTimers();
+      return;
+    }
+    flow.settleTimer = setTimeout(() => flushFlow("pause"), FLOW_SETTLE_MS);
+    if (flow.limitTimer === null) {
+      // Un recambio breve del DOM suspende la entrega, pero no reinicia el
+      // plazo de 850 ms que ya estaba corriendo para estas palabras.
+      if (flow.limitDue === null) {
+        flow.since = Date.now();
+        flow.limitDue = flow.since + FLOW_LIMIT_MS;
+      }
+      flow.limitTimer = setTimeout(() => flushFlow("continuous", true), Math.max(0, flow.limitDue - Date.now()));
+    }
   }
 
   function pollFlow(picked) {
     const current = cleanFlowText(picked.text);
     if (!current) {
-      if (flow.raw) flushFlow("cue-end");
-      resetFlow();
+      // El reproductor puede retirar los nodos antes de colocar sus reemplazos.
+      // Confirmamos que el vacío persiste antes de olvidar lo ya leído.
+      if (flow.raw && flow.emptySince === null) {
+        clearFlowTimers(true);
+        flow.emptySince = Date.now();
+        logFlow("gap", { phase: "start", raw: flow.raw });
+        flow.gapTimer = setTimeout(() => {
+          flow.gapTimer = null;
+          if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "flow" || !KWSR.voice?.shouldReadNow?.()) {
+            resetFlow("inactive");
+            return;
+          }
+          // Releer el DOM evita confirmar un vacío si el texto volvió antes
+          // que el observador o el sondeo pudieran avisarnos.
+          const next = getRendererText("flow");
+          if (cleanFlowText(next.text)) {
+            pollFlow(next);
+            return;
+          }
+          logFlow("gap", { phase: "confirmed", gapMs: Date.now() - flow.emptySince });
+          flushFlow("cue-end");
+          resetFlow("empty-gap");
+        }, FLOW_GAP_MS);
+      }
       return false;
     }
-    if (current === flow.raw) return true;
+    const hadGap = flow.emptySince !== null;
+    if (hadGap) {
+      clearTimeout(flow.gapTimer);
+      flow.gapTimer = null;
+      logFlow("gap", { phase: "restored", gapMs: Date.now() - flow.emptySince });
+      flow.emptySince = null;
+    }
+    if (current === flow.raw) {
+      if (hadGap) queueFlowDelivery();
+      return true;
+    }
     const oldWords = wordsOf(flow.raw);
     const newWords = wordsOf(current);
     const overlap = oldWords.length ? flowOverlap(oldWords, newWords) : -1;
     if (oldWords.length && overlap < 0) {
       flushFlow("cue-change");
-      resetFlow();
+      resetFlow("cue-change");
     }
     const start = overlap < 0 ? 0 : flow.rawStart + overlap;
     const updated = [...flow.words.slice(0, start), ...newWords];
@@ -174,16 +235,8 @@
     flow.sentCount = Math.min(flow.sentCount, updated.length);
     flow.raw = current;
     trimFlowHistory();
-    if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER live ${JSON.stringify({ renderer: picked.renderer, revision: FLOW_READER_REVISION, selector: picked.selector, raw: normalize(picked.text), pending: flow.words.slice(flow.sentCount).join(" ") })}`);
-    }
-    clearTimeout(flow.settleTimer);
-    flow.settleTimer = setTimeout(() => flushFlow("pause"), FLOW_SETTLE_MS);
-    // Este reloj no se reinicia con cada letra. Así no esperamos indefinidamente.
-    if (!flow.limitTimer) {
-      flow.since = Date.now();
-      flow.limitTimer = setTimeout(() => flushFlow("continuous", true), FLOW_LIMIT_MS);
-    }
+    logFlow("live", { selector: picked.selector, raw: normalize(picked.text), pending: flow.words.slice(flow.sentCount).join(" ") });
+    queueFlowDelivery();
     return true;
   }
 
@@ -446,8 +499,8 @@
 
   // Cancela la espera y borra el texto pendiente al reiniciar este lector.
   // Así el contenido anterior no se mezcla con una nueva sesión.
-  function resetLiveState() {
-    resetFlow();
+  function resetLiveState(reason = "manual") {
+    resetFlow(reason);
     clearFlushTimer();
     state.lastRaw = "";
     state.buffer = "";
@@ -484,12 +537,12 @@
     const p = platform();
 
     if (!LIVE_PLATFORMS.has(p)) {
-      resetLiveState();
+      resetLiveState("platform-change");
       return originalStart?.();
     }
 
     try { originalStop?.(); } catch {}
-    resetLiveState();
+    resetLiveState("start");
     S.visualSelectorUsed = `console:${RENDERERS[p]?.name || p}`;
     installLiveObserver();
     livePoll();
@@ -499,7 +552,7 @@
   KWSR.visual.stopVisualObserver = () => {
     try { state.observer?.disconnect?.(); } catch {}
     state.observer = null;
-    resetLiveState();
+    resetLiveState("stop");
     return originalStop?.();
   };
 
@@ -514,7 +567,7 @@
   };
 
   KWSR.visual.resetVisualDedupe = (...args) => {
-    resetLiveState();
+    resetLiveState("dedupe-reset");
     return originalReset?.(...args);
   };
 

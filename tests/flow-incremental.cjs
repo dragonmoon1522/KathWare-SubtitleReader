@@ -35,6 +35,7 @@ function fixture(platform = 'flow') {
   return {
     KWSR, spoken, logs,
     text(value) { el.textContent = value; KWSR.consoleRenderers.livePoll(); },
+    dom(value) { el.textContent = value; },
     advance(ms) {
       const end = now + ms;
       while (true) {
@@ -89,8 +90,8 @@ test('rolling lines omit only an already delivered prefix', () => {
   f.text('A CASA CON ANA'); f.advance(350);
   assert.deepEqual(f.texts(), ['HOY VAMOS A CASA', 'CON ANA']);
 });
-test('new cue and empty gap deliver pending text and release repeated cues', () => {
-  const f = fixture(); f.text('Hola'); f.text('Adiós'); f.advance(350); f.text(''); f.text('Adiós'); f.advance(350);
+test('new cue and a confirmed empty gap deliver pending text and release repeated cues', () => {
+  const f = fixture(); f.text('Hola'); f.text('Adiós'); f.advance(350); f.text(''); f.advance(250); f.text('Adiós'); f.advance(350);
   assert.deepEqual(f.texts(), ['Hola', 'Adiós', 'Adiós']);
 });
 test('stop or disable prevents a pending timer from delivering old text', () => {
@@ -110,9 +111,9 @@ test('Flow debug records contain copyable JSON text', () => {
     assert.equal(args.length, 1);
     const data = JSON.parse(args[0].slice(args[0].indexOf('{')));
     assert.equal(data.renderer, 'THEOplayer / Flow-like');
-    assert.equal(data.revision, 2);
+    assert.equal(data.revision, 3);
   }
-  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 2);
+  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 3);
 });
 test('rolling lines preserve pending text that leaves the screen', () => {
   const f = fixture(); f.text('HOY VAMOS A CASA'); f.advance(100);
@@ -249,4 +250,91 @@ test('a roll with a repeated beginning preserves both occurrences of the phrase'
   f.text('HOY VAMOS A CASA HOY VAMOS A'); f.advance(100);
   f.text('HOY VAMOS A TRABAJAR'); f.advance(350);
   assert.equal(f.texts().join(' '), 'HOY VAMOS A CASA HOY VAMOS A TRABAJAR');
+});
+
+// Un vacío de un frame reproduce el salto de pendiente observado en el tercer
+// registro. El registro original no muestra el DOM durante ese intervalo.
+test('Flow trace keeps delivered words across a brief disappearance before 121', () => {
+  const f = fixture();
+  const line = 'ES LO MISMO. TENGO QUE IR.';
+  f.text(line); f.advance(350);
+  f.text(`${line} >> A`); f.advance(350);
+  f.text(`${line} >> A JUGAR.`); f.advance(350);
+  f.text(''); f.advance(16);
+  f.text(`${line} >> A JUGAR.`); f.advance(16);
+  f.text(`${line} >> A JUGAR. 12`); f.advance(60);
+  f.text(`${line} >> A JUGAR. 121.`); f.advance(350);
+  f.text('>> A JUGAR. 121. >> OBRA GENIAL.'); f.advance(350);
+  assert.deepEqual(f.texts(), [line, 'A', 'JUGAR.', '121.', 'OBRA GENIAL.']);
+});
+
+test('a brief empty DOM does not flush a partial word before its completion', () => {
+  const f = fixture();
+  f.text('TENGO QUE IR. >> A JU'); f.advance(100);
+  f.text(''); f.advance(16);
+  f.text('TENGO QUE IR. >> A JUGAR.'); f.advance(350);
+  assert.deepEqual(f.texts(), ['TENGO QUE IR. A JUGAR.']);
+});
+
+test('a different cue after a brief empty DOM still delivers the previous pending words', () => {
+  const f = fixture();
+  f.text('Primera frase'); f.advance(100);
+  f.text(''); f.advance(16);
+  f.text('Otra frase'); f.advance(350);
+  assert.deepEqual(f.texts(), ['Primera frase', 'Otra frase']);
+});
+
+test('stopping cancels an empty-gap timer as well as pending delivery', () => {
+  const f = fixture();
+  f.text('Pendiente'); f.advance(100);
+  f.text(''); f.KWSR.consoleRenderers.resetLiveState(); f.advance(1000);
+  assert.deepEqual(f.texts(), []);
+});
+
+test('a lasting empty gap delivers pending text only after confirmation', () => {
+  const f = fixture();
+  f.text('Pendiente'); f.advance(100);
+  f.text(''); f.advance(249);
+  assert.deepEqual(f.texts(), []);
+  f.advance(1);
+  assert.deepEqual(f.texts(), ['Pendiente']);
+});
+
+test('gap confirmation checks restored DOM even before another poll', () => {
+  const f = fixture();
+  f.text('TENGO QUE IR.'); f.advance(350);
+  f.text(''); f.advance(100);
+  f.dom('TENGO QUE IR.'); f.advance(500);
+  assert.deepEqual(f.texts(), ['TENGO QUE IR.']);
+  const phases = f.logs.map(args => JSON.parse(args[0].slice(args[0].indexOf('{'))).phase).filter(Boolean);
+  assert.deepEqual(phases, ['start', 'restored']);
+});
+
+test('a brief gap does not restart the continuous delivery deadline', () => {
+  const f = fixture();
+  for (const text of ['HOY', 'HOY VAMOS', 'HOY VAMOS A']) {
+    f.text(text); f.advance(250);
+  }
+  f.text('HOY VAMOS A TRA'); f.advance(50);
+  f.text(''); f.advance(40);
+  f.text('HOY VAMOS A TRA'); f.advance(10);
+  assert.deepEqual(f.texts(), ['HOY VAMOS A']);
+  assert.equal(f.spoken[0].at, 850);
+  f.text('HOY VAMOS A TRABAJAR'); f.advance(350);
+  assert.deepEqual(f.texts(), ['HOY VAMOS A', 'TRABAJAR']);
+});
+
+test('gap confirmation respects disable, source changes and paused reading', () => {
+  for (const suspend of [
+    f => { f.KWSR.state.extensionActiva = false; },
+    f => { f.KWSR.state.effectiveFuente = 'track'; },
+    f => { f.KWSR.voice.shouldReadNow = () => false; }
+  ]) {
+    const f = fixture();
+    f.text('Pendiente'); f.advance(100);
+    f.text(''); suspend(f); f.advance(1000);
+    assert.deepEqual(f.texts(), []);
+    const reset = f.logs.map(args => JSON.parse(args[0].slice(args[0].indexOf('{')))).find(data => data.reason === 'inactive');
+    assert.ok(reset);
+  }
 });

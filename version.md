@@ -50,6 +50,31 @@ pruebas y a la confirmación expresa de Katherine.
 
 #### Lectura de subtítulos y renderizadores
 
+Corrección de repeticiones tras recambios breves del DOM de Flow (2026-10-31, revisión 3):
+
+* En un nuevo registro, `ES LO MISMO. TENGO QUE IR. A JUGAR.` reaparece entero
+  como pendiente justo antes de `121.`, aunque ya se había entregado. Una
+  desaparición del texto durante un frame reproduce ese comportamiento: se
+  borraba inmediatamente la memoria de lo leído. El registro original no
+  permite identificar por sí solo qué provocó esa desaparición o reinicio.
+* Flow espera 250 ms antes de confirmar que el subtítulo desapareció. Si vuelve
+  durante ese intervalo, conserva las palabras leídas y las pendientes. Antes
+  de confirmar el vacío, vuelve a consultar el DOM por si el texto regresó sin
+  otro aviso del observador o del sondeo.
+* Durante el vacío se suspende la entrega para evitar anunciar una palabra
+  cortada. Al volver el texto se conserva el plazo de 850 ms ya iniciado para
+  la escritura continua. Un vacío confirmado libera la memoria para permitir
+  una nueva aparición legítima de la misma frase.
+* Los reinicios cancelan también la espera de confirmación. El debug agrega
+  eventos `gap` (inicio, restauración o confirmación) y `reset` con su motivo,
+  para distinguir un recambio del DOM de otros reinicios durante la prueba real.
+* El diagnóstico informa `flowReaderRevision: 3` y los registros Flow usan
+  `revision: 3`. Se mantiene la versión `3.0.0-beta`.
+* Validación: 31 pruebas con reloj controlado aprobadas. Incluyen el fragmento
+  de `A JUGAR. 121.`, vacíos transitorios y persistentes, entrega de palabras
+  pendientes, plazos y cancelación. La validación auditiva con NVDA/TTS de esta
+  revisión sigue pendiente.
+
 Corrección de palabras y líneas desplazadas en Flow / THEOplayer (2026-10-31):
 
 * Los registros de Flow mostraron que una palabra podía completarse justo al
