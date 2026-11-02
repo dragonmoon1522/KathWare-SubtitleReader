@@ -253,7 +253,7 @@
       const signature = JSON.stringify([data.phase, data.caption, data.output, data.capturedAtMs, data.sourceText]);
       if (["snapshot", "matched", "already-visible", "invalid", "not-found", "history-incomplete"].includes(data.phase) && signature !== lastPrinted) {
         lastPrinted = signature;
-        console.log(`[KWSR FLOW TIMING] ${JSON.stringify(data)}`);
+        console.log(`[KathWare] CONSOLE RENDERER FLOW TIMING ${JSON.stringify(data)}`);
       }
     });
   }

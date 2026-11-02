@@ -67,9 +67,9 @@ test('Flow debug records contain copyable JSON text', () => {
     assert.equal(args.length, 1);
     const data = JSON.parse(args[0].slice(args[0].indexOf('{')));
     assert.equal(data.renderer, 'THEOplayer / Flow-like');
-    assert.equal(data.revision, 3);
+    assert.equal(data.revision, 4);
   }
-  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 3);
+  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 4);
 });
 test('rolling lines preserve pending text that leaves the screen', () => {
   const f = fixture(); f.text('HOY VAMOS A CASA'); f.advance(100);
@@ -292,5 +292,69 @@ test('gap confirmation respects disable, source changes and paused reading', () 
     assert.deepEqual(f.texts(), []);
     const reset = f.logs.map(args => JSON.parse(args[0].slice(args[0].indexOf('{')))).find(data => data.reason === 'inactive');
     assert.ok(reset);
+  }
+});
+
+// Registro del 01/11/2026: el reproductor confirma un vacío de 250 ms y luego
+// reconstruye solo la cola de la misma línea. Sus palabras ya se habían leído.
+test('a confirmed gap followed by a shortened rolling line does not repeat its delivered tail', () => {
+  const f = fixture();
+  f.text('COCINAR. AH,'); f.advance(350);
+  f.text('COCINAR. AH, QUÉ'); f.advance(350);
+  f.text('COCINAR. AH, QUÉ BUENO,'); f.advance(350);
+  f.text('COCINAR. AH, QUÉ BUENO, CHICOS'); f.advance(350);
+  const before = f.texts();
+  f.text(''); f.advance(300);
+  f.text('>> AH, QUÉ BUENO, CHICOS.'); f.advance(350);
+  assert.deepEqual(f.texts(), before);
+  const recovery = f.logs.map(args => JSON.parse(args[0].slice(args[0].indexOf('{')))).find(data => data.phase === 'continued');
+  assert.equal(recovery.gapMs, 300);
+  f.text('>> AH, QUÉ BUENO, CHICOS. >> VAN A'); f.advance(350);
+  assert.deepEqual(f.texts(), [...before, 'VAN A']);
+});
+
+test('a shortened restored line still delivers new words appended after its overlap', () => {
+  const f = fixture();
+  f.text('COCINAR. AH, QUÉ BUENO, CHICOS.'); f.advance(350);
+  f.text(''); f.advance(300);
+  f.text('AH, QUÉ BUENO, CHICOS. VAN A TENER'); f.advance(350);
+  assert.deepEqual(f.texts(), ['COCINAR. AH, QUÉ BUENO, CHICOS.', 'VAN A TENER']);
+});
+
+test('gap recovery does not suppress a complete repeated cue or a short repeated overlap', () => {
+  for (const [previous, current] of [
+    ['AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS'],
+    ['DIJE HOLA MUNDO', 'HOLA MUNDO']
+  ]) {
+    const f = fixture(); f.text(previous); f.advance(350);
+    f.text(''); f.advance(300);
+    f.text(current); f.advance(350);
+    assert.deepEqual(f.texts(), [previous, current]);
+  }
+});
+
+test('an old rolling overlap is released after a longer gap', () => {
+  const f = fixture();
+  f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(350);
+  f.text(''); f.advance(3500);
+  f.text('AH QUÉ BUENO CHICOS'); f.advance(350);
+  assert.deepEqual(f.texts(), ['COCINAR. AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
+});
+
+test('gap memory is cleared by an explicit reset, source change or playback jump', () => {
+  for (const change of [
+    f => f.KWSR.consoleRenderers.resetLiveState(),
+    f => { f.KWSR.state.currentVideo = { currentSrc: 'blob:another' }; },
+    f => { f.KWSR.state.currentVideo.currentSrc = 'blob:changed'; },
+    f => { f.KWSR.state.currentVideo.currentTime = 120; },
+    f => { f.KWSR.state.currentVideo.currentTime = 90; },
+    f => { f.KWSR.state.currentVideo.seeking = true; }
+  ]) {
+    const f = fixture();
+    f.KWSR.state.currentVideo = { currentSrc: 'blob:flow', currentTime: 100, playbackRate: 1 };
+    f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(350);
+    f.text(''); f.advance(300); change(f);
+    f.text('AH QUÉ BUENO CHICOS'); f.advance(350);
+    assert.deepEqual(f.texts(), ['COCINAR. AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
   }
 });

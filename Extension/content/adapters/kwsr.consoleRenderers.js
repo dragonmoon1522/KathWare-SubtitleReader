@@ -73,16 +73,17 @@
   const flow = {
     raw: "", words: [], rawStart: 0, sentCount: 0,
     settleTimer: null, limitTimer: null, limitDue: null, since: 0,
-    gapTimer: null, emptySince: null
+    gapTimer: null, emptySince: null, gapMemory: null
   };
-  const FLOW_READER_REVISION = 3;
+  const FLOW_READER_REVISION = 4;
   const FLOW_SETTLE_MS = 350;
   const FLOW_LIMIT_MS = 850;
   const FLOW_GAP_MS = 250;
+  const FLOW_ROLL_RECOVERY_MS = 2000;
 
   function logFlow(event, data) {
     if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, ...data })}`);
+      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, flowTimingRevision: KWSR.flowTiming?.revision || null, ...data })}`);
     }
   }
 
@@ -94,10 +95,19 @@
   }
 
   function resetFlow(reason = "manual") {
-    if (flow.raw) logFlow("reset", { reason, raw: flow.raw, pending: flow.words.slice(flow.sentCount).join(" ") });
+    if (flow.raw) {
+      const v = S.currentVideo;
+      logFlow("reset", {
+        reason, raw: flow.raw, pending: flow.words.slice(flow.sentCount).join(" "),
+        videoTime: Number.isFinite(v?.currentTime) ? v.currentTime : null,
+        lastDeliveredText: S.lastEmitText || "",
+        lastDeliveredAgoMs: S.lastEmitAt ? Math.max(0, Date.now() - S.lastEmitAt) : null
+      });
+    }
     clearFlowTimers();
     clearTimeout(flow.gapTimer);
     flow.gapTimer = flow.emptySince = null;
+    flow.gapMemory = null;
     flow.raw = "";
     flow.words = [];
     flow.rawStart = flow.sentCount = 0;
@@ -137,6 +147,34 @@
     flow.words = flow.words.slice(count);
     flow.rawStart -= count;
     flow.sentCount -= count;
+  }
+
+  function flowVideoKey() {
+    return String(S.currentVideo?.currentSrc || S.currentVideo?.src || "");
+  }
+
+  function recoverFlowRoll(current) {
+    const memory = flow.gapMemory;
+    flow.gapMemory = null;
+    if (!memory) return;
+    const age = Date.now() - memory.at;
+    if (age < 0 || age > FLOW_ROLL_RECOVERY_MS || memory.video !== (S.currentVideo || null) || memory.videoKey !== flowVideoKey()) return;
+    const position = S.currentVideo?.currentTime;
+    if (Number.isFinite(position) && Number.isFinite(memory.videoTime)) {
+      const expected = age / 1000 * memory.rate;
+      if (S.currentVideo.seeking || Math.abs(position - memory.videoTime - expected) > 1) return;
+    }
+    const prev = wordsOf(memory.raw), curr = wordsOf(current);
+    const start = captionOverlap(prev, curr);
+    // Una cola larga de la línea anterior indica desplazamiento. No usar esta
+    // memoria para una frase completa idéntica ni para coincidencias cortas:
+    // podrían ser repeticiones reales del diálogo después de un vacío.
+    if (start <= 0 || prev.length - start < 3) return;
+    flow.raw = memory.raw;
+    flow.words = memory.words;
+    flow.rawStart = memory.rawStart;
+    flow.sentCount = memory.sentCount;
+    logFlow("gap", { phase: "continued", gapMs: Date.now() - memory.emptySince, overlapWords: prev.length - start });
   }
 
   function flushFlow(reason, completeOnly = false) {
@@ -205,7 +243,13 @@
           }
           logFlow("gap", { phase: "confirmed", gapMs: Date.now() - flow.emptySince });
           flushFlow("cue-end");
+          const memory = flow.raw ? {
+            raw: flow.raw, words: [...flow.words], rawStart: flow.rawStart, sentCount: flow.sentCount,
+            at: Date.now(), emptySince: flow.emptySince, video: S.currentVideo || null, videoKey: flowVideoKey(),
+            videoTime: S.currentVideo?.currentTime, rate: Number(S.currentVideo?.playbackRate || 1)
+          } : null;
           resetFlow("empty-gap");
+          flow.gapMemory = memory;
         }, FLOW_GAP_MS);
       }
       return false;
@@ -217,6 +261,7 @@
       logFlow("gap", { phase: "restored", gapMs: Date.now() - flow.emptySince });
       flow.emptySince = null;
     }
+    if (!flow.raw && flow.gapMemory) recoverFlowRoll(current);
     if (current === flow.raw) {
       if (hadGap) queueFlowDelivery();
       return true;

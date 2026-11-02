@@ -98,14 +98,15 @@ Documentación consultada el 26/10/2026:
 
 ## Paso a estable
 
-### Correcciones de Flow y YouTube preparadas el 31/10/2026
+### Verificación y pruebas actuales (01/11/2026)
 
-- Pasan las 45 pruebas de lectura incremental: 31 de la suite existente de Flow
+- Pasan las 50 pruebas de lectura incremental: 36 de la suite de Flow
   y 14 específicas de YouTube. Cubren las secuencias recibidas, plazos de entrega,
   palabras repetidas, puntuación y recuperación de nodos. Los intervalos del
   ensayo son simulados. Katherine confirmó el funcionamiento de YouTube revisión
-  1 el 31/10/2026. En Flow revisión 3 reporta unos 10 segundos de atraso respecto
-  de la transmisión, todavía pendientes de diagnóstico.
+  1 el 31/10/2026. En Flow reporta unos 10 segundos de atraso respecto de la
+  transmisión. La revisión 4 corrige una repetición posterior detectada en los
+  registros; el origen del atraso sigue pendiente de diagnóstico.
 - Se pueden ejecutar juntas con:
 
   ```sh
@@ -115,20 +116,21 @@ Documentación consultada el 26/10/2026:
   la [captura de subtítulo con pausa](flow-timing.md). Alt+Shift+M guarda el texto
   antes de pausar el video y enfoca un campo de solo lectura para compararlo
   con el diálogo escuchado. El diagnóstico incluye `flowTiming`, revisión 2.
-  Las 24 pruebas de medición/captura y las 45 de lectura pasan juntas; la
+  Las 24 pruebas de medición/captura y las 50 de lectura pasan juntas; la
   comparación con la transmisión real sigue pendiente.
 - Para probar el nuevo ZIP de Chrome, descomprimirlo en la carpeta usada para
   cargar la beta, reemplazar sus archivos y recargar la extensión desde su
   administrador. Después recargar la pestaña de Flow o YouTube para sustituir
   también los scripts que ya estaban ejecutándose.
-- El botón **Diagnóstico** debe informar `flowReaderRevision: 3` y
+- El botón **Diagnóstico** debe informar `flowReaderRevision: 4` y
   `youtubeReaderRevision: 1`. Con debug activo, los registros `CONSOLE RENDERER`
   de cada plataforma llevan su revisión correspondiente y son JSON copiables.
   Ese nombre histórico no significa que se esté ejecutando la consola
   experimental de `web/`; el ZIP utiliza el adaptador de la extensión.
-- La revisión 3 confirma los vacíos del subtítulo durante 250 ms antes de borrar
-  su memoria. El debug registra `gap` y `reset` para distinguir una desaparición
-  breve de un vacío confirmado o un reinicio del lector.
+- Flow confirma los vacíos del subtítulo durante 250 ms. La revisión 4 conserva
+  brevemente lo entregado para reconocer una cola larga de la línea anterior
+  que reaparece acortada. El debug registra `gap` y `reset` para distinguir
+  desapariciones, recuperaciones de línea y reinicios del lector.
 - YouTube entrega frases terminadas con la puntuación disponible y agrega un
   plazo de 850 ms que no se reinicia al llegar más palabras. La última palabra
   visible puede esperar a la pausa para evitar cortarla. Conserva también las
@@ -136,7 +138,7 @@ Documentación consultada el 26/10/2026:
 - El modo debug registra cada cambio del subtítulo, por lo que puede producir
   muchos mensajes. Se puede desactivar con Alt+Shift+D al terminar la prueba.
 
-El registro recibido de Flow contiene 12 entregas de una o dos palabras, con
+El registro inicial de Flow recibido el 31/10 contiene 12 entregas de una o dos palabras, con
 `pendingMs` entre 355 y 983 ms. Este valor mide la espera registrada por el
 adaptador para ese grupo; no mide el desfase con el audio ni el instante en que
 NVDA pronuncia el texto. Los valores no deben sumarse para inferir un atraso

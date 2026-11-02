@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-10-31
+**Última actualización:** 2026-11-01
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -49,6 +49,31 @@ pruebas y a la confirmación expresa de Katherine.
 * Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **una versión posterior**.
 
 #### Lectura de subtítulos y renderizadores
+
+Corrección de una cola repetida de Flow tras un vacío confirmado (2026-11-01):
+
+* El nuevo registro muestra una frase entregada por partes que reaparece
+  completa al reconstruirse el final de una línea después de un vacío de
+  250 ms. Se incorpora una regresión de ese patrón, que fallaba en la revisión 3.
+* Flow conserva una referencia breve de lo ya entregado tras confirmar el vacío.
+  La reutiliza durante hasta dos segundos solo si el texto reaparece como una
+  cola estricta de la línea anterior, con al menos tres palabras solapadas.
+  Las palabras nuevas añadidas a esa cola siguen entregándose.
+* No se usa esa recuperación para una frase completa idéntica ni para un
+  solapamiento corto. Se descarta ante reinicios, cambios de video/fuente,
+  saltos en la reproducción o al vencer el plazo. Se mantienen las esperas
+  de lectura de 350/850 ms y la confirmación de vacío de 250 ms.
+* `flowReaderRevision` pasa a 4. Sus registros incluyen `flowTimingRevision`
+  para identificar si está cargado el diagnóstico, cuya revisión sigue siendo 2.
+  El registro de reinicio agrega posición del video y última entrega conocida.
+* La captura usa ahora el prefijo `[KathWare] CONSOLE RENDERER FLOW TIMING`,
+  compartiendo las etiquetas de los registros habituales. Esto facilita verla
+  junto con ellos si se filtra la consola; no confirma que un filtro fuera
+  la causa de que no apareciera en los archivos recibidos.
+* Validación: 74 pruebas aprobadas, con cinco regresiones nuevas de recuperación
+  y liberación de contexto. Los registros recibidos siguen sin una referencia
+  del audio: esta corrección no demuestra el origen ni elimina por sí sola
+  el atraso de unos diez segundos reportado. La beta sigue pendiente de cierre.
 
 Captura simple para revisar la sincronización de Flow (2026-10-31):
 

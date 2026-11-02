@@ -231,7 +231,7 @@ test('an already measured appearance survives bounded history eviction', () => {
 });
 
 function installUI(f) {
-  const nodes = new Map(), handlers = new Map();
+  const nodes = new Map(), handlers = new Map(), logs = [];
   const doc = f.context.document;
   class Node {
     constructor() { this.style = {}; this.dataset = {}; this.children = []; this.attrs = {}; this.handlers = new Map(); this.textContent = ''; }
@@ -250,10 +250,10 @@ function installUI(f) {
   doc.addEventListener = (event, fn) => handlers.set(event, fn);
   f.KWSR.state.overlayPanel = new Node();
   f.KWSR.overlay = { ensureOverlay() {}, updateOverlayStatus() {}, setPanelOpen() {} };
-  f.context.console = { log() {} };
+  f.context.console = { log: (...args) => logs.push(args) };
   vm.runInContext(betaSource, f.context);
   f.KWSR.overlay.ensureOverlay();
-  return { nodes, handlers, doc };
+  return { nodes, handlers, doc, logs };
 }
 
 test('Alt+Shift+M captures and pauses before focusing a read-only result', () => {
@@ -273,6 +273,7 @@ test('Alt+Shift+M captures and pauses before focusing a read-only result', () =>
   const status = ui.nodes.get('kwsr-flow-timing-status');
   assert.equal(status.attrs.role, 'status');
   assert.match(status.textContent, /video pausado/);
+  assert.ok(ui.logs.some(args => String(args[0]).startsWith('[KathWare] CONSOLE RENDERER FLOW TIMING ') && String(args[0]).includes('"phase":"snapshot"')));
 });
 
 test('the measurement shortcut and fields are scoped to Flow', () => {

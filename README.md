@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-10-31
+**Última actualización:** 2026-11-01
 
 ### Estado de esta rama: 3.0.0-beta
 
@@ -72,7 +72,7 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | Flow a demanda | Katherine confirmó funcionamiento el 07/10/2026. | Comprobación con el paquete final. |
 | ViX | Lectura confirmada el 07/10/2026; pruebas automatizadas de lectura y controles. | Cierre conjunto con lector/TTS y controles accesibles. |
 | YouTube | Katherine confirmó funcionamiento correcto de la revisión 1 el 31/10/2026; 14 pruebas específicas. | Prueba funcional cerrada; pendientes generales de salida. |
-| Flow en vivo | Revisión 3 en pruebas; Katherine reporta un atraso de unos 10 segundos respecto de la transmisión. | Identificar el origen del atraso y cerrar la comprobación de sincronización. |
+| Flow en vivo | Revisión 4: corrección de la repetición de una línea desplazada tras un vacío confirmado; atraso de unos 10 segundos reportado. | Comprobar la revisión e identificar el origen del desfase con el audio. |
 | Paramount+ | Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
 

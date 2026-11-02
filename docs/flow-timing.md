@@ -8,6 +8,8 @@ congela el texto encontrado en Flow para compararlo con el diálogo escuchado.
 
 1. Actualizar desde la rama `3.0.0-beta`, recargar la extensión y la pestaña de
    Flow. El diagnóstico debe incluir `flowTiming` con `revision: 2`.
+   El lector actual se identifica como `flowReaderRevision: 4`; sus registros
+   habituales incluyen `revision: 4` y `flowTimingRevision: 2`.
 2. Con el foco en la página y mientras se escucha el audio original del video,
    pulsar **Alt+Shift+M**. No hace falta esperar una palabra concreta. También
    está el botón **Capturar subtítulo y pausar** en el panel.
@@ -19,7 +21,9 @@ congela el texto encontrado en Flow para compararlo con el diálogo escuchado.
    a una frase anterior. Se puede copiar con los comandos normales
    del campo de texto.
 4. El botón **Reanudar video** permite continuar. El diagnóstico conserva la
-   captura y la consola registra **`[KWSR FLOW TIMING]`** para compartirla.
+   captura y la consola registra **`[KathWare] CONSOLE RENDERER FLOW TIMING`**
+   para compartirla. Este prefijo comparte las etiquetas de los mensajes
+   habituales de KathWare para facilitar su visualización junto con ellos.
 
 Capturar antes de pausar evita perder el texto si el reproductor retira sus
 subtítulos al recibir la pausa. La captura queda fija aunque el DOM cambie
@@ -74,7 +78,7 @@ y reemplaza cualquier medición anterior.
 node --test tests/flow-timing.cjs tests/flow-incremental.cjs tests/youtube-incremental.cjs
 ```
 
-Las 69 pruebas pasan: 45 regresiones de lectura incremental y 24 de medición y
+Las 74 pruebas pasan: 50 regresiones de lectura incremental y 24 de medición y
 captura, incluidos el atajo, el foco del campo de solo lectura, la conservación
 del texto antes de pausar, etapas de salida y límites del historial. Se usan
 reloj y DOM simulados; la comparación con el audio de Flow real sigue pendiente.
