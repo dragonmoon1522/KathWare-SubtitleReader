@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-11-01
+**Última actualización:** 2026-11-05
 
 ### Estado de esta rama: 3.0.0-beta
 
@@ -80,11 +80,11 @@ La confirmación del 31/10/2026 cierra la prueba funcional reportada para Netfli
 Disney+, Max, Paramount+ y YouTube. Se mantienen las comprobaciones generales de voces,
 controles, pantalla completa y la confirmación expresa para pasar a estable.
 
-Para localizar el atraso de Flow en vivo está disponible la
-[captura de subtítulo con pausa](docs/flow-timing.md), mediante Alt+Shift+M.
-Se guarda el texto antes de pausar el video y se enfoca un campo de solo lectura
-para compararlo con el diálogo escuchado. La causa del atraso sigue pendiente
-de esa comprobación real.
+Para localizar el atraso de Flow en vivo, [hacé dos marcas sin interrumpir
+el video](docs/flow-timing.md): **Alt+Shift+M** al escuchar el diálogo y
+**Alt+Shift+N** cuando aparezca o se lea ese mismo subtítulo. El informe
+separa el intervalo entre teclas de los tiempos del texto de Flow y de la
+salida de KathWare. Queda pendiente probarlo con la transmisión real.
 
 Otros sitios y reproductores pueden funcionar mediante las pistas o selectores
 incluidos, pero no se anuncian como verificados sin una prueba concreta. Algunas
@@ -187,7 +187,10 @@ Atajos:
 * Volumen
 * Pantalla completa
 
-> Algunas plataformas pueden limitar la accesibilidad de ciertos controles.
+Cuando el foco está dentro del reproductor, la extensión ayuda a mantener
+visibles sus barras de control al recorrerlas con Tab, Shift+Tab y flechas.
+La barra alternativa de KathWare sigue disponible mientras se la usa con
+el teclado y se retira al salir si los controles del sitio ya funcionan.
 
 ---
 

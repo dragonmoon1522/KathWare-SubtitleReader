@@ -12,7 +12,7 @@ let browser;
 before(async () => { browser = await chromium.launch({ channel: 'chrome', headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, controls = '') {
+async function fixture(t, controls = '', platform = 'vix') {
   // fixture significa escenario de prueba: una página pequeña y controlada.
   // Cada prueba recibe una página nueva para no heredar el estado de otra.
   const page = await browser.newPage();
@@ -24,15 +24,16 @@ async function fixture(t, controls = '') {
     button,[data-testid$='-btn'],[role=button] { min-width:50px; min-height:30px; }
   </style><button id="before">Antes</button><div id="video-player"><video></video>
   <div id="controls">${controls}</div></div>`);
-  await page.evaluate(() => {
+  await page.addStyleTag({ path: path.join(__dirname, '../Extension/content/ui/kwsr.playerFocus.css') });
+  await page.evaluate(platform => {
     window.KWSR = {
       state: { extensionActiva: true, currentVideo: document.querySelector('video') },
       CFG: { debug: true, seekBig: 10 },
-      platforms: { getPlatform: () => 'vix', platformCapabilities: () => ({ nonAccessibleFixes:true, keepAlive:true }) }
+      platforms: { getPlatform: () => platform, platformCapabilities: () => ({ nonAccessibleFixes: platform === 'vix', keepAlive: platform === 'vix' }) }
     };
     window.logs = [];
     console.log = (...args) => window.logs.push(args);
-  });
+  }, platform);
   for (const file of ['ui/kwsr.overlay.js', 'adapters/kwsr.keepAlive.js', 'adapters/kwsr.nonAccessible.platforms.js', 'adapters/kwsr.vixPlayerA11y.js', 'adapters/kwsr.playerUIRules.js']) {
     await page.addScriptTag({ path: path.join(__dirname, '../Extension/content', file) });
   }
@@ -114,16 +115,19 @@ test('fallback requires visible, enabled controls actually in the Tab order', as
   assert.equal(await p.evaluate(() => KWSR.playerUIRules.nativePlayerAccessibility().accessible), false);
 });
 
-test('hiding fallback retains panel, close button and focus; no self-triggered mutation loop', async t => {
+test('fallback stays visible while focused, and disappears after normal Tab out', async t => {
   const p = await fixture(t);
-  await p.locator('#kwsr-fallback-player-controls button').first().focus();
+  await p.locator('#kwsr-fallback-player-controls button').last().focus();
   await p.evaluate(() => {
     KWSR.state.currentVideo.controls = true;
     KWSR.playerUIRules.syncFallbackPlayer();
   });
-  assert.equal(await p.locator('#kwsr-fallback-player-controls').isVisible(), false);
-  assert.equal(await p.locator('#kathware-overlay-panel').isVisible(), true);
+  assert.equal(await p.locator('#kwsr-fallback-player-controls').isVisible(), true);
+  assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Pantalla completa');
+  await p.keyboard.press('Tab');
   assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Cerrar panel');
+  await p.locator('#kwsr-fallback-player-controls').waitFor({ state: 'hidden' });
+  assert.equal(await p.locator('#kathware-overlay-panel').isVisible(), true);
   assert.equal(await p.locator('#kathware-overlay-panel button[aria-label="Subtítulos"]').count(), 0);
   const mutations = await p.evaluate(async () => {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -180,4 +184,54 @@ test('replacement controls are repaired, while extension OFF leaves new controls
   await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   assert.equal(await p.locator('#off').getAttribute('tabindex'), '-1');
   assert.equal(await p.locator('#off').getAttribute('aria-label'), null);
+});
+
+test('focused native controls survive visual auto-hide and normal arrow, Tab and Shift+Tab navigation', async t => {
+  const p = await fixture(t, '<button id="play">Play</button><button id="volume">Volume</button>', 'generic');
+  await p.addStyleTag({ content: '#video-player.sleep #controls { visibility: hidden; opacity: 0; }' });
+  await p.evaluate(() => {
+    document.querySelector('#video-player').insertAdjacentHTML('afterend', '<button id="after">Después</button>');
+    const toolbar = document.querySelector('#controls');
+    toolbar.tabIndex = 0;
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.addEventListener('keydown', event => {
+      if (event.target === toolbar && event.key === 'ArrowRight' && !event.defaultPrevented) document.querySelector('#volume').focus();
+    });
+  });
+  await p.locator('#before').focus();
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'controls');
+  await p.locator('#video-player').evaluate(el => el.classList.add('sleep'));
+  assert.equal(await p.locator('#controls').evaluate(el => getComputedStyle(el).opacity), '1');
+  assert.equal(await p.locator('#controls').isVisible(), true);
+  await p.keyboard.press('ArrowRight');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'volume');
+  await p.keyboard.press('Shift+Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'play');
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'volume');
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'after');
+  assert.equal(await p.locator('#controls').isVisible(), false);
+});
+
+test('only the current player is pinned and closed menus stay closed', async t => {
+  const p = await fixture(t, '<button id="play">Play</button><div role="menu" aria-hidden="true"><div id="menu-controls" data-player-controls><button>Ajuste</button></div></div>', 'generic');
+  await p.addStyleTag({ content: '[role="menu"], #other-player #other-controls { opacity: 0; visibility: hidden; }' });
+  await p.evaluate(() => {
+    document.querySelector('#before').insertAdjacentHTML('beforebegin', '<div id="other-player"><video></video><div data-player-controls id="other-controls"><button>Otro video</button></div></div>');
+    window.mainMoves = 0;
+    document.querySelector('#video-player').addEventListener('mousemove', () => mainMoves++);
+  });
+  await p.locator('#before').focus();
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.evaluate(() => mainMoves), 0);
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'play');
+  assert.equal(await p.locator('#controls').getAttribute('data-kwsr-focus-controls'), '');
+  assert.equal(await p.locator('#menu-controls').getAttribute('data-kwsr-focus-controls'), null);
+  assert.equal(await p.locator('#menu-controls').isVisible(), false);
+  assert.equal(await p.locator('#other-controls').getAttribute('data-kwsr-focus-controls'), null);
+  await p.evaluate(() => { KWSR.state.extensionActiva = false; KWSR.keepAlive.tick(); });
+  assert.equal(await p.locator('#controls').getAttribute('data-kwsr-focus-controls'), null);
 });

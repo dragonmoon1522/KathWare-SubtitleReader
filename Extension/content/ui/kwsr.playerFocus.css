@@ -1,0 +1,5 @@
+/* El foco puede entrar en controles que el sitio atenúa sin sacarlos de Tab. */
+[data-kwsr-focus-controls]:not([hidden], [inert], [aria-hidden="true"], [hidden] *, [inert] *, [aria-hidden="true"] *) {
+  opacity: 1 !important;
+  visibility: visible !important;
+}

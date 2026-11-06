@@ -1,216 +1,163 @@
-// -----------------------------------------------------------------------------
-// KathWare SubtitleReader - kwsr.flowTiming.js
-// Diagnóstico temporal de Flow: audio marcado por la persona -> texto en el DOM
-// -> entrega del adaptador -> live region o inicio del sintetizador.
-//
-// PARA UBICARTE
-// No escucha ni graba audio. La marca manual es la referencia del diálogo.
-// Un observador independiente consulta el subtítulo sin esperar al lector.
-// La captura simple pausa el video y conserva el texto para revisarlo sin apuro.
-// La medición manual detallada conserva una prueba de 30 segundos en memoria.
-// -----------------------------------------------------------------------------
+// KathWare SubtitleReader - Diagnóstico de Flow con dos marcas manuales.
+// El registro dura hasta 30 segundos y queda en memoria. No escucha el audio
+// ni intenta determinar cuándo habla NVDA: la segunda marca la hace la persona.
 (() => {
   const KWSR = window.KWSR;
   if (!KWSR || KWSR.flowTiming) return;
-  const REVISION = 2;
+  const S = KWSR.state;
+  const REVISION = 3;
   const WINDOW_MS = 30000;
-  const MAX_SAMPLES = 800;
+  const TRACE_LIMIT = 240;
+  const OUTPUT_STAGES = new Set(["adapter", "live-region", "tts-start"]);
   let session = null;
-  let snapshot = null;
   let listener = null;
+  let report = { revision: REVISION, phase: "idle" };
 
-  const clock = () => typeof performance !== "undefined" ? performance.now() : Date.now();
-  const platform = () => KWSR.platforms?.getPlatform?.() || "generic";
-  const video = () => KWSR.state?.currentVideo || KWSR.video?.getMainVideo?.() || null;
-  const key = v => String(v?.currentSrc || v?.src || "");
-  const tokens = text => String(text ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
-  const contains = (text, word) => (` ${tokens(text).join(" ")} `).includes(` ${tokens(word).join(" ")} `);
-  const round = value => Number.isFinite(value) ? Math.round(value) : null;
+  const clock = () => performance.now();
+  const isFlow = () => KWSR.platforms?.getPlatform?.() === "flow";
+  const video = () => (S.currentVideo?.isConnected !== false && S.currentVideo) || KWSR.video?.getMainVideo?.();
+  const sourceKey = v => v?.currentSrc || v?.src || "";
+  const normalize = text => String(text ?? "").replace(/\s+/g, " ").trim();
+  const excerpt = text => text.length > 300 ? "…" + text.slice(-300) : text;
+  const mediaTime = v => Math.round(v.currentTime * 1000) / 1000;
+
+  function readCaption() {
+    const candidate = KWSR.consoleRenderers?.getRendererText?.("flow");
+    return { text: normalize(candidate?.text), selector: candidate?.selector || "" };
+  }
+
+  function captureMark(v, at) {
+    const mark = {
+      at,
+      wallTimeMs: Date.now(),
+      videoTime: mediaTime(v),
+      readingMode: S.modoNarradorGlobal
+    };
+    mark.caption = readCaption();
+    mark.caption.text = excerpt(mark.caption.text);
+    return mark;
+  }
+
+  function publish(phase, data, log = true) {
+    report = { revision: REVISION, phase, ...data };
+    try { listener?.(report); } catch {}
+    if (log) console.log(`[KathWare] CONSOLE RENDERER FLOW TIMING ${JSON.stringify(report)}`);
+    return report;
+  }
 
   function detach() {
-    if (!session) return;
-    session.observer?.disconnect();
-    clearTimeout(session.timer);
-    for (const [event, handler] of session.events) session.video.removeEventListener?.(event, handler);
-    session.events = [];
-    session.running = false;
-  }
-
-  function getReport() {
-    if (snapshot) return { ...snapshot };
-    if (!session) return { revision: REVISION, phase: "idle", running: false };
     const s = session;
-    let phase = s.invalid ? "invalid" : !s.word ? "need-word" : s.expired ? "not-found" : "waiting";
-    let caption = null;
-    if (!s.invalid && s.word) {
-      if (contains(s.initial.text, s.word)) {
-        phase = "already-visible";
-      } else if (s.truncated) {
-        phase = "history-incomplete";
-      } else {
-        const found = s.samples.find(row => !row.initial && contains(row.text, s.word));
-        if (found) {
-          phase = "matched";
-          caption = {
-            observedAfterAudioMarkMs: round(found.at - s.at),
-            videoTime: found.videoTime,
-            videoSecondsAfterAudioMark: Number((found.videoTime - s.videoTime).toFixed(3)),
-            text: found.text.slice(0, 300)
-          };
-          // Guardar el resultado aunque el historial acotado se renueve después.
-          s.match = { ...found };
-        } else if (s.match) {
-          phase = "matched";
-        }
-      }
-      if (!caption && phase === "matched" && s.match) {
-        caption = {
-          observedAfterAudioMarkMs: round(s.match.at - s.at), videoTime: s.match.videoTime,
-          videoSecondsAfterAudioMark: Number((s.match.videoTime - s.videoTime).toFixed(3)), text: s.match.text.slice(0, 300)
-        };
-      }
-    }
-    const output = {};
-    for (const stage of ["adapter", "live-region", "tts-start"]) {
-      const event = !s.invalid && s.word && s.outputs.find(row => row.stage === stage && row.at >= (s.match?.at ?? s.at) && contains(row.text, s.word));
-      output[stage] = event ? {
-        afterAudioMarkMs: round(event.at - s.at), afterCaptionMs: caption ? round(event.at - s.match.at) : null
-      } : null;
-    }
-    return {
-      revision: REVISION, phase, running: s.running, word: s.word,
-      audioMark: { wallTimeMs: s.wallTime, videoTime: s.videoTime, playbackRate: s.rate },
-      caption, output, invalidReason: s.invalid || null,
-      samples: s.samples.length, historyTruncated: s.truncated,
-      reference: "manual-audio-mark", nvdaSpeechStartMeasured: false
-    };
+    if (!s) return;
+    session = null;
+    s.observer?.disconnect();
+    clearTimeout(s.timer);
+    for (const name of s.events) s.video.removeEventListener(name, s.interrupt);
   }
 
-  function publish() {
-    const report = getReport();
-    try { listener?.(report); } catch {}
-  }
-
-  function invalidate(reason) {
-    if (!session) return;
-    session.invalid = reason;
+  function interrupt(reason) {
+    if (!session) return report;
+    const { audioMark } = session;
     detach();
-    publish();
+    return publish(reason === "timeout" ? "expired" : "invalid", { reason, audioMark });
   }
 
-  function valid() {
-    if (!session?.running) return false;
+  function valid(s, at) {
     const v = video();
-    if (platform() !== "flow" || !KWSR.state?.extensionActiva || v !== session.video || key(v) !== session.key) {
-      invalidate("source-changed");
+    if (!isFlow() || !S.extensionActiva || v !== s.video || sourceKey(v) !== s.source) {
+      interrupt("source-changed");
       return false;
     }
-    if (v.paused || v.ended || Number(v.playbackRate || 1) !== session.rate) {
-      invalidate("playback-changed");
+    if (v.paused || v.ended || v.seeking || v.playbackRate !== s.rate ||
+        !Number.isFinite(v.currentTime) || v.currentTime < s.audioMark.videoTime - 0.01) {
+      interrupt("playback-changed");
+      return false;
+    }
+    if (at - s.audioMark.at >= WINDOW_MS) {
+      interrupt("timeout");
       return false;
     }
     return true;
   }
 
-  function sample(initial = false) {
-    if (!valid()) return;
-    const text = String(KWSR.consoleRenderers?.getRendererText?.("flow")?.text || "").replace(/\s+/g, " ").trim();
-    if (!initial && text === session.lastRaw) return;
-    const row = { text, at: clock(), videoTime: Number(session.video.currentTime), initial };
-    session.lastRaw = text;
-    if (initial) session.initial = row;
-    session.samples.push(row);
-    if (session.samples.length > MAX_SAMPLES) {
-      session.samples.splice(1, 1);
-      session.truncated = !session.match;
+  function record(s, stage, text, at) {
+    s.timeline.push({ stage, afterAudioMarkMs: Math.round(at - s.audioMark.at), videoTime: mediaTime(s.video), text: excerpt(text) });
+    if (s.timeline.length > TRACE_LIMIT) {
+      s.timeline.shift();
+      s.omittedEvents++;
     }
-    publish();
+  }
+
+  function sample(s) {
+    if (session !== s || !valid(s, clock())) return;
+    const { text } = readCaption();
+    if (excerpt(text) === s.lastCaption) return;
+    s.lastCaption = excerpt(text);
+    record(s, "caption", text, clock());
   }
 
   function markAudio() {
-    snapshot = null;
+    const at = clock();
     detach();
     const v = video();
-    if (platform() !== "flow" || !KWSR.state?.extensionActiva || !v || v.paused || v.ended || !Number.isFinite(v.currentTime)) {
-      session = null;
-      return { revision: REVISION, phase: "invalid", running: false, invalidReason: "play-a-flow-video" };
+    if (!isFlow() || !S.extensionActiva || !v || v.paused || v.ended || v.seeking || !Number.isFinite(v.currentTime)) {
+      return publish("invalid", { reason: "play-a-flow-video" });
     }
-    session = {
-      at: clock(), wallTime: Date.now(), videoTime: Number(v.currentTime), rate: Number(v.playbackRate || 1),
-      video: v, key: key(v), running: true, word: "", lastRaw: "", initial: { text: "" },
-      samples: [], outputs: [], events: [], timer: null, observer: null,
-      invalid: "", expired: false, truncated: false, match: null
+
+    const audioMark = captureMark(v, at);
+    const s = session = {
+      audioMark, video: v, source: sourceKey(v), rate: v.playbackRate,
+      lastCaption: audioMark.caption.text, timeline: [], omittedEvents: 0,
+      events: ["pause", "seeking", "emptied", "ended", "ratechange"],
+      interrupt: event => { if (session === s) interrupt(event.type); }
     };
-    const target = session;
-    sample(true);
+
     try {
-      session.observer = new MutationObserver(() => { if (session === target) sample(); });
-      session.observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "style", "hidden"] });
-      for (const event of ["pause", "seeking", "emptied", "ratechange"]) {
-        const handler = () => { if (session === target) invalidate(event); };
-        v.addEventListener?.(event, handler);
-        session.events.push([event, handler]);
-      }
-      session.timer = setTimeout(() => {
-        if (session !== target) return;
-        sample();
-        session.expired = true;
-        detach();
-        publish();
-      }, WINDOW_MS);
+      s.observer = new MutationObserver(() => sample(s));
+      s.observer.observe(document.documentElement, {
+        childList: true, subtree: true, characterData: true,
+        attributes: true, attributeFilter: ["class", "style", "hidden"]
+      });
+      for (const name of s.events) v.addEventListener(name, s.interrupt);
+      s.timer = setTimeout(() => { if (session === s) interrupt("timeout"); }, WINDOW_MS);
     } catch {
-      invalidate("observer-unavailable");
+      return interrupt("observer-unavailable");
     }
-    return getReport();
+    return publish("waiting-subtitle", { audioMark }, false);
   }
 
-  // Capturar antes de pausar: algunos reproductores retiran sus subtítulos
-  // al recibir pause. La referencia del audio la conserva la persona al oírlo.
-  function captureSnapshot() {
+  function markSubtitle() {
+    const at = clock();
+    const s = session;
+    if (!s) return report.phase === "idle" ? publish("invalid", { reason: "audio-mark-required" }) : report;
+    if (!valid(s, at)) return report;
+
+    const subtitleMark = captureMark(s.video, at);
     detach();
-    const v = video();
-    if (platform() !== "flow" || !KWSR.state?.extensionActiva || !v || !Number.isFinite(v.currentTime)) {
-      snapshot = { revision: REVISION, phase: "invalid", running: false, invalidReason: "play-a-flow-video" };
-      publish();
-      return getReport();
-    }
-    const candidate = KWSR.consoleRenderers?.getRendererText?.("flow");
-    const lastAt = Number(KWSR.state.lastEmitAt || 0);
-    snapshot = {
-      revision: REVISION, phase: "snapshot", running: false,
-      capturedAtMs: Date.now(), videoTime: Number(v.currentTime), wasPaused: !!v.paused,
-      sourceText: String(candidate?.text || "").replace(/\s+/g, " ").trim(),
-      selector: candidate?.selector || "",
-      lastDeliveredText: KWSR.state.lastEmitText || "",
-      lastDeliveredAgoMs: lastAt ? Math.max(0, Date.now() - lastAt) : null,
-      pauseSucceeded: false, reference: "paused-source-snapshot", audioOffsetMeasured: false
-    };
-    try { KWSR.voice?.detenerLectura?.(); } catch {}
-    try { v.pause(); } catch {}
-    snapshot.pauseSucceeded = !!v.paused;
-    publish();
-    return getReport();
-  }
-
-  function setWord(value) {
-    if (!session) return getReport();
-    const word = String(value || "").trim().slice(0, 80);
-    session.word = tokens(word).length ? word : "";
-    session.match = null;
-    publish();
-    return getReport();
+    return publish("measured", {
+      reference: "manual-audio-and-subtitle-marks",
+      audioMark: s.audioMark,
+      subtitleMark,
+      manualDelayMs: Math.round(at - s.audioMark.at),
+      videoElapsedMs: Math.round((subtitleMark.videoTime - s.audioMark.videoTime) * 1000),
+      playbackRate: s.rate,
+      timeline: s.timeline,
+      omittedEvents: s.omittedEvents,
+      nvdaSpeechStartMeasured: false
+    });
   }
 
   function noteOutput(stage, text) {
-    if (!["adapter", "live-region", "tts-start"].includes(stage) || !valid()) return;
-    session.outputs.push({ stage, text: String(text || ""), at: clock() });
-    if (session.outputs.length > MAX_SAMPLES) session.outputs.shift();
-    publish();
+    const at = clock();
+    if (session && OUTPUT_STAGES.has(stage) && valid(session, at)) record(session, stage, normalize(text), at);
   }
 
   KWSR.flowTiming = {
-    revision: REVISION, captureSnapshot, markAudio, setWord, noteOutput, getReport,
-    setListener(fn) { listener = typeof fn === "function" ? fn : null; publish(); },
-    cancel() { snapshot = null; invalidate("cancelled"); }
+    revision: REVISION, markAudio, markSubtitle, noteOutput,
+    getReport: () => report,
+    setListener(fn) {
+      listener = typeof fn === "function" ? fn : null;
+      try { listener?.(report); } catch {}
+    },
+    cancel() { interrupt("cancelled"); }
   };
 })();

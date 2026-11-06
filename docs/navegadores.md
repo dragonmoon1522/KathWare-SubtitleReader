@@ -98,7 +98,7 @@ Documentación consultada el 26/10/2026:
 
 ## Paso a estable
 
-### Verificación y pruebas actuales (01/11/2026)
+### Verificación y pruebas actuales (05/11/2026)
 
 - Pasan las 50 pruebas de lectura incremental: 36 de la suite de Flow
   y 14 específicas de YouTube. Cubren las secuencias recibidas, plazos de entrega,
@@ -112,12 +112,14 @@ Documentación consultada el 26/10/2026:
   ```sh
   node --test tests/flow-incremental.cjs tests/youtube-incremental.cjs
   ```
-- Para el atraso reportado tanto con NVDA como con el sintetizador se agregó
-  la [captura de subtítulo con pausa](flow-timing.md). Alt+Shift+M guarda el texto
-  antes de pausar el video y enfoca un campo de solo lectura para compararlo
-  con el diálogo escuchado. El diagnóstico incluye `flowTiming`, revisión 2.
-  Las 24 pruebas de medición/captura y las 50 de lectura pasan juntas; la
-  comparación con la transmisión real sigue pendiente.
+- Para el atraso reportado tanto con NVDA como con el sintetizador se usa la
+  [medición de Flow con dos marcas](flow-timing.md), revisión 3. Marcá el
+  audio con Alt+Shift+M y el subtítulo correspondiente con Alt+Shift+N, con
+  la reproducción en marcha. La comparación con la transmisión sigue pendiente.
+- Con el foco dentro del reproductor, probar Tab, Shift+Tab y flechas cuando
+  la barra normalmente se oculta. El foco debe seguir el orden del sitio y la
+  barra alternativa no debe desaparecer mientras esté enfocada. Falta
+  confirmar la navegación con NVDA en los reproductores reales.
 - Para probar el nuevo ZIP de Chrome, descomprimirlo en la carpeta usada para
   cargar la beta, reemplazar sus archivos y recargar la extensión desde su
   administrador. Después recargar la pestaña de Flow o YouTube para sustituir

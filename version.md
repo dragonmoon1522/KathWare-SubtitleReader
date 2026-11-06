@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-01
+**Última actualización:** 2026-11-05
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -49,6 +49,24 @@ pruebas y a la confirmación expresa de Katherine.
 * Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **una versión posterior**.
 
 #### Lectura de subtítulos y renderizadores
+
+Medición con dos marcas y foco del reproductor (2026-11-05):
+
+* `flowTiming` revisión 3 reemplaza la captura con pausa por **Alt+Shift+M**
+  al escuchar el diálogo y **Alt+Shift+N** al detectar su subtítulo. Los atajos
+  no cambian el foco, la reproducción ni la voz y no requieren escribir.
+* El diagnóstico conserva el texto y la posición del video en las dos marcas,
+  el intervalo entre ellas y un registro acotado de cambios del subtítulo,
+  entregas, actualizaciones de la región accesible e inicios del sintetizador.
+  Se imprime aunque el panel esté cerrado. La segunda marca es manual; no
+  mide directamente cuándo habla NVDA.
+* Al entrar al reproductor con foco, KathWare mantiene visibles sus barras
+  ante el ocultamiento por opacidad o visibilidad y responde a Tab, Shift+Tab
+  y flechas sin tomar el control de esas teclas. La ayuda se retira al salir
+  del reproductor o desactivar la extensión. Se respetan menús cerrados y
+  la barra alternativa espera a que salga el foco para desaparecer.
+* Se agregan regresiones de las dos marcas y de navegación con teclado.
+  Sigue pendiente comprobar el desfase de Flow y el foco con NVDA en los sitios.
 
 Corrección de una cola repetida de Flow tras un vacío confirmado (2026-11-01):
 

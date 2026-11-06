@@ -130,6 +130,9 @@
   function stopAll() {
     stopTimers();
 
+    KWSR.keepAlive?.clearFocus?.();
+    KWSR.flowTiming?.cancel?.();
+
     try { KWSR.nonAccessiblePlatforms?.stopMenuObserver?.(); } catch {}
 
     try {

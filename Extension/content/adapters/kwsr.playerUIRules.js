@@ -94,20 +94,6 @@
     }
   }
 
-  function playerRoot(video) {
-    try {
-      return document.querySelector("#video-player") ||
-        video?.closest?.(
-          "[data-testid*='player'],[id*='video-player'],[id*='player']," +
-          "[class*='video-player'],[class*='VideoPlayer'],[class*='player'],[class*='Player']"
-        ) ||
-        video?.parentElement ||
-        null;
-    } catch {
-      return null;
-    }
-  }
-
   function nearVideo(el, video, root) {
     try {
       if (root?.contains(el)) return true;
@@ -129,7 +115,7 @@
   }
 
   function getNativeControls(video) {
-    const root = playerRoot(video);
+    const root = KWSR.keepAlive?.playerRoot?.(video) || video?.parentElement;
     const scope = root || document;
 
     let all = [];
@@ -210,7 +196,7 @@
   }
 
   // Muestra u oculta solamente nuestra barra de reproducción.
-  // Si va a ocultar el botón enfocado, primero lleva el foco a «Cerrar panel».
+  // Si se está usando nuestra barra, se retira recién cuando el foco sale de ella.
   function syncFallbackPlayer() {
     removeSubtitleToggle();
 
@@ -223,15 +209,10 @@
     }
 
     const info = nativePlayerAccessibility();
-    const shouldShowFallback = !info.accessible;
+    const shouldShowFallback = !info.accessible || row.contains(document.activeElement);
     const wantedDisplay = shouldShowFallback ? "flex" : "none";
 
-    if (row.style.display !== wantedDisplay) {
-      if (!shouldShowFallback && row.contains(document.activeElement)) {
-        S.overlayPanel?.querySelector("button[aria-label='Cerrar panel']")?.focus();
-      }
-      row.style.display = wantedDisplay;
-    }
+    if (row.style.display !== wantedDisplay) row.style.display = wantedDisplay;
 
     const hidden = shouldShowFallback ? "false" : "true";
     if (row.getAttribute("aria-hidden") !== hidden) row.setAttribute("aria-hidden", hidden);
@@ -312,6 +293,11 @@
       // el resto del reproductor todavía necesita el fallback.
       if (event?.defaultPrevented || event?.target?.closest?.("button,a[href],input,select,textarea,[role='button'],[role='slider'],[role='menuitem'],[contenteditable='true']")) return false;
       const key = String(event?.key || "").toLowerCase();
+      if (/^arrow(left|right|up|down)$/.test(key)) {
+        const v = S.currentVideo || KWSR.video?.getMainVideo?.();
+        const root = KWSR.keepAlive?.playerRoot?.(v);
+        if (root?.contains(event.target)) return false;
+      }
 
       // Ya no existe control de alternar pistas en nuestro reproductor.
       if (key === "c" && !event?.ctrlKey && !event?.altKey && !event?.metaKey) {
@@ -333,6 +319,10 @@
     syncFallbackPlayer,
     startObserver
   };
+
+  document.addEventListener("focusout", event => {
+    if (getFallbackControlsRow()?.contains(event.target)) scheduleSync();
+  }, true);
 
   startObserver();
   syncFallbackPlayer();
