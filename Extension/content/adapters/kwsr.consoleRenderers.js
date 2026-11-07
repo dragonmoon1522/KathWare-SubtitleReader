@@ -71,13 +71,16 @@
   // words conserva también lo pendiente que ya salió de pantalla; rawStart
   // ubica la línea visible y sentCount separa las palabras ya entregadas.
   const flow = {
-    raw: "", words: [], rawStart: 0, sentCount: 0,
-    settleTimer: null, limitTimer: null, limitDue: null, since: 0,
+    raw: "", markers: "", words: [], rawStart: 0, sentCount: 0, speakerEnds: [],
+    settleTimer: null, limitTimer: null, limitDue: null, since: 0, changedAt: 0,
+    boundaryTimer: null, boundaryDue: null,
     gapTimer: null, emptySince: null, gapMemory: null
   };
-  const FLOW_READER_REVISION = 4;
-  const FLOW_SETTLE_MS = 350;
-  const FLOW_LIMIT_MS = 850;
+  const FLOW_READER_REVISION = 5;
+  const FLOW_SETTLE_MS = 1200;
+  const FLOW_LIMIT_MS = 2500;
+  const FLOW_BOUNDARY_QUIET_MS = 80;
+  const FLOW_BOUNDARY_MAX_MS = 250;
   const FLOW_GAP_MS = 250;
   const FLOW_ROLL_RECOVERY_MS = 2000;
 
@@ -90,8 +93,9 @@
   function clearFlowTimers(preserveLimit = false) {
     clearTimeout(flow.settleTimer);
     clearTimeout(flow.limitTimer);
-    flow.settleTimer = flow.limitTimer = null;
-    if (!preserveLimit) flow.limitDue = null;
+    clearTimeout(flow.boundaryTimer);
+    flow.settleTimer = flow.limitTimer = flow.boundaryTimer = null;
+    if (!preserveLimit) flow.limitDue = flow.boundaryDue = null;
   }
 
   function resetFlow(reason = "manual") {
@@ -108,8 +112,9 @@
     clearTimeout(flow.gapTimer);
     flow.gapTimer = flow.emptySince = null;
     flow.gapMemory = null;
-    flow.raw = "";
+    flow.raw = flow.markers = "";
     flow.words = [];
+    flow.speakerEnds = [];
     flow.rawStart = flow.sentCount = 0;
   }
 
@@ -147,6 +152,7 @@
     flow.words = flow.words.slice(count);
     flow.rawStart -= count;
     flow.sentCount -= count;
+    flow.speakerEnds = flow.speakerEnds.filter(end => end > count).map(end => end - count);
   }
 
   function flowVideoKey() {
@@ -171,56 +177,114 @@
     // podrían ser repeticiones reales del diálogo después de un vacío.
     if (start <= 0 || prev.length - start < 3) return;
     flow.raw = memory.raw;
+    flow.markers = memory.markers;
+    flow.speakerEnds = memory.speakerEnds;
     flow.words = memory.words;
     flow.rawStart = memory.rawStart;
     flow.sentCount = memory.sentCount;
     logFlow("gap", { phase: "continued", gapMs: Date.now() - memory.emptySince, overlapWords: prev.length - start });
   }
 
-  function flushFlow(reason, completeOnly = false) {
-    if (completeOnly) {
-      clearTimeout(flow.limitTimer);
-      flow.limitTimer = flow.limitDue = null;
-    } else {
-      clearFlowTimers();
+  // Los marcadores de hablante no se leen, pero sí terminan la frase anterior.
+  // Guardar sus posiciones permite conservarlas al desplazarse las líneas.
+  function updateFlowSpeakers(source, start) {
+    const ends = flow.speakerEnds.filter(end => end <= start);
+    let count = 0;
+    for (const token of wordsOf(source)) {
+      if (/^>+$/.test(token)) {
+        if (token.length >= 2) ends.push(start + count);
+      } else {
+        count++;
+      }
     }
+    flow.speakerEnds = [...new Set(ends)];
+    flow.markers = source;
+  }
+
+  function flowBoundary() {
+    let boundary = null, clause = null;
+    let length = 0;
+    for (let i = flow.sentCount; i < flow.words.length; i++) {
+      const word = flow.words[i];
+      length += word.length + 1;
+      if (/[.!?…]["”’')\]]*$/.test(word)) {
+        boundary = { end: i + 1, reason: "sentence" };
+      } else if (flow.speakerEnds.includes(i + 1)) {
+        boundary = { end: i + 1, reason: "speaker" };
+      } else if (/[,;:]["”’')\]]*$/.test(word) && length >= 45 && i - flow.sentCount >= 3) {
+        clause = { end: i + 1, reason: "clause" };
+      }
+    }
+    return boundary || clause;
+  }
+
+  function flushFlow(reason, end = flow.words.length) {
     if (!S.extensionActiva || S.effectiveFuente !== "visual" || platform() !== "flow" || !KWSR.voice?.shouldReadNow?.()) {
       resetFlow("inactive");
-      return;
+      return false;
     }
-    // Durante escritura continua, la última palabra puede estar incompleta.
-    // Enviamos hasta el último espacio; tras una pausa enviamos también el final.
-    const end = flow.words.length - (completeOnly ? 1 : 0);
-    if (end <= flow.sentCount) return;
+    if (end <= flow.sentCount) return false;
+    clearFlowTimers();
     const text = flow.words.slice(flow.sentCount, end).join(" ");
     flow.sentCount = end;
     trimFlowHistory();
     logFlow("flush", { reason, text, pendingMs: Date.now() - flow.since });
     try { KWSR.flowTiming?.noteOutput?.("adapter", text); } catch {}
     KWSR.voice?.leerTextoAccesible?.(text);
+    return true;
   }
 
   function queueFlowDelivery() {
     clearTimeout(flow.settleTimer);
-    flow.settleTimer = null;
+    clearTimeout(flow.boundaryTimer);
+    flow.settleTimer = flow.boundaryTimer = null;
     if (flow.sentCount >= flow.words.length) {
       clearFlowTimers();
       return;
     }
-    flow.settleTimer = setTimeout(() => flushFlow("pause"), FLOW_SETTLE_MS);
+    const now = Date.now();
+    if (flow.limitDue === null) {
+      flow.since = now;
+      flow.limitDue = now + FLOW_LIMIT_MS;
+    }
+    const boundary = flowBoundary();
+    if (boundary) {
+      // Juntar cambios próximos ("MAMÁ! PAPÁ!") sin retener una frase terminada
+      // mientras siguen llegando palabras de la próxima.
+      if (flow.boundaryDue === null) flow.boundaryDue = now + FLOW_BOUNDARY_MAX_MS;
+      const due = Math.min(flow.changedAt + FLOW_BOUNDARY_QUIET_MS, flow.boundaryDue);
+      flow.boundaryTimer = setTimeout(() => {
+        flow.boundaryTimer = null;
+        const ready = flowBoundary();
+        if (ready && flushFlow(ready.reason, ready.end)) queueFlowDelivery();
+      }, Math.max(0, due - now));
+    } else {
+      flow.boundaryDue = null;
+    }
+    flow.settleTimer = setTimeout(() => {
+      flow.settleTimer = null;
+      // Una letra final puede seguir creciendo aunque el origen se detenga.
+      // El espacio, la puntuación o el fin de cue confirman su terminación.
+      if (/^\p{L}$/u.test(fp(flow.words.at(-1)))) return;
+      flushFlow("stable");
+    }, Math.max(0, flow.changedAt + FLOW_SETTLE_MS - now));
     if (flow.limitTimer === null) {
-      // Un recambio breve del DOM suspende la entrega, pero no reinicia el
-      // plazo de 850 ms que ya estaba corriendo para estas palabras.
-      if (flow.limitDue === null) {
-        flow.since = Date.now();
-        flow.limitDue = flow.since + FLOW_LIMIT_MS;
-      }
-      flow.limitTimer = setTimeout(() => flushFlow("continuous", true), Math.max(0, flow.limitDue - Date.now()));
+      flow.limitTimer = setTimeout(() => {
+        flow.limitTimer = null;
+        const ready = flowBoundary();
+        // Si no hay puntuación, acotar la espera conservando la palabra final.
+        if (flushFlow(ready?.reason || "continuous", ready?.end ?? flow.words.length - 1)) {
+          queueFlowDelivery();
+        } else {
+          flow.limitDue = null;
+        }
+      }, Math.max(0, flow.limitDue - now));
     }
   }
 
   function pollFlow(picked) {
-    const current = cleanFlowText(picked.text);
+    const source = normalize(picked.text);
+    const current = cleanFlowText(source);
     if (!current) {
       // El reproductor puede retirar los nodos antes de colocar sus reemplazos.
       // Confirmamos que el vacío persiste antes de olvidar lo ya leído.
@@ -244,7 +308,8 @@
           logFlow("gap", { phase: "confirmed", gapMs: Date.now() - flow.emptySince });
           flushFlow("cue-end");
           const memory = flow.raw ? {
-            raw: flow.raw, words: [...flow.words], rawStart: flow.rawStart, sentCount: flow.sentCount,
+            raw: flow.raw, markers: flow.markers, speakerEnds: [...flow.speakerEnds],
+            words: [...flow.words], rawStart: flow.rawStart, sentCount: flow.sentCount,
             at: Date.now(), emptySince: flow.emptySince, video: S.currentVideo || null, videoKey: flowVideoKey(),
             videoTime: S.currentVideo?.currentTime, rate: Number(S.currentVideo?.playbackRate || 1)
           } : null;
@@ -263,7 +328,9 @@
     }
     if (!flow.raw && flow.gapMemory) recoverFlowRoll(current);
     if (current === flow.raw) {
-      if (hadGap) queueFlowDelivery();
+      const markersChanged = source !== flow.markers;
+      if (markersChanged) updateFlowSpeakers(source, flow.rawStart);
+      if (hadGap || markersChanged) queueFlowDelivery();
       return true;
     }
     const oldWords = wordsOf(flow.raw);
@@ -274,6 +341,7 @@
       resetFlow("cue-change");
     }
     const start = overlap < 0 ? 0 : flow.rawStart + overlap;
+    updateFlowSpeakers(source, start);
     const updated = [...flow.words.slice(0, start), ...newWords];
     // Si el origen completa una palabra después de haberla leído, repetimos
     // solo desde esa corrección; el prefijo sin cambios no vuelve a salir.
@@ -287,6 +355,7 @@
     flow.rawStart = start;
     flow.sentCount = Math.min(flow.sentCount, updated.length);
     flow.raw = current;
+    flow.changedAt = Date.now();
     trimFlowHistory();
     logFlow("live", { selector: picked.selector, raw: normalize(picked.text), pending: flow.words.slice(flow.sentCount).join(" ") });
     queueFlowDelivery();

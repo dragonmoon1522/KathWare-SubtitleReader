@@ -98,19 +98,19 @@ Documentación consultada el 26/10/2026:
 
 ## Paso a estable
 
-### Verificación y pruebas actuales (05/11/2026)
+### Verificación y pruebas actuales (07/11/2026)
 
-- Pasan las 50 pruebas de lectura incremental: 36 de la suite de Flow
-  y 14 específicas de YouTube. Cubren las secuencias recibidas, plazos de entrega,
-  palabras repetidas, puntuación y recuperación de nodos. Los intervalos del
-  ensayo son simulados. Katherine confirmó el funcionamiento de YouTube revisión
-  1 el 31/10/2026. En Flow reporta unos 10 segundos de atraso respecto de la
-  transmisión. La revisión 4 corrige una repetición posterior detectada en los
-  registros; el origen del atraso sigue pendiente de diagnóstico.
+- Pasan 62 pruebas de lectura incremental: 36 de la suite de Flow, 12 de
+  agrupación de frases y 14 específicas de YouTube. Cubren las secuencias
+  recibidas, puntuación, letras en formación, plazos, palabras repetidas y
+  recuperación de nodos. Los intervalos entre mutaciones son simulados.
+  Katherine confirmó YouTube revisión 1 el 31/10/2026. En Flow reporta una
+  frase de atraso respecto del audio y entregas fragmentadas. La revisión 5
+  corrige la agrupación; sigue pendiente medir y localizar el desfase.
 - Se pueden ejecutar juntas con:
 
   ```sh
-  node --test tests/flow-incremental.cjs tests/youtube-incremental.cjs
+  node --test tests/flow-incremental.cjs tests/flow-phrases.cjs tests/youtube-incremental.cjs
   ```
 - Para el atraso reportado tanto con NVDA como con el sintetizador se usa la
   [medición de Flow con dos marcas](flow-timing.md), revisión 3. Marcá el
@@ -124,7 +124,7 @@ Documentación consultada el 26/10/2026:
   cargar la beta, reemplazar sus archivos y recargar la extensión desde su
   administrador. Después recargar la pestaña de Flow o YouTube para sustituir
   también los scripts que ya estaban ejecutándose.
-- El botón **Diagnóstico** debe informar `flowReaderRevision: 4` y
+- El botón **Diagnóstico** debe informar `flowReaderRevision: 5` y
   `youtubeReaderRevision: 1`. Con debug activo, los registros `CONSOLE RENDERER`
   de cada plataforma llevan su revisión correspondiente y son JSON copiables.
   Ese nombre histórico no significa que se esté ejecutando la consola
@@ -133,6 +133,11 @@ Documentación consultada el 26/10/2026:
   brevemente lo entregado para reconocer una cola larga de la línea anterior
   que reaparece acortada. El debug registra `gap` y `reset` para distinguir
   desapariciones, recuperaciones de línea y reinicios del lector.
+- Flow revisión 5 entrega hasta el final de frase o cambio de hablante, con
+  80 ms de agrupación y un tope de 250 ms para ese final. Para texto sin
+  puntuación espera 1200 ms de estabilidad; con escritura continua limita
+  la espera a 2500 ms y conserva la palabra final. Una letra suelta no sale
+  por el temporizador de estabilidad. No se cambia el diagnóstico revisión 3.
 - YouTube entrega frases terminadas con la puntuación disponible y agrega un
   plazo de 850 ms que no se reinicia al llegar más palabras. La última palabra
   visible puede esperar a la pausa para evitar cortarla. Conserva también las

@@ -11,49 +11,54 @@ test('letters complete the same pending word instead of losing its ending', () =
     f.text(text); f.advance(60);
   }
   assert.deepEqual(f.texts(), []);
-  f.advance(350);
+  f.advance(1200);
   assert.deepEqual(f.texts(), ['RENUNCIO A MI TRABAJO']);
 });
-test('isolated word is delivered after 350 ms; repeated polls do not delay it', () => {
-  const f = fixture(); f.text('Sí'); f.advance(200); f.text('Sí'); f.advance(149);
+test('an unpunctuated word is delivered after stability; repeated polls do not delay it', () => {
+  const f = fixture(); f.text('Sí'); f.advance(200); f.text('Sí'); f.advance(999);
   assert.deepEqual(f.texts(), []);
   f.advance(1); assert.deepEqual(f.texts(), ['Sí']);
 });
-test('continuous updates have a time limit and retain the unfinished last word', () => {
+test('continuous unpunctuated updates have a bounded wait and retain their final word', () => {
   const f = fixture();
-  for (const text of ['HOY', 'HOY VAMOS', 'HOY VAMOS A', 'HOY VAMOS A TRA']) {
-    f.text(text); f.advance(250);
+  const words = ['HOY', 'VAMOS', 'A', 'TRABAJAR', 'CON', 'OTRAS', 'PERSONAS', 'EN', 'LA', 'OFICINA'];
+  for (let i = 1; i <= words.length; i++) {
+    f.text(words.slice(0, i).join(' ')); f.advance(250);
   }
-  assert.deepEqual(f.texts(), ['HOY VAMOS A']);
-  assert.equal(f.spoken[0].at, 850);
-  f.text('HOY VAMOS A TRABAJAR'); f.advance(350);
-  assert.deepEqual(f.texts(), ['HOY VAMOS A', 'TRABAJAR']);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' ')]);
+  assert.equal(f.spoken[0].at, 2500);
+  f.text(words.join(' ') + ' AHORA.'); f.advance(350);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' '), 'OFICINA AHORA.']);
 });
-test('the pause still sends the last word after a continuous flush', () => {
+test('the remaining stable word is not stranded after a continuous delivery', () => {
   const f = fixture();
-  for (const text of ['UNA', 'UNA FRASE', 'UNA FRASE COMPLETA', 'UNA FRASE COMPLETA AHORA']) {
-    f.text(text); f.advance(250);
+  const words = ['UNA', 'FRASE', 'MUY', 'LARGA', 'SIGUE', 'CON', 'MÁS', 'PALABRAS', 'HASTA', 'AHORA'];
+  for (let i = 1; i <= words.length; i++) {
+    f.text(words.slice(0, i).join(' ')); f.advance(250);
   }
-  f.advance(100);
-  assert.deepEqual(f.texts(), ['UNA FRASE COMPLETA', 'AHORA']);
+  f.advance(949);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' ')]);
+  f.advance(1);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' '), 'AHORA']);
+  assert.equal(f.spoken[1].at, 3450);
 });
 test('corrections replace pending words rather than concatenating old mistakes', () => {
-  const f = fixture(); f.text('HOY LLUEBE'); f.advance(100); f.text('HOY LLUEVE'); f.advance(350);
+  const f = fixture(); f.text('HOY LLUEBE'); f.advance(100); f.text('HOY LLUEVE'); f.advance(1200);
   assert.deepEqual(f.texts(), ['HOY LLUEVE']);
 });
 test('rolling lines omit only an already delivered prefix', () => {
-  const f = fixture(); f.text('HOY VAMOS A CASA'); f.advance(350);
-  f.text('A CASA CON ANA'); f.advance(350);
+  const f = fixture(); f.text('HOY VAMOS A CASA'); f.advance(1200);
+  f.text('A CASA CON ANA'); f.advance(1200);
   assert.deepEqual(f.texts(), ['HOY VAMOS A CASA', 'CON ANA']);
 });
 test('new cue and a confirmed empty gap deliver pending text and release repeated cues', () => {
-  const f = fixture(); f.text('Hola'); f.text('Adiós'); f.advance(350); f.text(''); f.advance(250); f.text('Adiós'); f.advance(350);
+  const f = fixture(); f.text('Hola'); f.text('Adiós'); f.advance(1200); f.text(''); f.advance(250); f.text('Adiós'); f.advance(1200);
   assert.deepEqual(f.texts(), ['Hola', 'Adiós', 'Adiós']);
 });
 test('stop or disable prevents a pending timer from delivering old text', () => {
-  const f = fixture(); f.text('Pendiente'); f.KWSR.consoleRenderers.resetLiveState(); f.advance(1000);
+  const f = fixture(); f.text('Pendiente'); f.KWSR.consoleRenderers.resetLiveState(); f.advance(5000);
   assert.deepEqual(f.texts(), []);
-  f.text('Otro'); f.KWSR.state.extensionActiva = false; f.advance(1000);
+  f.text('Otro'); f.KWSR.state.extensionActiva = false; f.advance(5000);
   assert.deepEqual(f.texts(), []);
 });
 test('YouTube retains its existing 850 ms single-word pause', () => {
@@ -61,19 +66,19 @@ test('YouTube retains its existing 850 ms single-word pause', () => {
   f.advance(1); assert.deepEqual(f.texts(), ['Sí']);
 });
 test('Flow debug records contain copyable JSON text', () => {
-  const f = fixture(); f.text('Hola'); f.advance(350);
+  const f = fixture(); f.text('Hola'); f.advance(1200);
   assert.equal(f.logs.length, 2);
   for (const args of f.logs) {
     assert.equal(args.length, 1);
     const data = JSON.parse(args[0].slice(args[0].indexOf('{')));
     assert.equal(data.renderer, 'THEOplayer / Flow-like');
-    assert.equal(data.revision, 4);
+    assert.equal(data.revision, 5);
   }
-  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 4);
+  assert.equal(f.KWSR.consoleRenderers.flowReaderRevision, 5);
 });
 test('rolling lines preserve pending text that leaves the screen', () => {
   const f = fixture(); f.text('HOY VAMOS A CASA'); f.advance(100);
-  f.text('A CASA CON ANA'); f.advance(350);
+  f.text('A CASA CON ANA'); f.advance(1200);
   // Se puede entregar en una frase; desplazar la línea no fuerza una salida
   // anticipada que podría cortar una palabra todavía en formación.
   assert.equal(f.texts().join(' '), 'HOY VAMOS A CASA CON ANA');
@@ -83,14 +88,14 @@ test('a single continuously growing word is not emitted in pieces', () => {
   for (const text of ['T', 'TR', 'TRA', 'TRAB', 'TRABA', 'TRABAJ', 'TRABAJO']) {
     f.text(text); f.advance(200);
   }
-  f.advance(350);
+  f.advance(1200);
   assert.deepEqual(f.texts(), ['TRABAJO']);
 });
 test('switching source or pausing before delivery cancels the pending output', () => {
-  const f = fixture(); f.text('Pendiente'); f.KWSR.state.effectiveFuente = 'track'; f.advance(1000);
+  const f = fixture(); f.text('Pendiente'); f.KWSR.state.effectiveFuente = 'track'; f.advance(3000);
   assert.deepEqual(f.texts(), []);
   f.KWSR.state.effectiveFuente = 'visual'; f.text('Otro');
-  f.KWSR.voice.shouldReadNow = () => false; f.advance(1000);
+  f.KWSR.voice.shouldReadNow = () => false; f.advance(5000);
   assert.deepEqual(f.texts(), []);
 });
 
@@ -115,7 +120,7 @@ test('Flow trace completes DO to DOLOR while the previous line leaves the screen
   for (const text of flowAdvertisement.slice(0, 6)) {
     f.text(text); f.advance(60);
   }
-  f.advance(350);
+  f.advance(1200);
   assert.deepEqual(f.texts(), ['TAFIROL DÚO ALIVIO POTENTE Y EFECTIVO CONTRA EL DOLOR.']);
 });
 
@@ -124,45 +129,46 @@ test('Flow trace keeps every word once across continuous delivery and line rolls
   for (const text of flowAdvertisement) {
     f.text(text); f.advance(150);
   }
-  f.advance(350);
+  f.advance(1200);
   assert.equal(f.texts().join(' '), 'TAFIROL DÚO ALIVIO POTENTE Y EFECTIVO CONTRA EL DOLOR. NO VOY A CAER. NO');
-  assert.equal(f.spoken[0].at, 850);
+  assert.ok(f.spoken[0].at >= 750 && f.spoken[0].at <= 1000);
+  assert.equal(f.spoken[0].text, 'TAFIROL DÚO ALIVIO POTENTE Y EFECTIVO CONTRA EL DOLOR.');
 });
 
-test('a roll completes pending words without repeating a previously delivered prefix', () => {
+test('a roll completes pending words and holds an ambiguous final letter', () => {
   const f = fixture();
-  f.text('TAFIROL DÚO ALIVIO POTENTE Y'); f.advance(350);
+  f.text('TAFIROL DÚO ALIVIO POTENTE Y'); f.advance(1200);
   f.text('TAFIROL DÚO ALIVIO POTENTE Y EFECTIVO CONTRA EL DO'); f.advance(100);
-  f.text('EFECTIVO CONTRA EL DOLOR.'); f.advance(350);
-  assert.deepEqual(f.texts(), ['TAFIROL DÚO ALIVIO POTENTE Y', 'EFECTIVO CONTRA EL DOLOR.']);
+  f.text('EFECTIVO CONTRA EL DOLOR.'); f.advance(1200);
+  assert.deepEqual(f.texts(), ['TAFIROL DÚO ALIVIO POTENTE Y EFECTIVO CONTRA EL DOLOR.']);
 });
 
-test('a word completed after a delivery pause does not repeat the whole sentence', () => {
+test('a late word correction after the stability fallback does not repeat the whole sentence', () => {
   const f = fixture();
-  f.text('EL DO'); f.advance(350);
-  f.text('EL DOLOR.'); f.advance(350);
+  f.text('EL DO'); f.advance(1200);
+  f.text('EL DOLOR.'); f.advance(1200);
   assert.deepEqual(f.texts(), ['EL DO', 'DOLOR.']);
 });
 
 test('Flow speaker markers alone never reach the voice', () => {
   const f = fixture();
   for (const text of ['>', '>>', '>> Hola >', '>> Hola >>']) {
-    f.text(text); f.advance(350);
+    f.text(text); f.advance(1200);
   }
   assert.deepEqual(f.texts(), ['Hola']);
 });
 
 test('words shared only in the middle of a new cue are not removed', () => {
   const f = fixture();
-  f.text('HOY VAMOS A CASA'); f.advance(350);
-  f.text('MAÑANA VAMOS A CASA CON ANA'); f.advance(350);
+  f.text('HOY VAMOS A CASA'); f.advance(1200);
+  f.text('MAÑANA VAMOS A CASA CON ANA'); f.advance(1200);
   assert.deepEqual(f.texts(), ['HOY VAMOS A CASA', 'MAÑANA VAMOS A CASA CON ANA']);
 });
 
 test('Flow trace rolls Y E to Y ES without repeating previously delivered words', () => {
   const f = fixture();
-  f.text('DIFERENCIAS Y PELEAMOS, PERO NUNCA'); f.advance(350);
-  f.text('DIFERENCIAS Y PELEAMOS, PERO NUNCA ANTES CON'); f.advance(350);
+  f.text('DIFERENCIAS Y PELEAMOS, PERO NUNCA'); f.advance(1200);
+  f.text('DIFERENCIAS Y PELEAMOS, PERO NUNCA ANTES CON'); f.advance(1200);
   for (const text of [
     'DIFERENCIAS Y PELEAMOS, PERO NUNCA ANTES CON CU',
     'DIFERENCIAS Y PELEAMOS, PERO NUNCA ANTES CON CUCH',
@@ -174,13 +180,13 @@ test('Flow trace rolls Y E to Y ES without repeating previously delivered words'
   ]) {
     f.text(text); f.advance(40);
   }
-  f.advance(350);
-  assert.deepEqual(f.texts(), ['DIFERENCIAS Y PELEAMOS, PERO NUNCA', 'ANTES CON', 'CUCHILLOS. Y ES']);
+  f.advance(1200);
+  assert.deepEqual(f.texts(), ['DIFERENCIAS Y PELEAMOS, PERO NUNCA', 'ANTES CON', 'CUCHILLOS.', 'Y ES']);
 });
 
 test('Flow trace ignores changing speaker markers and keeps corrected accents', () => {
   const f = fixture();
-  f.text('POR ESTA CASA'); f.advance(350);
+  f.text('POR ESTA CASA'); f.advance(1200);
   for (const text of [
     'POR ESTA CASA.', 'POR ESTA CASA. >', 'POR ESTA CASA. >>',
     'POR ESTA CASA. >> MA', 'POR ESTA CASA. >> MAMA',
@@ -190,21 +196,21 @@ test('Flow trace ignores changing speaker markers and keeps corrected accents', 
   ]) {
     f.text(text); f.advance(40);
   }
-  f.advance(350);
+  f.advance(1200);
   assert.deepEqual(f.texts(), ['POR ESTA CASA', 'MAMÁ! PAPÁ!']);
 });
 
 test('a partial word without shared context does not join unrelated cues', () => {
   const f = fixture();
-  f.text('YO TE'); f.advance(350);
-  f.text('TENGO HAMBRE'); f.advance(350);
+  f.text('YO TE'); f.advance(1200);
+  f.text('TENGO HAMBRE'); f.advance(1200);
   assert.deepEqual(f.texts(), ['YO TE', 'TENGO HAMBRE']);
 });
 
 test('a roll with a repeated beginning preserves both occurrences of the phrase', () => {
   const f = fixture();
   f.text('HOY VAMOS A CASA HOY VAMOS A'); f.advance(100);
-  f.text('HOY VAMOS A TRABAJAR'); f.advance(350);
+  f.text('HOY VAMOS A TRABAJAR'); f.advance(1200);
   assert.equal(f.texts().join(' '), 'HOY VAMOS A CASA HOY VAMOS A TRABAJAR');
 });
 
@@ -213,37 +219,37 @@ test('a roll with a repeated beginning preserves both occurrences of the phrase'
 test('Flow trace keeps delivered words across a brief disappearance before 121', () => {
   const f = fixture();
   const line = 'ES LO MISMO. TENGO QUE IR.';
-  f.text(line); f.advance(350);
-  f.text(`${line} >> A`); f.advance(350);
-  f.text(`${line} >> A JUGAR.`); f.advance(350);
+  f.text(line); f.advance(1200);
+  f.text(`${line} >> A`); f.advance(1200);
+  f.text(`${line} >> A JUGAR.`); f.advance(1200);
   f.text(''); f.advance(16);
   f.text(`${line} >> A JUGAR.`); f.advance(16);
   f.text(`${line} >> A JUGAR. 12`); f.advance(60);
-  f.text(`${line} >> A JUGAR. 121.`); f.advance(350);
-  f.text('>> A JUGAR. 121. >> OBRA GENIAL.'); f.advance(350);
-  assert.deepEqual(f.texts(), [line, 'A', 'JUGAR.', '121.', 'OBRA GENIAL.']);
+  f.text(`${line} >> A JUGAR. 121.`); f.advance(1200);
+  f.text('>> A JUGAR. 121. >> OBRA GENIAL.'); f.advance(1200);
+  assert.deepEqual(f.texts(), [line, 'A JUGAR.', '121.', 'OBRA GENIAL.']);
 });
 
 test('a brief empty DOM does not flush a partial word before its completion', () => {
   const f = fixture();
   f.text('TENGO QUE IR. >> A JU'); f.advance(100);
   f.text(''); f.advance(16);
-  f.text('TENGO QUE IR. >> A JUGAR.'); f.advance(350);
-  assert.deepEqual(f.texts(), ['TENGO QUE IR. A JUGAR.']);
+  f.text('TENGO QUE IR. >> A JUGAR.'); f.advance(1200);
+  assert.deepEqual(f.texts(), ['TENGO QUE IR.', 'A JUGAR.']);
 });
 
 test('a different cue after a brief empty DOM still delivers the previous pending words', () => {
   const f = fixture();
   f.text('Primera frase'); f.advance(100);
   f.text(''); f.advance(16);
-  f.text('Otra frase'); f.advance(350);
+  f.text('Otra frase'); f.advance(1200);
   assert.deepEqual(f.texts(), ['Primera frase', 'Otra frase']);
 });
 
 test('stopping cancels an empty-gap timer as well as pending delivery', () => {
   const f = fixture();
   f.text('Pendiente'); f.advance(100);
-  f.text(''); f.KWSR.consoleRenderers.resetLiveState(); f.advance(1000);
+  f.text(''); f.KWSR.consoleRenderers.resetLiveState(); f.advance(5000);
   assert.deepEqual(f.texts(), []);
 });
 
@@ -258,7 +264,7 @@ test('a lasting empty gap delivers pending text only after confirmation', () => 
 
 test('gap confirmation checks restored DOM even before another poll', () => {
   const f = fixture();
-  f.text('TENGO QUE IR.'); f.advance(350);
+  f.text('TENGO QUE IR.'); f.advance(1200);
   f.text(''); f.advance(100);
   f.dom('TENGO QUE IR.'); f.advance(500);
   assert.deepEqual(f.texts(), ['TENGO QUE IR.']);
@@ -268,16 +274,17 @@ test('gap confirmation checks restored DOM even before another poll', () => {
 
 test('a brief gap does not restart the continuous delivery deadline', () => {
   const f = fixture();
-  for (const text of ['HOY', 'HOY VAMOS', 'HOY VAMOS A']) {
-    f.text(text); f.advance(250);
+  const words = ['HOY', 'VAMOS', 'A', 'TRABAJAR', 'CON', 'OTRAS', 'PERSONAS', 'EN', 'OTRA', 'OBRA'];
+  for (let i = 1; i <= words.length; i++) {
+    f.text(words.slice(0, i).join(' '));
+    f.advance(i === words.length ? 150 : 250);
   }
-  f.text('HOY VAMOS A TRA'); f.advance(50);
   f.text(''); f.advance(40);
-  f.text('HOY VAMOS A TRA'); f.advance(10);
-  assert.deepEqual(f.texts(), ['HOY VAMOS A']);
-  assert.equal(f.spoken[0].at, 850);
-  f.text('HOY VAMOS A TRABAJAR'); f.advance(350);
-  assert.deepEqual(f.texts(), ['HOY VAMOS A', 'TRABAJAR']);
+  f.text(words.join(' ')); f.advance(60);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' ')]);
+  assert.equal(f.spoken[0].at, 2500);
+  f.text(words.join(' ') + '.'); f.advance(350);
+  assert.deepEqual(f.texts(), [words.slice(0, -1).join(' '), 'OBRA.']);
 });
 
 test('gap confirmation respects disable, source changes and paused reading', () => {
@@ -299,25 +306,25 @@ test('gap confirmation respects disable, source changes and paused reading', () 
 // reconstruye solo la cola de la misma línea. Sus palabras ya se habían leído.
 test('a confirmed gap followed by a shortened rolling line does not repeat its delivered tail', () => {
   const f = fixture();
-  f.text('COCINAR. AH,'); f.advance(350);
-  f.text('COCINAR. AH, QUÉ'); f.advance(350);
-  f.text('COCINAR. AH, QUÉ BUENO,'); f.advance(350);
-  f.text('COCINAR. AH, QUÉ BUENO, CHICOS'); f.advance(350);
+  f.text('COCINAR. AH,'); f.advance(1200);
+  f.text('COCINAR. AH, QUÉ'); f.advance(1200);
+  f.text('COCINAR. AH, QUÉ BUENO,'); f.advance(1200);
+  f.text('COCINAR. AH, QUÉ BUENO, CHICOS'); f.advance(1200);
   const before = f.texts();
   f.text(''); f.advance(300);
-  f.text('>> AH, QUÉ BUENO, CHICOS.'); f.advance(350);
+  f.text('>> AH, QUÉ BUENO, CHICOS.'); f.advance(1200);
   assert.deepEqual(f.texts(), before);
   const recovery = f.logs.map(args => JSON.parse(args[0].slice(args[0].indexOf('{')))).find(data => data.phase === 'continued');
   assert.equal(recovery.gapMs, 300);
-  f.text('>> AH, QUÉ BUENO, CHICOS. >> VAN A'); f.advance(350);
-  assert.deepEqual(f.texts(), [...before, 'VAN A']);
+  f.text('>> AH, QUÉ BUENO, CHICOS. >> VAN A VENIR.'); f.advance(350);
+  assert.deepEqual(f.texts(), [...before, 'VAN A VENIR.']);
 });
 
 test('a shortened restored line still delivers new words appended after its overlap', () => {
   const f = fixture();
-  f.text('COCINAR. AH, QUÉ BUENO, CHICOS.'); f.advance(350);
+  f.text('COCINAR. AH, QUÉ BUENO, CHICOS.'); f.advance(1200);
   f.text(''); f.advance(300);
-  f.text('AH, QUÉ BUENO, CHICOS. VAN A TENER'); f.advance(350);
+  f.text('AH, QUÉ BUENO, CHICOS. VAN A TENER'); f.advance(1200);
   assert.deepEqual(f.texts(), ['COCINAR. AH, QUÉ BUENO, CHICOS.', 'VAN A TENER']);
 });
 
@@ -326,19 +333,19 @@ test('gap recovery does not suppress a complete repeated cue or a short repeated
     ['AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS'],
     ['DIJE HOLA MUNDO', 'HOLA MUNDO']
   ]) {
-    const f = fixture(); f.text(previous); f.advance(350);
+    const f = fixture(); f.text(previous); f.advance(1200);
     f.text(''); f.advance(300);
-    f.text(current); f.advance(350);
+    f.text(current); f.advance(1200);
     assert.deepEqual(f.texts(), [previous, current]);
   }
 });
 
 test('an old rolling overlap is released after a longer gap', () => {
   const f = fixture();
-  f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(350);
+  f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(1200);
   f.text(''); f.advance(3500);
-  f.text('AH QUÉ BUENO CHICOS'); f.advance(350);
-  assert.deepEqual(f.texts(), ['COCINAR. AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
+  f.text('AH QUÉ BUENO CHICOS'); f.advance(1200);
+  assert.deepEqual(f.texts(), ['COCINAR.', 'AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
 });
 
 test('gap memory is cleared by an explicit reset, source change or playback jump', () => {
@@ -352,9 +359,9 @@ test('gap memory is cleared by an explicit reset, source change or playback jump
   ]) {
     const f = fixture();
     f.KWSR.state.currentVideo = { currentSrc: 'blob:flow', currentTime: 100, playbackRate: 1 };
-    f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(350);
+    f.text('COCINAR. AH QUÉ BUENO CHICOS'); f.advance(1200);
     f.text(''); f.advance(300); change(f);
-    f.text('AH QUÉ BUENO CHICOS'); f.advance(350);
-    assert.deepEqual(f.texts(), ['COCINAR. AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
+    f.text('AH QUÉ BUENO CHICOS'); f.advance(1200);
+    assert.deepEqual(f.texts(), ['COCINAR.', 'AH QUÉ BUENO CHICOS', 'AH QUÉ BUENO CHICOS']);
   }
 });

@@ -1,6 +1,6 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-05
+**Última actualización:** 2026-11-07
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
@@ -49,6 +49,31 @@ pruebas y a la confirmación expresa de Katherine.
 * Los cambios de paradigma, reorganización completa por renderizadores/contenedores y refactor estructural quedan reservados para **una versión posterior**.
 
 #### Lectura de subtítulos y renderizadores
+
+Agrupación de frases de Flow en vivo (2026-11-07):
+
+* Los dos registros recibidos muestran cortes provocados por los plazos de
+  350/850 ms de la revisión 4: «TENGO QUE SOPORTAR LA», «CARGA YO», «SOLO»;
+  una «M» aislada que crece a «MI»; y frases que se mezclan con palabras
+  de la siguiente. No contienen el resultado de las dos marcas manuales,
+  por lo que el desfase observado con el audio sigue sin medirse.
+* `flowReaderRevision` pasa a **5**. Se priorizan finales de frase y cambios
+  de hablante, conservando `>>` como límite sin enviarlo a la voz. Una
+  pausa breve ya no se trata como el final automático de la frase.
+* Los finales reconocidos se agrupan durante 80 ms de quietud, con un tope
+  de 250 ms mientras sigue cambiando el texto. La frase siguiente queda
+  pendiente; su crecimiento no retiene indefinidamente la anterior.
+* Para texto sin puntuación queda una espera de estabilidad de 1200 ms.
+  Con escritura continua se entrega un bloque a los 2500 ms, conservando
+  la última palabra. Una letra final aislada espera a completarse o a
+  confirmarse su final. El cambio de cue y el vacío confirmado de 250 ms
+  siguen liberando el texto pendiente.
+* Se mantienen el diagnóstico con Alt+Shift+M/N, las protecciones de la
+  revisión 4 contra repeticiones y el comportamiento de YouTube revisión 1.
+* Validación: 80 pruebas aprobadas, incluidas 12 nuevas sobre frases,
+  ambas secuencias recibidas, pausas breves y entrega sin esperar a la
+  siguiente frase. Los tiempos entre mutaciones son simulados; falta la
+  comparación en Flow real con NVDA y el sintetizador del navegador.
 
 Medición con dos marcas y foco del reproductor (2026-11-05):
 

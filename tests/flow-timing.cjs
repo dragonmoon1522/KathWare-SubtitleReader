@@ -226,9 +226,9 @@ test('the adapter reports delivery before the voice call and survives a failed p
     stage = [name, text, f.spoken.length];
     throw new Error('diagnostic');
   } };
-  f.text('Hola'); f.advance(350);
-  assert.deepEqual(stage, ['adapter', 'Hola', 0]);
-  assert.deepEqual(f.texts(), ['Hola']);
+  f.text('Hola.'); f.advance(250);
+  assert.deepEqual(stage, ['adapter', 'Hola.', 0]);
+  assert.deepEqual(f.texts(), ['Hola.']);
 });
 
 function installUI(f, withPanel = true) {

@@ -6,7 +6,7 @@ observó el texto en Flow de cuándo lo entregó KathWare.
 
 1. Actualizá desde `3.0.0-beta`, recargá la extensión y después la pestaña de
    Flow. El botón **Diagnóstico** identifica `flowTiming.revision: 3` y
-   `flowReaderRevision: 4`.
+   `flowReaderRevision: 5`.
 2. Con el video en marcha y el foco en la página de Flow, pulsá **Alt+Shift+M**
    al escuchar una frase fácil de reconocer en el audio original.
 3. Al aparecer o al escuchar leído **el subtítulo de esa misma frase**, pulsá
@@ -41,5 +41,11 @@ está disponible cuando se usa la voz del navegador.
 Para probar con reloj y reproductor simulados:
 
 ```sh
-node --test tests/flow-timing.cjs tests/flow-incremental.cjs tests/youtube-incremental.cjs
+node --test tests/flow-timing.cjs tests/flow-incremental.cjs tests/flow-phrases.cjs tests/youtube-incremental.cjs
 ```
+
+
+El lector de Flow revisión 5 agrupa por frases y cambios de hablante. La
+corrección de fragmentos se verifica por separado de este diagnóstico: los
+archivos recibidos el 07/11 muestran esos fragmentos pero no contienen una
+línea con `phase: measured`. Sigue pendiente medir el desfase con el audio.
