@@ -1,30 +1,28 @@
 // -----------------------------------------------------------------------------
-// KathWare SubtitleReader - kwsr.betaTools.js
+// KathWare SubtitleReader - kwsr.diagnostics.js
 // -----------------------------------------------------------------------------
-// Herramientas de prueba para 3.0.0-beta.
+// Diagnóstico y controles accesibles de KathWare SubtitleReader 3.0.0.
 //
 // Añade a la interfaz existente:
 // - nombres de controles accesibles y textuales;
 // - Debug ON/OFF;
 // - Reiniciar lectura;
-// - diagnóstico resumido en consola;
-// - reinicio al cambiar pantalla completa.
+// - diagnóstico resumido en consola.
 //
 // Atajos adicionales:
 // - Alt+Shift+D = activar/desactivar debug.
 // - Alt+Shift+R = reiniciar pipeline de lectura.
-// - Alt+Shift+M / N = marcar audio y subtítulo de Flow, respectivamente.
 // -----------------------------------------------------------------------------
 
 // PARA UBICARTE
-// Agrega diagnóstico, debug y reinicio al panel de la beta.
+// Agrega diagnóstico, debug y reinicio manual al panel.
 // debug = mensajes para investigar; diagnóstico = foto del estado actual.
 // Buscá getDebugState para los datos y printDebugState para imprimirlos.
 //
 
 (() => {
   const KWSR = window.KWSR;
-  if (!KWSR || !KWSR.overlay || KWSR.betaTools) return;
+  if (!KWSR || !KWSR.overlay || KWSR.diagnostics) return;
 
   const S = KWSR.state;
   const CFG = KWSR.CFG || {};
@@ -84,7 +82,6 @@
       version: KWSR.version,
       flowReaderRevision: KWSR.consoleRenderers?.flowReaderRevision || null,
       youtubeReaderRevision: KWSR.consoleRenderers?.youtubeReaderRevision || null,
-      flowTiming: platform() === "flow" ? KWSR.flowTiming?.getReport?.() || null : null,
       platform: platform(),
       extensionActiva: !!S.extensionActiva,
       modoNarrador: S.modoNarradorGlobal,
@@ -187,45 +184,14 @@
     return b;
   }
 
-  const FLOW_TIMING_HELP = "En Flow, pulsá Alt+Shift+M cuando escuches el diálogo y Alt+Shift+N cuando aparezca o se lea ese mismo subtítulo.";
-
-  function flowTimingMessage(data) {
-    if (data.phase === "waiting-subtitle") return "Audio marcado. Marcá el subtítulo en los próximos 30 segundos.";
-    if (data.phase === "measured") {
-      const seconds = (data.manualDelayMs / 1000).toFixed(2).replace(".", ",");
-      return `Pasaron ${seconds} segundos entre tus dos marcas. La consola tiene el detalle de Flow y de la lectura.`;
-    }
-    if (data.phase === "expired") return "Pasaron 30 segundos sin la segunda marca. Pulsá Alt+Shift+M para volver a medir.";
-    if (data.phase === "invalid") return "No se completó la medición. Empezá con Alt+Shift+M mientras Flow reproduce el video, sin pausarlo ni cambiar de posición.";
-    return "Todavía no hay una medición.";
-  }
-
-  function addFlowTimingTools(tools) {
-    if (platform() !== "flow" || !KWSR.flowTiming) return;
-    const section = document.createElement("div");
-    section.setAttribute("role", "group");
-    section.setAttribute("aria-label", "Medir el atraso de subtítulos de Flow");
-    const help = document.createElement("p");
-    help.textContent = FLOW_TIMING_HELP;
-    const status = document.createElement("p");
-    status.id = "kwsr-flow-timing-status";
-    // No anunciar las marcas: se hacen mientras se escucha el diálogo o la voz.
-    section.append(help, status);
-    tools.append(section);
-    KWSR.flowTiming.setListener(data => {
-      const message = flowTimingMessage(data);
-      if (status.textContent !== message) status.textContent = message;
-    });
-  }
-
   function enhanceOverlay() {
     const panel = S.overlayPanel;
-    if (!panel || panel.dataset.kwsrBetaEnhanced === "1") {
+    if (!panel || panel.dataset.kwsrDiagnosticsEnhanced === "1") {
       updateAccessibleStatus();
       return;
     }
 
-    panel.dataset.kwsrBetaEnhanced = "1";
+    panel.dataset.kwsrDiagnosticsEnhanced = "1";
     panel.setAttribute("role", "region");
     panel.setAttribute("aria-label", "Controles de KathWare SubtitleReader");
 
@@ -246,12 +212,12 @@
       if (labels[aria]) button.textContent = labels[aria];
     });
 
-    let tools = panel.querySelector("#kwsr-beta-tools");
+    let tools = panel.querySelector("#kwsr-diagnostics-tools");
     if (!tools) {
       tools = document.createElement("div");
-      tools.id = "kwsr-beta-tools";
+      tools.id = "kwsr-diagnostics-tools";
       tools.setAttribute("role", "group");
-      tools.setAttribute("aria-label", "Herramientas de prueba");
+      tools.setAttribute("aria-label", "Herramientas de diagnóstico");
       Object.assign(tools.style, {
         display: "flex",
         flexWrap: "wrap",
@@ -268,8 +234,6 @@
         makeButton("Reiniciar lectura", "Reiniciar lectura de subtítulos", () => restartReading("button"))
       );
 
-      addFlowTimingTools(tools);
-
       panel.appendChild(tools);
     }
 
@@ -277,12 +241,11 @@
     if (hotkeys) {
       hotkeys.textContent =
         "Atajos: Alt+Shift+K activar/desactivar; Alt+Shift+L cambiar salida; " +
-        "Alt+Shift+O abrir/cerrar panel; Alt+Shift+D debug; Alt+Shift+R reiniciar lectura." +
-        (platform() === "flow" ? " " + FLOW_TIMING_HELP : "");
+        "Alt+Shift+O abrir/cerrar panel; Alt+Shift+D debug; Alt+Shift+R reiniciar lectura.";
     }
 
     // Si el módulo original vuelve a escribir el status, lo corregimos a texto simple.
-    if (S.overlayStatus && !S.overlayStatus.__kwsrBetaObserver) {
+    if (S.overlayStatus && !S.overlayStatus.__kwsrDiagnosticsObserver) {
       const statusObserver = new MutationObserver(() => {
         const current = S.overlayStatus?.textContent || "";
         if (/ON|OFF|TRACK|VISUAL|AUTO/.test(current) && !current.startsWith("SubtitleReader ")) {
@@ -290,7 +253,7 @@
         }
       });
       statusObserver.observe(S.overlayStatus, { childList: true, characterData: true, subtree: true });
-      S.overlayStatus.__kwsrBetaObserver = statusObserver;
+      S.overlayStatus.__kwsrDiagnosticsObserver = statusObserver;
     }
 
     updateAccessibleStatus();
@@ -319,23 +282,14 @@
     return result;
   };
 
-  function handleBetaHotkeys(e) {
+  function handleDiagnosticHotkeys(e) {
     if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
 
     const key = String(e.key || "").toLowerCase();
-    const flowMark = (key === "m" || key === "n") && platform() === "flow" && S.extensionActiva && KWSR.flowTiming;
-    if (key !== "d" && key !== "r" && !flowMark) return;
+    if (key !== "d" && key !== "r") return;
 
     e.preventDefault();
     e.stopImmediatePropagation();
-
-    if (flowMark) {
-      if (!e.repeat) {
-        if (key === "m") KWSR.flowTiming.markAudio();
-        else KWSR.flowTiming.markSubtitle();
-      }
-      return;
-    }
 
     if (key === "d") {
       toggleDebug();
@@ -347,14 +301,9 @@
     }
   }
 
-  document.addEventListener("keydown", handleBetaHotkeys, true);
+  document.addEventListener("keydown", handleDiagnosticHotkeys, true);
 
-  document.addEventListener("fullscreenchange", () => {
-    if (!S.extensionActiva) return;
-    setTimeout(() => restartReading("fullscreenchange"), 80);
-  });
-
-  KWSR.betaTools = {
+  KWSR.diagnostics = {
     toggleDebug,
     setDebug,
     getDebugState,

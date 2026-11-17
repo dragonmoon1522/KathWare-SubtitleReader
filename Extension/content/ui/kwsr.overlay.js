@@ -415,7 +415,7 @@
     if (!v) return;
 
     try {
-      KWSR.toast?.notify?.("⚠️ En pantalla completa la lectura automática puede fallar.");
+      KWSR.toast?.notify?.("La lectura de subtítulos en pantalla completa tiene un fallo pendiente. Para escuchar los subtítulos, usá la vista normal.");
     } catch {}
 
     try { v.requestFullscreen?.(); } catch {}

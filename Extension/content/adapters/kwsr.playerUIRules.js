@@ -1,12 +1,12 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.playerUIRules.js
 // -----------------------------------------------------------------------------
-// Reglas de interfaz del reproductor alternativo para 3.0.0-beta.
+// Reglas de interfaz del reproductor alternativo para 3.0.0.
 //
 // Principios:
 // - SubtitleReader no reemplaza un reproductor que ya es accesible.
 // - Los controles alternativos de KathWare aparecen solo como fallback.
-// - El botón para alternar pistas de subtítulos queda eliminado de la beta.
+// - El botón para alternar pistas de subtítulos queda eliminado de esta versión.
 // - El atajo "C" del reproductor alternativo también queda eliminado.
 //
 // Esta capa no toca el motor de lectura de subtítulos.

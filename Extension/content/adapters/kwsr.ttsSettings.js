@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.ttsSettings.js
 // -----------------------------------------------------------------------------
-// Ajustes de sintetizador para 3.0.0-beta.
+// Ajustes de sintetizador para 3.0.0.
 //
 // Problema que corrige:
 // - kwsr.voice.js crea cada SpeechSynthesisUtterance con rate = 1.
@@ -347,8 +347,8 @@
 
     section.append(title, voiceUI.wrap, rateUI.wrap, note);
 
-    const betaTools = panel.querySelector("#kwsr-beta-tools");
-    if (betaTools) panel.insertBefore(section, betaTools);
+    const diagnosticTools = panel.querySelector("#kwsr-diagnostics-tools");
+    if (diagnosticTools) panel.insertBefore(section, diagnosticTools);
     else panel.appendChild(section);
 
     refreshVoiceOptions();

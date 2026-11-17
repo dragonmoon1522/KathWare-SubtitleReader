@@ -1,9 +1,43 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-07
+**Última actualización:** 2026-11-17
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
+
+### **Versión 3.0.0 — estable (2026-11-17)**
+
+Katherine confirma el paso a estable con la funcionalidad actual. La versión
+se integra en `main`; `3.0.0-beta` continúa como rama de desarrollo futuro.
+
+* Manifest y reportes identifican `version: "3.0.0"` y
+  `version_name: "3.0.0"`.
+* Se conservan las correcciones y compatibilidades integradas, selector de
+  voces, velocidad y controles accesibles.
+* El diagnóstico general, debug y reinicio manual se conservan en
+  `kwsr.diagnostics.js`, con Alt+Shift+D/R.
+* Se retiran del paquete estable la medición experimental de Flow,
+  Alt+Shift+M/N, sus hooks de voz y el reinicio automático de lectura al
+  cambiar de pantalla completa. Esos ensayos se conservan en la rama beta.
+* **Permanecen abiertos:** atraso/fragmentación en Flow en vivo y ausencia
+  de lectura de subtítulos en pantalla completa. Se documentan en
+  [problemas conocidos](docs/problemas-conocidos.md), para una versión posterior.
+* Primera distribución: Chrome. Otros Chromium se evaluarán después del
+  período de estabilización; Firefox sigue aplazado.
+* Validación: 62 pruebas de lectura y 4 de preparación estable con DOM
+  simulado; sintaxis y recursos del manifest, atajos, diagnóstico y ZIP
+  comprobados. Las pruebas de interfaz en Chromium quedaron bloqueadas por la
+  restricción de sockets del entorno. La comprobación automatizada no cierra
+  los dos fallos conocidos ni sustituye las pruebas con NVDA en los servicios
+  reales.
+
+---
+
+### Historial del desarrollo previo a 3.0.0
+
+Los apartados siguientes conservan las decisiones y pruebas de la beta en sus
+fechas originales. La aprobación del 17/11/2026 reemplaza las condiciones de
+promoción pendientes que aparecen en ese historial.
 
 ### **Versión 3.0.0-beta — en pruebas (2026-10-26)**
 
@@ -155,7 +189,7 @@ Medición independiente del atraso de Flow (2026-10-31):
   acota en memoria y el observador termina automáticamente.
 * Los resultados se incluyen en el diagnóstico como `flowTiming`, revisión 1,
   y en la consola bajo `[KWSR FLOW TIMING]`. Instrucciones e interpretación en
-  `docs/flow-timing.md`.
+  [el diagnóstico experimental conservado en la beta](https://github.com/dragonmoon1522/KathWare-SubtitleReader/blob/1d3b4366ea2aad3f6fdf93e922df17a2c4ac669c/docs/flow-timing.md).
 * Validación: 65 pruebas aprobadas, incluidas 20 de medición y los 45 casos
   previos de lectura incremental. Se comprueban las etapas de salida y el
   flujo de teclado/foco con DOM y reloj simulados. Falta el ensayo en Flow real.

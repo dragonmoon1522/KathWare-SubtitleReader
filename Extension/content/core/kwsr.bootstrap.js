@@ -43,7 +43,7 @@
   // Objeto central KWSR (namespace)
   // --------------------------------------------------
   const KWSR = {
-    version: manifest.version_name || manifest.version || "3.0.0-beta",
+    version: manifest.version_name || manifest.version || "3.0.0",
     api,
 
     // ------------------------------------------------

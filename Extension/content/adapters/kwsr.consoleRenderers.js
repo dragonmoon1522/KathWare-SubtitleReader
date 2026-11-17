@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // KathWare SubtitleReader - kwsr.consoleRenderers.js
 // -----------------------------------------------------------------------------
-// Capa de compatibilidad para 3.0.0-beta.
+// Capa de compatibilidad para 3.0.0.
 //
 // Porta a la extensión comportamientos ya validados en la consola sin hacer
 // todavía el refactor estructural, reservado para una versión posterior.
@@ -86,7 +86,7 @@
 
   function logFlow(event, data) {
     if (CFG.debug) {
-      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, flowTimingRevision: KWSR.flowTiming?.revision || null, ...data })}`);
+      KWSR.log?.(`CONSOLE RENDERER ${event} ${JSON.stringify({ renderer: RENDERERS.flow.name, revision: FLOW_READER_REVISION, ...data })}`);
     }
   }
 
@@ -229,7 +229,6 @@
     flow.sentCount = end;
     trimFlowHistory();
     logFlow("flush", { reason, text, pendingMs: Date.now() - flow.since });
-    try { KWSR.flowTiming?.noteOutput?.("adapter", text); } catch {}
     KWSR.voice?.leerTextoAccesible?.(text);
     return true;
   }
