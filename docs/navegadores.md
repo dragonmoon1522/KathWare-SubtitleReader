@@ -1,5 +1,11 @@
 # Paquetes y navegadores — 3.0.0-beta
 
+**Estado al 17/11/2026:** `main` contiene 3.0.0 estable. Esta rama mantiene el
+desarrollo y las herramientas de prueba para las próximas versiones. Para
+generar la distribución estable, usar `main`; los comandos de esta rama
+generan paquetes con la etiqueta beta.
+
+
 La extensión se mantiene en `Extension/`, con una única base de HTML, CSS y
 JavaScript. Se preparan paquetes diferentes a partir de esa misma fuente. No
 hace falta mantener una rama de código por cada navegador basado en Chromium.
@@ -163,18 +169,17 @@ diez segundos reportados.
   este entorno por falta de un navegador instalado; su descarga tampoco estuvo
   disponible. No sustituyen la validación manual pendiente con NVDA/TTS.
 
-### Confirmación de la estable
+### Estable 3.0.0 confirmada
 
-La rama de trabajo es `3.0.0-beta`; la línea `2.2.0-beta` se conserva como
-antecedente. La extensión mantiene `version: "3.0.0"` y
-`version_name: "3.0.0-beta"`. Sus diagnósticos y reportes usan esa misma etiqueta.
+Katherine aprobó la estable el 17/11/2026 con el estado funcional actual.
+`main` identifica `version_name: "3.0.0"` y excluye la medición temporal de Flow
+y el reinicio automático al cambiar de pantalla completa.
 
-El paso a estable y la publicación en tiendas requieren la confirmación expresa
-de Katherine después de las pruebas. Antes de esa confirmación no se elimina la
-etiqueta beta, no se crea una entrega estable y no se actualiza `main`.
-La primera publicación será en Chrome; las siguientes seguirán el orden
-acordado en el plan de versiones.
+La rama `3.0.0-beta` conserva esas herramientas y continúa el desarrollo.
+Los [fallos conocidos](problemas-conocidos.md) de Flow en vivo y lectura en
+pantalla completa se mantienen abiertos para una próxima versión. Los
+registros y pruebas anteriores de este documento corresponden a la preparación
+de la beta.
 
-El refactor por tipos de renderizado queda para una versión posterior. La
-consola histórica en `web/kathware-player-console.js` conserva sus experimentos;
-no se carga en la extensión ni se incluye en los paquetes.
+La primera distribución corresponde a Chrome. Los otros navegadores seguirán
+el orden acordado en el [plan de versiones](plan-de-versiones.md).

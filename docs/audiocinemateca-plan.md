@@ -7,10 +7,9 @@ distribución equivalente para otros navegadores.
 
 ## Alcance y momento
 
-Audiocinemateca queda fuera de 3.0.0. La prioridad es terminar las pruebas de
-esa versión y preparar la estable cuando Katherine confirme los resultados.
-El lanzamiento previsto para los próximos días depende de esa confirmación;
-no se programa una publicación automática.
+Audiocinemateca queda fuera de 3.0.0. Katherine confirmó la versión estable
+el 17/11/2026 con la funcionalidad actual; esta integración continúa reservada
+para el desarrollo posterior en la rama beta.
 
 Las pruebas de integración con Audiocinemateca comenzarán después del
 lanzamiento de 3.0.0. La función corresponderá a una versión posterior, todavía

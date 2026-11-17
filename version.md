@@ -1,9 +1,23 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-07
+**Última actualización:** 2026-11-17
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
+
+### Continuidad de la rama beta después de 3.0.0 (2026-11-17)
+
+* Katherine aprueba la versión estable 3.0.0, publicada en `main`.
+* Esta rama conserva su código experimental y sus pruebas, incluidas las marcas
+  de Flow y los ensayos de pantalla completa. La limpieza para distribución
+  se aplica exclusivamente a la estable.
+* Flow en vivo y la lectura de subtítulos en pantalla completa siguen como
+  [fallos abiertos](docs/problemas-conocidos.md) para una versión posterior.
+* La etiqueta de desarrollo permanece en `3.0.0-beta`; todavía no se asigna
+  el número de la siguiente versión.
+
+Los apartados siguientes conservan el historial previo a la aprobación de la
+estable. Las condiciones de promoción pendientes que mencionan son históricas.
 
 ### **Versión 3.0.0-beta — en pruebas (2026-10-26)**
 

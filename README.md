@@ -1,31 +1,29 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-11-07
+**Última actualización:** 2026-11-17
 
-### Estado de esta rama: 3.0.0-beta
+### Rama de desarrollo: 3.0.0-beta
 
-Esta beta reúne las mejoras funcionales desarrolladas en `2.2.0-beta`: Disney+ /
-Hive, ViX, YouTube, Flow en vivo, voces y velocidad configurables, controles
-accesibles y herramientas de diagnóstico. Conserva la arquitectura actual; la
-reorganización por tipos de renderizado queda para una versión posterior.
+**La versión estable 3.0.0 ya está en [`main`](https://github.com/dragonmoon1522/KathWare-SubtitleReader/tree/main)**,
+aprobada por Katherine el 17/11/2026.
 
-**El paso a estable queda pendiente de las pruebas y de la confirmación expresa
-de Katherine.** La versión pública estable anterior continúa siendo 2.0.0.
+Esta rama continúa como espacio de desarrollo para las versiones posteriores.
+Se conservan aquí las herramientas experimentales de medición de Flow y los
+ensayos de pantalla completa retirados de la distribución estable.
 
-La salida inicial de 3.0.0 será la actualización de la extensión de **Chrome**.
-Tras aproximadamente **dos semanas de uso estable desde esa publicación**, se
-distribuirá la misma versión funcional para otros navegadores, con las pruebas
-y ajustes de empaquetado que correspondan. El plazo es orientativo y depende
-de la estabilidad comprobada en Chrome.
+Permanecen abiertos para una próxima versión el atraso y la fragmentación de
+**Flow en vivo** y la ausencia de lectura de subtítulos en **pantalla completa**.
+Ver [el seguimiento de fallos](docs/problemas-conocidos.md).
 
-La reorganización por renderizadores, la integración con Audiocinemateca, la
-versión de la aplicación en inglés y la detección automática de idiomas quedan
-para versiones posteriores. El selector de voces ya integrado sigue formando
-parte de 3.0.0.
+La etiqueta de esta rama sigue siendo `3.0.0-beta` durante el desarrollo;
+la entrega estable debe empaquetarse desde `main`. El número de la próxima
+versión se asignará cuando se defina su alcance.
 
-Ver el [plan de salida y trabajo posterior](docs/plan-de-versiones.md) y los
-[paquetes por navegador](docs/navegadores.md).
+Se conserva el [plan de versiones](docs/plan-de-versiones.md): Chrome primero,
+otros Chromium tras la estabilización y Firefox más adelante. La reorganización
+por renderizadores, Audiocinemateca, la versión en inglés y la detección
+automática de idiomas siguen pendientes para versiones posteriores.
 
 ---
 
@@ -76,9 +74,9 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | Paramount+ | Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
 
-La confirmación del 31/10/2026 cierra la prueba funcional reportada para Netflix,
-Disney+, Max, Paramount+ y YouTube. Se mantienen las comprobaciones generales de voces,
-controles, pantalla completa y la confirmación expresa para pasar a estable.
+La confirmación del 31/10/2026 documenta la prueba funcional reportada para
+Netflix, Disney+, Max, Paramount+ y YouTube. Katherine aprobó el paso a estable
+en `main` el 17/11/2026, con Flow en vivo y pantalla completa como fallos abiertos.
 
 Para localizar el atraso de Flow en vivo, [hacé dos marcas sin interrumpir
 el video](docs/flow-timing.md): **Alt+Shift+M** al escuchar el diálogo y
@@ -278,16 +276,9 @@ Podés:
 
 ### Estado del proyecto
 
-**Versión de esta rama: 3.0.0-beta. Versión pública estable anterior: 2.0.0.**
+**`main`: versión estable 3.0.0. `3.0.0-beta`: desarrollo futuro.**
 
-La rama `3.0.0-beta` continúa la línea funcional de `2.2.0-beta`. La consola de
-`web/` se conserva como herramienta experimental independiente y no se incluye
-en los paquetes. El refactor por renderizadores y Firefox quedan para después.
-La promoción a estable y la publicación en tiendas esperan la confirmación de
-Katherine.
-
-El proyecto continúa en desarrollo activo, con foco en:
-
-* accesibilidad real con lector de pantalla
-* funcionamiento en plataformas de streaming
-* adaptación a entornos dinámicos
+Esta rama conserva los experimentos y las pruebas para continuar el trabajo.
+El paquete estable se obtiene desde `main`. Los fallos de Flow en vivo y
+pantalla completa siguen abiertos; la consola independiente de `web/` no
+forma parte de los paquetes de la extensión.
