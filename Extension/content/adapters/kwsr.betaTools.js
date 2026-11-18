@@ -92,6 +92,7 @@
       fuenteConfigurada: S.fuenteSubGlobal,
       fuenteEfectiva: S.effectiveFuente,
       visualSelectorUsed: S.visualSelectorUsed || "",
+      selectorSearch: KWSR.visual?.getSelectorSearchState?.() || null,
       visualObserverActive: !!S.visualObserverActive,
       currentTrack: S.currentTrack ? {
         kind: S.currentTrack.kind || "",
@@ -107,6 +108,7 @@
       lastEmittedText: S.lastEmitText || "",
       shadowCandidate,
       video: getVideoDebug(),
+      embeddedFrames: document.querySelectorAll("iframe").length,
       url: location.href,
       at: new Date().toISOString()
     };
@@ -116,6 +118,25 @@
     const data = getDebugState();
     console.log(`[KWSR DEBUG] ${reason} ${JSON.stringify(data)}`);
     return data;
+  }
+
+  function getSupportState() {
+    const search = KWSR.visual?.getSelectorSearchState?.() || {};
+    return {
+      version: KWSR.version,
+      platform: platform(),
+      extensionActiva: !!S.extensionActiva,
+      modoNarrador: S.modoNarradorGlobal,
+      fuenteEfectiva: S.effectiveFuente,
+      debug: !!CFG.debug,
+      videoFound: !!S.currentVideo,
+      selectorSearch: {
+        status: search.status || "waiting",
+        total: search.total || 0,
+        attempted: search.attempted || 0,
+        selected: search.selected || null
+      }
+    };
   }
 
   function setDebug(value) {
@@ -354,6 +375,7 @@
     toggleDebug,
     setDebug,
     getDebugState,
+    getSupportState,
     printDebugState,
     restartReading,
     enhanceOverlay,

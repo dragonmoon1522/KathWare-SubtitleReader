@@ -5,6 +5,36 @@
 
 ---
 
+### Compatibilidad y reportes, revisión 1 (2026-11-17, solo beta)
+
+* Por pedido de Katherine, se reutilizan todos los bancos existentes sin adelantar
+  la separación por motores de renderizado. El banco del sitio conserva su
+  prioridad; después se prueban los demás y los selectores de compatibilidad.
+  La unión actual contiene 43 selectores únicos para sitios sin banco propio.
+* Se incluyen Netflix, Hive/Disney, Max, YouTube, Flow/THEOplayer, ViX y los
+  selectores ya incorporados de Video.js, PlayKit/Kaltura y Plyr. La selección
+  no cambia la identidad de la plataforma ni activa sus adaptaciones de controles.
+* Un candidato ajeno se acepta con texto visible en el área del video activo;
+  se rechazan menús, controles, texto oculto y la interfaz de KathWare. ViX
+  conserva su validación estructural y su agrupación. Los selectores amplios se
+  prueban al final y las búsquedas sin resultado se espacian.
+* El estado sin texto se informa como espera, sin declarar incompatible una
+  pausa entre frases o una página todavía sin video. Se contemplan la lectura
+  por pistas y el fallback existente de Shadow DOM abierto.
+* El popup añade estado de detección y botón de debug. El reporte recupera datos
+  de la pestaña actual; deja de adjuntar el almacén global de registros antiguos.
+  Los registros nuevos son locales a cada página, acotados y solo se recopilan
+  con debug. El diagnóstico completo se consulta al adjuntarlo expresamente.
+* El issue se prepara con comentarios para revisión y publicación manual en
+  GitHub. Las URL técnicas omiten credenciales, parámetros y fragmentos; la
+  información técnica puede resumirse para abrir el formulario.
+* Validación: 150 pruebas Node aprobadas (16 de selección, 15 de reportes y 119
+  regresiones). Dos escenarios nuevos de navegador quedan sin ejecutar porque
+  Chromium no puede crear sockets en este entorno (`Operation not permitted`).
+  Crunchyroll y otros servicios nuevos siguen pendientes de validación real.
+* `main` y la estable 3.0.0 no cambian. Detalle en
+  [compatibilidad y reportes](docs/compatibilidad-y-reportes.md).
+
 ### Recuperación del sintetizador, revisión 1 (2026-11-17, solo beta)
 
 * Katherine confirma que la voz del navegador sí puede leer en pantalla completa.

@@ -196,6 +196,14 @@
   };
 
   const toMsg = (arr) => arr.map(safeStringify).join(" ");
+  const debugLogs = [];
+  const rememberDebugLog = (level, args) => {
+    if (!KWSR.CFG.debug) return;
+    debugLogs.push({ ts: new Date().toISOString(), level, msg: toMsg(args).slice(0, 4000) });
+    if (debugLogs.length > 100) debugLogs.splice(0, debugLogs.length - 100);
+  };
+  // Registros de esta página, en memoria. Adjuntarlos al borrador es optativo.
+  KWSR.getDebugLogs = () => debugLogs.map(entry => ({ ...entry }));
 
   KWSR.emitLog = (level, payload = {}) => {
     try {
@@ -216,16 +224,19 @@
   };
 
   KWSR.log = (...a) => {
+    rememberDebugLog("log", a);
     if (KWSR.CFG.debug) console.log("[KathWare]", ...a);
     KWSR.emitLog("log", { msg: toMsg(a) });
   };
 
   KWSR.warn = (...a) => {
+    rememberDebugLog("warn", a);
     if (KWSR.CFG.debug) console.warn("[KathWare]", ...a);
     KWSR.emitLog("warn", { msg: toMsg(a) });
   };
 
   KWSR.error = (...a) => {
+    rememberDebugLog("error", a);
     console.error("[KathWare]", ...a);
     KWSR.emitLog("error", { msg: toMsg(a) });
   };

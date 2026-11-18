@@ -262,13 +262,37 @@
   }
 
   // --------------------------------------------------
+  // Reutilizar los bancos existentes sin cambiar la arquitectura por plataforma.
+  // Consultar la función exportada incorpora también los selectores de compatibilidad.
+  function selectorCandidates(p) {
+    const banks = ["netflix", "disney", "max", "youtube", "flow", "vix"];
+    const read = name => KWSR.platforms.platformSelectors(name) || [];
+    const generic = read("generic");
+    const broad = new Set(generic.filter(sel => sel.startsWith("[class*=")));
+    const candidates = [], seen = new Set();
+    const add = (source, selectors, native = false) => {
+      for (const selector of selectors) {
+        if (seen.has(selector)) continue;
+        seen.add(selector);
+        candidates.push({ selector, source, fallback: !native });
+      }
+    };
+    if (banks.includes(p)) add(p, read(p), true);
+    add("generic", generic.filter(sel => !broad.has(sel)));
+    for (const source of banks) add(source, read(source).filter(sel => !broad.has(sel)));
+    add("generic", generic);
+    return candidates;
+  }
+
+  // --------------------------------------------------
   // EXPORT
   // --------------------------------------------------
   KWSR.platforms = {
     getPlatform,
     platformLabel,
     platformCapabilities,
-    platformSelectors
+    platformSelectors,
+    selectorCandidates
   };
 
 })();

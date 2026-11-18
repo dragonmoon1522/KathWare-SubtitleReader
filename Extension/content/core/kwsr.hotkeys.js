@@ -218,6 +218,26 @@
       };
 
       try {
+        if (message?.action === "getSubtitleStatus" || message?.action === "getDiagnostics") {
+          const technical = message.action === "getDiagnostics" && message.includeTechnical === true;
+          safeRespond({
+            status: "ok",
+            support: KWSR.betaTools?.getSupportState?.() || null,
+            ...(message.action === "getDiagnostics" ? { pageUrl: location.href } : {}),
+            ...(technical ? {
+              diagnostic: KWSR.betaTools?.getDebugState?.() || null,
+              logs: KWSR.getDebugLogs?.() || []
+            } : {})
+          });
+          return false;
+        }
+
+        if (message?.action === "setDebug") {
+          KWSR.betaTools?.setDebug?.(message.enabled === true);
+          safeRespond({ status: "ok", support: KWSR.betaTools?.getSupportState?.() || null });
+          return false;
+        }
+
         if (message?.action === "toggleExtension") {
           KWSR.pipeline?.toggleExtension?.();
           safeRespond({ status: "ok" });

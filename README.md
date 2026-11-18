@@ -29,6 +29,14 @@ reintento antes de empezar a hablar. Ver [comportamiento y pruebas](docs/tts-rec
 Katherine confirma que el sintetizador puede leer en pantalla completa; falta
 validar allí la nueva recuperación con sus voces reales.
 
+**Compatibilidad y reportes, revisión 1 (17/11/2026):** los sitios sin un banco
+propio prueban los selectores existentes hasta encontrar subtítulos visibles del
+video. Se conserva la prioridad de los bancos propios y la arquitectura actual.
+El popup permite activar debug y preparar un issue con comentarios y diagnóstico
+optativo de la pestaña actual. Ver [compatibilidad y reportes](docs/compatibilidad-y-reportes.md).
+Crunchyroll es un candidato para pruebas reales; la búsqueda automática no acredita
+por sí sola que su reproductor funcione con la extensión.
+
 La etiqueta de esta rama sigue siendo `3.0.0-beta` durante el desarrollo;
 la entrega estable debe empaquetarse desde `main`. El número de la próxima
 versión se asignará cuando se defina su alcance.
@@ -85,6 +93,7 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | YouTube | Katherine confirmó funcionamiento correcto de la revisión 1 el 31/10/2026; 14 pruebas específicas. | Prueba funcional cerrada; pendientes generales de salida. |
 | Flow en vivo | Revisión 5: entrega por frase o cambio de hablante; conserva letras en formación y las protecciones frente al desplazamiento de líneas. | Confirmar la nueva agrupación y medir el desfase reportado con el audio. |
 | Paramount+ | Katherine confirmó funcionamiento en la beta el 31/10/2026. | Prueba funcional cerrada; pendientes generales de salida. |
+| Crunchyroll y otros sitios sin banco propio | Búsqueda compartida de selectores integrada y probada con DOM de ejemplo. | Validación en el servicio real; no se anuncia compatibilidad confirmada. |
 | Dailymotion / Telefe | Objetivo previsto; sin cierre documentado en esta entrega. | Prueba explícita antes de anunciarlo como verificado. |
 
 La confirmación del 31/10/2026 documenta la prueba funcional reportada para

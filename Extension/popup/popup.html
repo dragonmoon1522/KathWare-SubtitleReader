@@ -26,6 +26,7 @@
         Activá la extensión en la pestaña actual para comenzar a leer subtítulos
         automáticamente con tu lector de pantalla o con la voz del sistema.
       </p>
+      <p id="compatibilidad" role="status" aria-live="polite">Consultando la pestaña actual…</p>
     </section>
 
     <!-- Atajos -->
@@ -62,23 +63,26 @@
 
     <!-- Reporte -->
     <section>
+      <h2>Ayuda y diagnóstico</h2>
+      <button id="alternarDebug" type="button" aria-pressed="false">Activar debug</button>
+      <p class="help">Si no se leen los subtítulos, activá debug, reproducí unos segundos y volvé a este formulario.</p>
       <label for="reporteError">Reportar un problema:</label>
       <textarea
         id="reporteError"
         aria-label="Descripción del problema"
         rows="4"
+        maxlength="1000"
         placeholder="Describí qué ocurrió y en qué plataforma…">
       </textarea>
-      <button id="enviarReporte" type="button">
-        Enviar reporte
-      </button>
-    </section>
-
-    <section>
       <label for="permitirEnvioLogs">
         <input type="checkbox" id="permitirEnvioLogs" />
-        Adjuntar información técnica (logs recientes, sin datos personales)
+        Adjuntar diagnóstico y registros de esta pestaña (puede incluir texto de subtítulos)
       </label>
+      <button id="enviarReporte" type="button">
+        Preparar reporte en GitHub
+      </button>
+      <p class="help">Se abrirá un borrador con tus comentarios para que lo revises y publiques en GitHub.</p>
+      <p id="estadoReporte" role="status" aria-live="polite"></p>
     </section>
 
     <footer>
@@ -103,6 +107,7 @@
 
   </main>
 
+  <script src="report.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

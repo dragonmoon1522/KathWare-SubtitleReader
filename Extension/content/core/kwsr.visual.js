@@ -46,6 +46,9 @@
   const normalize = KWSR.utils?.normalize || ((x) => String(x ?? "").trim());
 
   const DEBUG = () => !!(CFG?.debug && CFG?.debugVisual);
+  const SELECTOR_SEARCH_REVISION = 1;
+  let lastSelectorScan = -Infinity;
+  let selectorVideo = null, selectorSource = "";
 
   // ---------------------------------------------------------------------------
   // Plataforma
@@ -178,8 +181,13 @@
   // Selectores
   // ---------------------------------------------------------------------------
   function getSelectors() {
+    return getSelectorCandidates().map(candidate => candidate.selector);
+  }
+
+  function getSelectorCandidates() {
     const p = platform();
-    return KWSR.platforms?.platformSelectors?.(p) || [];
+    return KWSR.platforms?.selectorCandidates?.(p) ||
+      (KWSR.platforms?.platformSelectors?.(p) || []).map(selector => ({ selector, source: p, fallback: false }));
   }
 
   function getFreshNodesBySelector(sel) {
@@ -190,13 +198,49 @@
     }
   }
 
+  // Los bancos ajenos al sitio se validan antes de adoptarlos. Un nombre de
+  // clase coincidente en un artículo o en un menú no acredita un subtítulo.
+  function validFallbackNode(node, requireHint = true) {
+    try {
+      if (!isVisible(node) || isInsideKathWareUI(node)) return false;
+      if (node.closest("button,a,input,select,textarea,label,option,[role='button'],[role='slider'],[role='menu'],[role='dialog'],[role='listbox'],[role='option'],[inert]")) return false;
+      let hint = false;
+      for (let el = node; el; el = el.parentElement) {
+        const style = getComputedStyle(el);
+        if (el.hidden || style.display === "none" || style.visibility === "hidden" ||
+            style.visibility === "collapse" || Number(style.opacity || 1) <= 0.01) return false;
+        const sig = `${el.id || ""} ${el.className || ""} ${el.getAttribute?.("data-testid") || ""} ${el.getAttribute?.("data-uia") || ""}`;
+        if (/menu|settings|popover|tooltip|popup|notification/i.test(sig)) return false;
+        if (/subtitle|caption|timed.?text|text.?track|textcue|cuebox|(^|[\s_-])cc([\s_-]|$)/i.test(sig)) hint = true;
+      }
+      if (requireHint && !hint) return false;
+      const video = S.currentVideo || KWSR.video?.getMainVideo?.();
+      const area = video?.getBoundingClientRect?.(), rect = node.getBoundingClientRect();
+      if (!area || area.width < 2 || area.height < 2) return false;
+      const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+      return x >= area.left - 8 && x <= area.right + 8 && y >= area.top - 8 && y <= area.bottom + 8;
+    } catch { return false; }
+  }
+
+  function readSelectorCandidate(candidate) {
+    if (!candidate) return null;
+    if (candidate.source === "vix") return getGroupedLineCandidate("vix", candidate.fallback);
+    let nodes = getFreshNodesBySelector(candidate.selector);
+    if (candidate.fallback) {
+      nodes = nodes.filter(node => validFallbackNode(node));
+      // Algunos selectores de Video.js incluyen padres e hijos del mismo texto.
+      nodes = nodes.filter(node => !nodes.some(other => node !== other && node.contains(other)));
+    }
+    return readTextFromNodes(nodes, candidate.source);
+  }
+
   // ---------------------------------------------------------------------------
   // Líneas visuales agrupadas (ViX / Lura)
   // ---------------------------------------------------------------------------
   // El contenedor usa clases dinámicas. La señal estable validada es estructural:
   // todos sus hijos directos son <p> visibles con display: table.
-  function getGroupedLineCandidate() {
-    if (platform() !== "vix") return null;
+  function getGroupedLineCandidate(source = platform(), fallback = false) {
+    if (source !== "vix") return null;
 
     const root = document.querySelector("#video-player");
     if (!root) return null;
@@ -205,6 +249,7 @@
 
     for (const container of root.querySelectorAll("div")) {
       if (!isVisible(container) || isInsideKathWareUI(container)) continue;
+      if (fallback && !validFallbackNode(container, false)) continue;
       // Un padre transparente puede conservar dimensiones y texto en sus hijos.
       let hidden = false;
       for (let el = container; el; el = el.parentElement) {
@@ -550,18 +595,48 @@
   // ---------------------------------------------------------------------------
   // Elegir selector
   // ---------------------------------------------------------------------------
-  function pickBestSelector(p) {
-    const selectors = getSelectors();
-
-    for (const sel of selectors) {
-      const nodes = getFreshNodesBySelector(sel);
-      if (!nodes.length) continue;
-
-      const { text } = readTextFromNodes(nodes, p);
-      if (text) return sel;
+  function pickBestSelector(p, force = false) {
+    const video = S.currentVideo || null;
+    const src = String(video?.currentSrc || video?.src || "");
+    const now = performance.now();
+    if (!force && video === selectorVideo && src === selectorSource && now - lastSelectorScan < 1000) {
+      return S.visualSelectorUsed || "";
     }
-
+    selectorVideo = video; selectorSource = src; lastSelectorScan = now;
+    const candidates = getSelectorCandidates();
+    const checked = [];
+    for (const candidate of candidates) {
+      const result = readSelectorCandidate(candidate);
+      checked.push({ selector: candidate.selector, source: candidate.source, usable: !!result?.text });
+      if (!result?.text) continue;
+      S.visualSelectorChoice = candidate;
+      S.selectorSearch = {
+        revision: SELECTOR_SEARCH_REVISION, status: "matched", total: candidates.length,
+        attempted: checked.length, selected: candidate, checked
+      };
+      if (DEBUG()) KWSR.log?.("SELECTOR search", S.selectorSearch);
+      return candidate.selector;
+    }
+    S.selectorSearch = {
+      revision: SELECTOR_SEARCH_REVISION, status: "waiting", total: candidates.length,
+      attempted: checked.length, selected: null, checked
+    };
+    if (DEBUG()) KWSR.log?.("SELECTOR search", S.selectorSearch);
     return "";
+  }
+
+  function getSelectorSearchState() {
+    const base = { revision: SELECTOR_SEARCH_REVISION, ...(S.selectorSearch || {}) };
+    if (!S.extensionActiva) return { ...base, status: "inactive" };
+    if (S.modoNarradorGlobal === "off") return { ...base, status: "off" };
+    if (!S.currentVideo) return { ...base, status: "no-video" };
+    if (S.effectiveFuente === "track") return { ...base, status: "track" };
+    const live = KWSR.consoleRenderers?.getRendererText?.(platform());
+    if (live?.text) return { ...base, status: "matched", selected: { selector: live.selector, source: platform(), fallback: false } };
+    let shadow = null;
+    try { shadow = KWSR.openShadowCaptions?.getCandidate?.(); } catch {}
+    if (shadow?.text) return { ...base, status: "matched", selected: { selector: "Shadow DOM abierto", source: "open-shadow", fallback: true } };
+    return { status: "waiting", ...base };
   }
 
   // ---------------------------------------------------------------------------
@@ -584,6 +659,10 @@
   // Resetear memoria visual
   // ---------------------------------------------------------------------------
   function resetVisualDedupe() {
+    lastSelectorScan = -Infinity;
+    S.visualSelectorChoice = null;
+    S.selectorSearch = null;
+    S.visualSelectorUsed = "";
     S._visualLastAt = 0;
     S._visualLastText = "";
     S._visualLastKey = "";
@@ -641,7 +720,7 @@
     const p = platform();
 
     S.visualSelectors = getSelectors();
-    S.visualSelectorUsed = pickBestSelector(p);
+    S.visualSelectorUsed = pickBestSelector(p, true);
 
     stopVisualObserver();
 
@@ -703,9 +782,10 @@
     if (!KWSR.voice?.shouldReadNow?.()) return;
     if (S.effectiveFuente !== "visual") return;
 
-    // ViX también cambia subtítulos mediante estilos y puede hacerlo mientras está pausado.
-    // Mantener el timer existente como respaldo al observador.
-    if (!fromObserver && S.visualObserverActive && platform() !== "vix") return;
+    // Conservar el disparo de los bancos primarios ya validados. El respaldo
+    // periódico permite buscar y recuperar los candidatos de compatibilidad.
+    if (!fromObserver && S.visualObserverActive && platform() !== "vix" &&
+        S.visualSelectorChoice?.fallback === false) return;
 
     if (fromObserver) {
       if (!S.visualDirty) return;
@@ -720,16 +800,16 @@
       S.visualSelectors = getSelectors();
     }
 
-    if (p !== "vix" && !S.visualSelectorUsed) {
+    if (!S.visualSelectorUsed || S.visualSelectorUsed.startsWith("console:")) {
       S.visualSelectorUsed = pickBestSelector(p);
       if (!S.visualSelectorUsed) return;
     }
 
     let visualResult = null;
 
-    if (p === "vix") {
-      visualResult = getGroupedLineCandidate();
-      S.visualSelectorUsed = "#video-player div > p";
+    const choice = S.visualSelectorChoice || { selector: S.visualSelectorUsed, source: p, fallback: false };
+    if (choice.source === "vix") {
+      visualResult = readSelectorCandidate(choice);
       if (DEBUG()) {
         const snapshot = JSON.stringify({ text: visualResult?.text || "", lines: visualResult?.lineCount || 0 });
         if (snapshot !== S._vixVisualDebugSnapshot) {
@@ -738,8 +818,7 @@
         }
       }
     } else {
-      const nodes = getFreshNodesBySelector(S.visualSelectorUsed);
-      visualResult = readTextFromNodes(nodes, p);
+      visualResult = readSelectorCandidate(choice);
     }
 
     const { text = "", key = "", lineParts = [], lineCount = 0 } = visualResult || {};
@@ -806,7 +885,7 @@
 
       if (sameExactish && sameKey) {
         const dt = now - (S._visualLastAt || 0);
-        if (dt < minRepeatMs) return;
+        if (!fromObserver || dt < minRepeatMs) return;
       }
 
       S._visualLastText = text;
@@ -987,7 +1066,7 @@
   // ---------------------------------------------------------------------------
   function visualReselectTick() {
     const p = platform();
-    const next = pickBestSelector(p);
+    const next = pickBestSelector(p, true);
 
     if (next && next !== (S.visualSelectorUsed || "")) {
       S.visualSelectorUsed = next;
@@ -1004,7 +1083,8 @@
     pollVisualTick,
     visualReselectTick,
     resetVisualDedupe,
-    getGroupedLineCandidate
+    getGroupedLineCandidate,
+    getSelectorSearchState
   };
 
 })();
