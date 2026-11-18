@@ -6,12 +6,13 @@ abiertos y continuar su corrección en la rama `3.0.0-beta`.
 | Problema | Estado | Próximo trabajo |
 | --- | --- | --- |
 | Flow en vivo: atraso y fragmentación | Abierto. Se ha reportado un desfase de aproximadamente una frase respecto del audio y cortes en la entrega. La revisión 5 conserva las mejoras actuales, sin dar por resuelto el fallo en el servicio real. | Localizar el desfase y revisar la agrupación con pruebas en Flow, NVDA y voz del navegador. |
-| Subtítulos en pantalla completa | Abierto. Los subtítulos no se leen en ese modo. Para mantener la lectura, usar la vista normal. | Revisar la detección del texto y la salida accesible al entrar, salir o cambiar el contenedor de pantalla completa. |
+| Subtítulos en pantalla completa | Abierto. NVDA puede consultar texto enfocado con NVDA+Tab, pero no anuncia los subtítulos automáticamente. Para mantener la lectura en la estable, usar la vista normal. | Ensayo de región de anuncios, revisión 1, disponible solo en beta; pendiente validación real con NVDA. Ver [prueba y límites](fullscreen-lectura.md). |
 
 Las pruebas automatizadas de regresión permiten conservar comportamientos ya
 comprobados. No cierran estos fallos, que necesitan validación con los servicios
 y lectores de pantalla reales.
 
 La medición temporal de Flow y el reinicio automático al cambiar de pantalla
-completa se retiran de la estable. El código de esos ensayos permanece en la
-rama beta para retomarlo en una versión posterior.
+completa se retiran de la estable. La beta conserva la medición de Flow; su
+reinicio automático se reemplaza por el ensayo de región de anuncios del
+17/11/2026. Esta modificación no cambia el alcance de la estable.

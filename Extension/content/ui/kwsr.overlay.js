@@ -414,11 +414,24 @@
     const v = S.currentVideo;
     if (!v) return;
 
+    // Usar el contenedor existente conserva controles y anuncios en el mismo
+    // ámbito. No envolver ni mover el video de una plataforma.
+    const root = KWSR.keepAlive?.playerRoot?.(v);
+    const target = root && root !== v && root.contains(v) &&
+      !/^(HTML|BODY|VIDEO|AUDIO|IFRAME|OBJECT|EMBED|CANVAS|IMG)$/.test(root.tagName) &&
+      typeof root.requestFullscreen === "function" ? root : v;
+    if (target === v) {
+      try {
+        KWSR.toast?.notify?.("⚠️ En pantalla completa nativa la lectura automática puede fallar.");
+      } catch {}
+    }
+    const failed = () => {
+      try { KWSR.toast?.notify?.("No se pudo activar la pantalla completa."); } catch {}
+    };
     try {
-      KWSR.toast?.notify?.("⚠️ En pantalla completa la lectura automática puede fallar.");
-    } catch {}
-
-    try { v.requestFullscreen?.(); } catch {}
+      const pending = target.requestFullscreen?.();
+      pending?.catch?.(failed);
+    } catch { failed(); }
   }
 
   function toggleCaptions() {

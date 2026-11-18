@@ -175,7 +175,9 @@ Katherine aprobó la estable el 17/11/2026 con el estado funcional actual.
 `main` identifica `version_name: "3.0.0"` y excluye la medición temporal de Flow
 y el reinicio automático al cambiar de pantalla completa.
 
-La rama `3.0.0-beta` conserva esas herramientas y continúa el desarrollo.
+La rama `3.0.0-beta` continúa el desarrollo y conserva la medición de Flow.
+El ensayo posterior de [región de anuncios](fullscreen-lectura.md) reemplaza
+en beta el reinicio automático de pantalla completa.
 Los [fallos conocidos](problemas-conocidos.md) de Flow en vivo y lectura en
 pantalla completa se mantienen abiertos para una próxima versión. Los
 registros y pruebas anteriores de este documento corresponden a la preparación

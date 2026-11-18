@@ -5,6 +5,32 @@
 
 ---
 
+### Pantalla completa: región de anuncios, revisión 1 (2026-11-17, solo beta)
+
+* Katherine informa que NVDA no anuncia los subtítulos automáticamente en
+  pantalla completa, aunque NVDA+Tab sí permite consultar el texto enfocado.
+  La alerta de Esc del navegador tampoco acredita la salida automática de la página.
+* Se corrige una diferencia comprobada en el código: el panel cambiaba de
+  contenedor, pero la región `aria-live` permanecía en la raíz del documento.
+  Ahora se prepara vacía al activar la lectura, acompaña la entrada y salida de
+  pantalla completa de contenedor y se reconecta si el sitio elimina su nodo.
+* Se conserva `role=status`, `aria-live=polite` y el foco del usuario. El cambio
+  de pantalla no reinicia el pipeline ni borra la deduplicación de subtítulos.
+  Detener la lectura cancela las entregas pendientes de la región accesible.
+* El botón y la tecla F de los controles de KathWare solicitan pantalla completa
+  sobre un contenedor existente del reproductor, cuando es adecuado. Si solo
+  está disponible el elemento `video`, permanece la advertencia sobre ese modo.
+* El diagnóstico añade `liveRegion` con revisión, ámbito, conexión y ubicación.
+  La pantalla completa nativa de `video` se distingue del modo de contenedor:
+  no se insertan anuncios dentro del contenido alternativo de un video.
+* Validación: 95 pruebas Node aprobadas (15 nuevas y 80 regresiones de Flow y
+  YouTube), más comprobación de sintaxis y diferencias. La prueba de integración
+  en navegador se amplía, pero su ejecución está bloqueada porque Chromium no
+  puede crear sockets en este entorno (`Operation not permitted`).
+* El fallo permanece abierto hasta probar con Windows y NVDA reales. `main` y
+  el paquete estable 3.0.0 quedan fuera de este ensayo. Instrucciones en
+  [lectura en pantalla completa](docs/fullscreen-lectura.md).
+
 ### Continuidad de la rama beta después de 3.0.0 (2026-11-17)
 
 * Katherine aprueba la versión estable 3.0.0, publicada en `main`.

@@ -16,6 +16,12 @@ Permanecen abiertos para una próxima versión el atraso y la fragmentación de
 **Flow en vivo** y la ausencia de lectura de subtítulos en **pantalla completa**.
 Ver [el seguimiento de fallos](docs/problemas-conocidos.md).
 
+**Ensayo de pantalla completa, revisión 1 (17/11/2026):** la región de anuncios
+acompaña al contenedor de pantalla completa y los controles de KathWare solicitan
+ese contenedor cuando está disponible. Se retira el reinicio automático del
+pipeline al cambiar de modo. Falta confirmar la lectura automática con NVDA;
+el fallo sigue abierto. Ver [la prueba y sus límites](docs/fullscreen-lectura.md).
+
 La etiqueta de esta rama sigue siendo `3.0.0-beta` durante el desarrollo;
 la entrega estable debe empaquetarse desde `main`. El número de la próxima
 versión se asignará cuando se defina su alcance.

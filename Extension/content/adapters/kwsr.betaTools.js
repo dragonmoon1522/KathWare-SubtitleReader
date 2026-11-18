@@ -7,8 +7,7 @@
 // - nombres de controles accesibles y textuales;
 // - Debug ON/OFF;
 // - Reiniciar lectura;
-// - diagnóstico resumido en consola;
-// - reinicio al cambiar pantalla completa.
+// - diagnóstico resumido en consola, incluida la región de anuncios.
 //
 // Atajos adicionales:
 // - Alt+Shift+D = activar/desactivar debug.
@@ -84,6 +83,7 @@
       version: KWSR.version,
       flowReaderRevision: KWSR.consoleRenderers?.flowReaderRevision || null,
       youtubeReaderRevision: KWSR.consoleRenderers?.youtubeReaderRevision || null,
+      liveRegion: KWSR.voice?.getLiveRegionState?.() || null,
       flowTiming: platform() === "flow" ? KWSR.flowTiming?.getReport?.() || null : null,
       platform: platform(),
       extensionActiva: !!S.extensionActiva,
@@ -348,11 +348,6 @@
   }
 
   document.addEventListener("keydown", handleBetaHotkeys, true);
-
-  document.addEventListener("fullscreenchange", () => {
-    if (!S.extensionActiva) return;
-    setTimeout(() => restartReading("fullscreenchange"), 80);
-  });
 
   KWSR.betaTools = {
     toggleDebug,

@@ -25,7 +25,10 @@ function fixture() {
   };
   const context = {
     window: { KWSR }, performance: { now: () => now }, Date: { now: () => 1793476800000 + now },
-    document: { documentElement: {} },
+    document: {
+      documentElement: { appendChild(node) { node.parentNode = this; return node; } },
+      addEventListener() {}
+    },
     console: { log: line => logs.push(line) },
     MutationObserver: class {
       constructor(fn) { this.fn = fn; this.active = false; observers.push(this); }
@@ -35,6 +38,7 @@ function fixture() {
     setTimeout(fn, delay) { timers.set(++id, { at: now + delay, fn }); return id; },
     clearTimeout(key) { timers.delete(key); }
   };
+  KWSR.state.liveRegion.parentNode = context.document.documentElement;
   vm.createContext(context);
   vm.runInContext(source, context);
   return {

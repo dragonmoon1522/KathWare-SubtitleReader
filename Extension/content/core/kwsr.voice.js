@@ -79,6 +79,8 @@
   let ttsBrokenUntil = 0;
   let lastTtsError = "";
   let watchdogTimer = null;
+  const LIVE_REGION_REVISION = 1;
+  const pendingAnnouncements = new Set();
 
   // Si TTS falla, pasar automáticamente a modo lector
   const AUTO_SWITCH_TO_READER_ON_TTS_FAIL = true;
@@ -126,30 +128,69 @@
   // Esto crea un div invisible que los lectores de pantalla pueden anunciar.
   // Sirve para el modo "lector".
   // ---------------------------------------------------------------------------
-  function ensureLiveRegion() {
-    if (S.liveRegion) return;
-
-    const div = document.createElement("div");
-    div.id = "kwsr-live-region";
-    div.setAttribute("role", "status");
-    div.setAttribute("aria-live", "polite");
-    div.setAttribute("aria-atomic", "true");
-
-    Object.assign(div.style, {
-      position: "fixed",
-      left: "-9999px",
-      top: "0",
-      width: "1px",
-      height: "1px",
-      overflow: "hidden",
-      clip: "rect(1px, 1px, 1px, 1px)",
-      clipPath: "inset(50%)",
-      whiteSpace: "nowrap"
-    });
-
-    document.documentElement.appendChild(div);
-    S.liveRegion = div;
+  function liveRegionContext() {
+    let fullscreen = document.fullscreenElement;
+    // En un Shadow DOM abierto, el documento expone el host, no el nodo interior.
+    while (fullscreen?.shadowRoot?.fullscreenElement) {
+      fullscreen = fullscreen.shadowRoot.fullscreenElement;
+    }
+    const tag = fullscreen?.tagName || "";
+    const nativeMedia = /^(VIDEO|AUDIO)$/.test(tag);
+    const replacedElement = /^(VIDEO|AUDIO|IFRAME|OBJECT|EMBED|CANVAS|IMG)$/.test(tag);
+    return {
+      fullscreen,
+      // Los hijos de video son contenido alternativo: no son una región accesible
+      // fiable en la pantalla completa nativa. No fingimos resolver ese caso.
+      host: fullscreen && !replacedElement
+        ? (fullscreen.shadowRoot || fullscreen) : document.documentElement,
+      scope: !fullscreen ? "document" : nativeMedia ? "native-media-fullscreen"
+        : replacedElement ? "unsupported-fullscreen-element" : "container-fullscreen"
+    };
   }
+
+  function ensureLiveRegion() {
+    if (!S.liveRegion) {
+      const div = document.createElement("div");
+      div.id = "kwsr-live-region";
+      div.setAttribute("role", "status");
+      div.setAttribute("aria-live", "polite");
+      div.setAttribute("aria-atomic", "true");
+      Object.assign(div.style, {
+        position: "fixed", left: "0", top: "0", width: "1px", height: "1px",
+        overflow: "hidden", clip: "rect(1px, 1px, 1px, 1px)",
+        clipPath: "inset(50%)", whiteSpace: "nowrap"
+      });
+      S.liveRegion = div;
+    }
+    const { host } = liveRegionContext();
+    if (host && S.liveRegion.parentNode !== host) {
+      // Mover la misma región vacía evita repetir el último subtítulo. No depende
+      // del panel (que puede estar oculto), ni cambia el foco o el capturador.
+      S.liveRegion.textContent = "";
+      host.appendChild(S.liveRegion);
+    }
+    return S.liveRegion;
+  }
+
+  function getLiveRegionState() {
+    const { fullscreen, scope } = liveRegionContext();
+    const region = S.liveRegion;
+    return {
+      revision: LIVE_REGION_REVISION,
+      scope,
+      fullscreenTag: fullscreen?.tagName || "",
+      connected: !!region?.isConnected,
+      hostTag: region?.parentNode?.tagName || region?.parentNode?.nodeName || "",
+      insideFullscreen: !!(fullscreen && region && (
+        fullscreen.contains(region) || fullscreen.shadowRoot?.contains(region)
+      )),
+      text: String(region?.textContent || "").slice(0, 500)
+    };
+  }
+
+  document.addEventListener("fullscreenchange", () => {
+    if (S.extensionActiva && S.modoNarradorGlobal === "lector") ensureLiveRegion();
+  });
 
   // ---------------------------------------------------------------------------
   // pushToLiveRegion(text)
@@ -165,12 +206,15 @@
 
     try {
       S.liveRegion.textContent = "";
-
-      setTimeout(() => {
-        if (!S.liveRegion) return;
-        S.liveRegion.textContent = String(text ?? "");
+      const outputMode = S.modoNarradorGlobal;
+      const timer = setTimeout(() => {
+        pendingAnnouncements.delete(timer);
+        if (S.modoNarradorGlobal !== outputMode || !shouldReadNow()) return;
+        // El modo de pantalla puede cambiar durante la espera del anuncio.
+        ensureLiveRegion().textContent = String(text ?? "");
         traceFlowOutput("live-region", text);
       }, 10);
+      pendingAnnouncements.add(timer);
     } catch {}
   }
 
@@ -661,6 +705,8 @@
   // - reiniciamos el pipeline
   // ---------------------------------------------------------------------------
   function detenerLectura() {
+    for (const timer of pendingAnnouncements) clearTimeout(timer);
+    pendingAnnouncements.clear();
     try { clearWatchdog(); } catch {}
     try { hardResetTTS(); } catch {}
     try {
@@ -687,7 +733,9 @@
     shouldReadNow,
     leerTextoAccesible,
     detenerLectura,
-    pushToLiveRegion
+    pushToLiveRegion,
+    prepareLiveRegion: ensureLiveRegion,
+    getLiveRegionState
   };
 
 })();

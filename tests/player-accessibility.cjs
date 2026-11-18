@@ -154,6 +154,26 @@ test('overlay survives container fullscreen and DOM removal', async t => {
   assert.equal(await p.locator('#kathware-overlay-panel').isVisible(), true);
 });
 
+test('KathWare fullscreen keeps the live region with the player and preserves normal reading on exit', async t => {
+  const p = await fixture(t);
+  await p.evaluate(() => {
+    KWSR.state.modoNarradorGlobal = 'lector';
+    Object.defineProperty(KWSR.state.currentVideo, 'paused', { value: false, configurable: true });
+  });
+  await p.addScriptTag({ path: path.join(__dirname, '../Extension/content/core/kwsr.voice.js') });
+  await p.getByRole('button', { name: 'Pantalla completa', exact: true }).click();
+  await p.waitForFunction(() => document.fullscreenElement === document.querySelector('#video-player'));
+  await p.waitForFunction(() => document.fullscreenElement.contains(KWSR.state.liveRegion));
+  await p.evaluate(() => KWSR.voice.leerTextoAccesible('Dentro de pantalla completa.'));
+  await p.waitForFunction(() => KWSR.state.liveRegion.textContent === 'Dentro de pantalla completa.');
+  assert.equal(await p.locator('#kwsr-live-region').getAttribute('aria-live'), 'polite');
+  await p.evaluate(() => document.exitFullscreen());
+  await p.waitForFunction(() => KWSR.state.liveRegion.parentElement === document.documentElement);
+  assert.equal(await p.locator('#kwsr-live-region').textContent(), '');
+  await p.evaluate(() => KWSR.voice.leerTextoAccesible('De vuelta en la página.'));
+  await p.waitForFunction(() => KWSR.state.liveRegion.textContent === 'De vuelta en la página.');
+});
+
 test('ViX keepAlive emits one bubbling movement and Tab reveals hidden controls', async t => {
   const p = await fixture(t, '<button id="play" data-testid="play-btn" tabindex="-1"></button>');
   await p.evaluate(() => {
