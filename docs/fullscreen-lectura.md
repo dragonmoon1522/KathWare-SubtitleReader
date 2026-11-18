@@ -12,6 +12,11 @@ NVDA reciba los cambios de la región de anuncios de la extensión. La alerta
 «para salir de pantalla completa, presione Esc» pertenece a la interfaz del
 navegador y tampoco comprueba esa vía de salida.
 
+En la prueba posterior, Katherine confirma que el sintetizador del navegador
+sí puede leer en pantalla completa. Su cambio automático a modo lector ante un
+fallo se aborda por separado en [recuperación de TTS](tts-recuperacion.md).
+El ensayo de esta página corresponde a los anuncios de NVDA y otros lectores.
+
 En el código, el panel se movía al contenedor de pantalla completa, mientras
 `#kwsr-live-region` permanecía en la raíz del documento. El reinicio de lectura
 reutilizaba ese nodo sin revisar su ubicación. Esta diferencia es comprobable;

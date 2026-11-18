@@ -5,6 +5,31 @@
 
 ---
 
+### Recuperación del sintetizador, revisión 1 (2026-11-17, solo beta)
+
+* Katherine confirma que la voz del navegador sí puede leer en pantalla completa.
+  El cambio automático a lector tras un fallo de síntesis es un problema distinto
+  del silencio de los anuncios automáticos de NVDA.
+* Se elimina el cambio y guardado forzoso de `modoNarrador=lector`, además de la
+  entrega de subtítulos por `aria-live` como salida de emergencia del modo voz.
+  Los fallos mantienen el modo elegido y los ajustes de voz y velocidad.
+* Se reemplazan los límites fijos de 4,5 y 5,5 segundos por una espera de inicio
+  de 10 segundos y una vigilancia de duración según texto y velocidad efectiva,
+  con al menos 15 segundos de margen. Los eventos de avance renuevan ese margen.
+* Un fallo recuperable antes de empezar permite un reintento después de 500 ms.
+  Una frase nueva reemplaza los reintentos anteriores; una frase que ya comenzó
+  no se repite entera. No hay un bucle de reintentos ni cola de textos atrasados.
+* Se descartan los eventos tardíos de frases canceladas. Detener, pausar, buscar
+  otra posición, cambiar de video o de modo invalida los reintentos pendientes.
+  Los avisos de fallo se limitan a uno cada 10 segundos sin bloquear subtítulos nuevos.
+* El diagnóstico incorpora `ttsRecovery`, revisión 1. La región de anuncios de
+  NVDA conserva su revisión 1 y su validación real pendiente.
+* Validación: 119 pruebas Node aprobadas (24 nuevas de recuperación de TTS y 95
+  regresiones), más sintaxis y comprobación de diferencias. Estas pruebas simulan
+  el motor y sus eventos; falta escuchar voces reales en Chrome/Edge y comprobar
+  la entrada y salida de pantalla completa. `main` y la estable 3.0.0 no cambian.
+* Detalle: [recuperación de la voz del navegador](docs/tts-recuperacion.md).
+
 ### Pantalla completa: región de anuncios, revisión 1 (2026-11-17, solo beta)
 
 * Katherine informa que NVDA no anuncia los subtítulos automáticamente en

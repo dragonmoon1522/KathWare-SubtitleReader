@@ -84,6 +84,7 @@
       flowReaderRevision: KWSR.consoleRenderers?.flowReaderRevision || null,
       youtubeReaderRevision: KWSR.consoleRenderers?.youtubeReaderRevision || null,
       liveRegion: KWSR.voice?.getLiveRegionState?.() || null,
+      ttsRecovery: KWSR.voice?.getTTSState?.() || null,
       flowTiming: platform() === "flow" ? KWSR.flowTiming?.getReport?.() || null : null,
       platform: platform(),
       extensionActiva: !!S.extensionActiva,

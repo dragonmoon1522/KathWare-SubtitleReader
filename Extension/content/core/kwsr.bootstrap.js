@@ -83,7 +83,10 @@
 
       // TTS watchdog
       ttsEchoMs: 350,
-      ttsWatchdogMs: 4500,
+      ttsStartTimeoutMs: 10000,
+      ttsWatchdogMs: 15000,
+      ttsRetryDelayMs: 500,
+      ttsMaxRetries: 1,
 
       // UI
       autoOpenPanelOnSubs: false,

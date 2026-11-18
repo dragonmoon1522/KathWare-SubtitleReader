@@ -296,9 +296,10 @@
         // Persistimos para popup / próximas cargas
         try { KWSR.api?.storage?.local?.set?.({ modoNarrador: S.modoNarradorGlobal }); } catch {}
 
-        // Si apaga, detenemos lectura al toque
-        if (S.modoNarradorGlobal === "off") {
-          try { KWSR.voice?.detenerLectura?.(); } catch {}
+        // El cambio de salida cancela también cualquier reintento de la anterior.
+        try { KWSR.voice?.detenerLectura?.(); } catch {}
+        if (S.extensionActiva && S.modoNarradorGlobal === "lector") {
+          try { KWSR.voice?.prepareLiveRegion?.(); } catch {}
         }
 
         updateOverlayStatus();

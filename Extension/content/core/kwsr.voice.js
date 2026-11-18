@@ -75,15 +75,13 @@
   // Esto vive solo mientras la página está abierta.
   // No se guarda en storage.
   // ---------------------------------------------------------------------------
-  let lastSpeakAt = 0;
-  let ttsBrokenUntil = 0;
   let lastTtsError = "";
-  let watchdogTimer = null;
+  let activeTTS = null;
+  let ttsStatus = "idle";
+  let lastTtsNoticeAt = -Infinity;
+  const TTS_RECOVERY_REVISION = 1;
   const LIVE_REGION_REVISION = 1;
   const pendingAnnouncements = new Set();
-
-  // Si TTS falla, pasar automáticamente a modo lector
-  const AUTO_SWITCH_TO_READER_ON_TTS_FAIL = true;
 
   // Para no enganchar onvoiceschanged muchas veces
   let voicesHooked = false;
@@ -280,70 +278,160 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Watchdog helpers
+  // Recuperación de TTS: respetar el modo elegido y los eventos de cada frase.
   // ---------------------------------------------------------------------------
-  function clearWatchdog() {
-    try {
-      if (watchdogTimer) clearTimeout(watchdogTimer);
-    } catch {}
-
-    watchdogTimer = null;
+  function ttsLimit(name, fallback, min, max) {
+    const value = Number(CFG?.[name] ?? fallback);
+    return Math.max(min, Math.min(max, Number.isFinite(value) ? value : fallback));
   }
 
-  // ---------------------------------------------------------------------------
-  // markTTSBroken(reason)
-  // ---------------------------------------------------------------------------
-  // Marca TTS como roto por unos segundos,
-  // limpia cola y hace fallback a lector si está habilitado.
-  // ---------------------------------------------------------------------------
-  function markTTSBroken(reason) {
-    lastTtsError = String(reason || "unknown");
-    ttsBrokenUntil = Date.now() + 4000;
+  function ttsContextIsCurrent(job) {
+    const v = S.currentVideo;
+    return S.extensionActiva && S.modoNarradorGlobal === "sintetizador" &&
+      v === job.video && !v?.paused && !v?.ended &&
+      String(v?.currentSrc || v?.src || "") === job.source;
+  }
 
-    S.ttsLastError = lastTtsError;
-    S.ttsBrokenUntil = ttsBrokenUntil;
+  function clearTTSTimer(job) {
+    if (job?.timer != null) clearTimeout(job.timer);
+    if (job) { job.timer = null; job.deadlineAt = null; }
+  }
 
-    KWSR.warn?.("TTS error", { msg: lastTtsError });
+  function stopTTSJob(job = activeTTS, cancel = true) {
+    if (!job || activeTTS !== job) return;
+    // Invalidar ANTES de cancel(): el motor puede emitir error sincrónicamente.
+    activeTTS = null;
+    clearTTSTimer(job);
+    job.cleanup?.();
+    ttsStatus = "idle";
+    if (cancel) hardResetTTS();
+  }
 
+  function currentTTSAttempt(job, utterance) {
+    if (activeTTS !== job || job.utterance !== utterance) return false;
+    if (ttsContextIsCurrent(job)) return true;
+    stopTTSJob(job);
+    return false;
+  }
+
+  function armTTSTimer(job, ms, callback) {
+    clearTTSTimer(job);
+    job.deadlineAt = Date.now() + ms;
+    job.timer = setTimeout(() => {
+      if (activeTTS !== job) return;
+      if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+      callback();
+    }, ms);
+  }
+
+  function speechTimeBudget(utterance, charIndex = 0) {
+    const rate = Math.max(0.1, Number(utterance.rate) || 1);
+    const remaining = Math.max(0, utterance.text.length - charIndex);
+    // Margen conservador, ajustado al texto y a la velocidad efectiva. Los
+    // eventos de avance renuevan el margen; no suponemos que hablar >5 s es fallar.
+    return Math.min(120000, Math.max(
+      ttsLimit("ttsWatchdogMs", 15000, 15000, 120000),
+      Math.ceil(remaining / (10 * rate) * 1000) + 8000
+    ));
+  }
+
+  function failTTSAttempt(job, utterance, reason) {
+    if (!currentTTSAttempt(job, utterance)) return;
+    const error = String(reason || "tts_error");
+    if (error === "canceled" || error === "interrupted") {
+      stopTTSJob(job, false);
+      return;
+    }
+    lastTtsError = error;
+    S.ttsLastError = error;
+    try { KWSR.warn?.("TTS error", { msg: error, attempt: job.attempt }); } catch {}
+    const retries = Math.floor(ttsLimit("ttsMaxRetries", 1, 0, 2));
+    const retryable = !/^(not-allowed|voice-unavailable|language-unavailable|text-too-long|invalid-argument|speechSynthesis_not_available)$/.test(error);
+    const retry = !job.started && retryable && job.attempt <= retries;
+    // Los callbacks de este intento quedan obsoletos aunque siga el mismo texto.
+    job.utterance = null;
+    clearTTSTimer(job);
     hardResetTTS();
-
-    if (AUTO_SWITCH_TO_READER_ON_TTS_FAIL) {
-      S.modoNarradorGlobal = "lector";
-
+    if (retry) {
+      job.phase = "retry-wait";
+      armTTSTimer(job, ttsLimit("ttsRetryDelayMs", 500, 100, 3000), () => startTTSAttempt(job));
+      return;
+    }
+    stopTTSJob(job, false);
+    ttsStatus = "failed";
+    // El usuario conserva el modo y la voz. Un subtítulo nuevo puede intentar
+    // nuevamente; no guardamos ni forzamos "lector" como consecuencia de un fallo.
+    if (Date.now() - lastTtsNoticeAt >= 10000) {
+      lastTtsNoticeAt = Date.now();
       try {
-        KWSR.api?.storage?.local?.set?.({ modoNarrador: "lector" });
-      } catch {}
-
-      try {
-        KWSR.toast?.notify?.("⚠️ Falló la voz. Pasé a modo Lector automáticamente.");
-      } catch {}
-
-      try {
-        KWSR.overlay?.updateOverlayStatus?.();
+        KWSR.toast?.notify?.("No se pudo completar la lectura con voz. Podés elegir otra voz o reiniciar la lectura.");
       } catch {}
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // maybeUnstickTTS()
-  // ---------------------------------------------------------------------------
-  // Si speechSynthesis parece colgado demasiado tiempo,
-  // lo cancelamos y marcamos error.
-  // ---------------------------------------------------------------------------
-  function maybeUnstickTTS() {
+  function startTTSAttempt(job) {
+    if (activeTTS !== job) return;
+    if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+    job.phase = "starting";
+    job.started = false;
+    job.progress = 0;
+    job.attempt++;
+    job.utterance = null;
+    clearTTSTimer(job);
+    hardResetTTS();
+    if (!isTTSAvailable()) {
+      failTTSAttempt(job, null, "speechSynthesis_not_available");
+      return;
+    }
     try {
-      if (!isTTSAvailable()) return;
+      cargarVozES();
+      const u = new SpeechSynthesisUtterance(job.text);
+      job.utterance = u;
+      if (S.voiceES) u.voice = S.voiceES;
+      u.lang = S.voiceES?.lang || "es-ES";
+      u.rate = 1;
+      u.pitch = 1;
+      u.volume = 1;
 
-      const now = Date.now();
-      const speaking = !!speechSynthesis.speaking;
-      const stuckTooLong = speaking && (now - lastSpeakAt > 5500);
+      u.onstart = () => {
+        if (!currentTTSAttempt(job, u)) return;
+        job.started = true;
+        job.phase = "speaking";
+        S.lastSpokenKey = job.key;
+        S.lastSpokenAt = Date.now();
+        traceFlowOutput("tts-start", job.text);
+        armTTSTimer(job, speechTimeBudget(u), () => failTTSAttempt(job, u, "watchdog_no_end"));
+      };
+      u.onboundary = ev => {
+        if (!currentTTSAttempt(job, u) || !job.started) return;
+        const index = Number(ev?.charIndex);
+        if (!Number.isInteger(index) || index <= job.progress || index > job.text.length) return;
+        job.progress = index;
+        armTTSTimer(job, speechTimeBudget(u, index), () => failTTSAttempt(job, u, "watchdog_no_end"));
+      };
+      u.onend = () => {
+        if (currentTTSAttempt(job, u)) stopTTSJob(job, false);
+      };
+      u.onerror = ev => failTTSAttempt(job, u, ev?.error || ev?.message || "tts_error");
 
-      if (stuckTooLong) {
-        KWSR.warn?.("TTS parecía colgado, cancel()");
-        hardResetTTS();
-        markTTSBroken("stuck_speaking_timeout");
-      }
-    } catch {}
+      armTTSTimer(job, ttsLimit("ttsStartTimeoutMs", 10000, 5000, 60000),
+        () => failTTSAttempt(job, u, "watchdog_no_start"));
+      if (speechSynthesis.paused) speechSynthesis.resume?.();
+      speechSynthesis.speak(u);
+    } catch (e) {
+      failTTSAttempt(job, job.utterance, e?.message || e);
+    }
+  }
+
+  function getTTSState() {
+    return {
+      revision: TTS_RECOVERY_REVISION,
+      phase: activeTTS?.phase || ttsStatus,
+      attempt: activeTTS?.attempt || 0,
+      started: !!activeTTS?.started,
+      deadlineAt: activeTTS?.deadlineAt ?? null,
+      lastError: lastTtsError
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -367,7 +455,6 @@
       if (v && (v.paused || v.ended)) return false;
     } catch {}
 
-    maybeUnstickTTS();
     return true;
   }
 
@@ -574,90 +661,31 @@
   // speakTTS(text)
   // ---------------------------------------------------------------------------
   //
-  // Devuelve:
-  // - true si intentó hablar o consideró que ya estaba cubierto
-  // - false si falló y conviene fallback a lector
-  // ---------------------------------------------------------------------------
-  // Usa la voz del navegador. Cancela la cola anterior antes de enviar esta frase.
-  // El temporizador de vigilancia intenta detectar una síntesis que quedó trabada.
+  // Conserva el modo elegido. Una frase nueva sustituye a la anterior y a sus
+  // reintentos pendientes para no acumular subtítulos atrasados.
   function speakTTS(text) {
-    if (!isTTSAvailable()) {
-      markTTSBroken("speechSynthesis_not_available");
-      return false;
-    }
-
     const now = Date.now();
-    if (now < ttsBrokenUntil) return false;
-
-    cargarVozES();
-
-    try {
-      clearWatchdog();
-
-      // -----------------------------------------------------------------------
-      // Anti-eco TTS
-      // -----------------------------------------------------------------------
-      // Si el mismo texto llega dos veces muy pegado al sintetizador,
-      // no lo mandamos de nuevo.
-      // -----------------------------------------------------------------------
-      const tKey = fpStrict(text);
-      if (
-        tKey &&
-        (tKey === (S.lastSpokenKey || "")) &&
-        (now - (S.lastSpokenAt || 0) < (CFG.ttsEchoMs ?? 350))
-      ) {
-        return true;
-      }
-
-      // Limpiar cola para evitar acumulación
-      try {
-        speechSynthesis.cancel?.();
-      } catch {}
-
-      const u = new SpeechSynthesisUtterance(text);
-      if (S.voiceES) u.voice = S.voiceES;
-
-      u.lang = (S.voiceES?.lang) || "es-ES";
-      u.rate = 1;
-      u.pitch = 1;
-      u.volume = 1;
-
-      let finished = false;
-
-      u.onstart = () => {
-        traceFlowOutput("tts-start", text);
-        lastSpeakAt = Date.now();
-        S.lastSpokenKey = tKey || "";
-        S.lastSpokenAt = Date.now();
+    const key = fpStrict(text);
+    if (key && key === (S.lastSpokenKey || "") &&
+        now - (S.lastSpokenAt || 0) < (CFG.ttsEchoMs ?? 350)) return;
+    stopTTSJob(activeTTS, false);
+    const video = S.currentVideo;
+    const job = {
+      text, key, video, source: String(video?.currentSrc || video?.src || ""),
+      attempt: 0, utterance: null, timer: null, started: false
+    };
+    activeTTS = job;
+    // Pausar o cambiar la posición invalida incluso un reintento que todavía no
+    // llegó a ejecutarse, aunque el video se reanude antes de su temporizador.
+    const events = ["pause", "seeking", "emptied", "ended"];
+    const invalidate = () => stopTTSJob(job);
+    if (video?.addEventListener) {
+      for (const event of events) video.addEventListener(event, invalidate);
+      job.cleanup = () => {
+        for (const event of events) video.removeEventListener(event, invalidate);
       };
-
-      u.onend = () => {
-        finished = true;
-        clearWatchdog();
-      };
-
-      u.onerror = (ev) => {
-        finished = true;
-        clearWatchdog();
-
-        const msg = String(ev?.error || ev?.message || "tts_error");
-        markTTSBroken(msg);
-      };
-
-      // Watchdog por si queda colgado
-      watchdogTimer = setTimeout(() => {
-        if (finished) return;
-        markTTSBroken("watchdog_no_end_no_error");
-      }, Math.max(2500, (CFG.ttsWatchdogMs || 4500)));
-
-      speechSynthesis.speak(u);
-      lastSpeakAt = Date.now();
-
-      return true;
-    } catch (e) {
-      markTTSBroken(String(e?.message || e));
-      return false;
     }
+    startTTSAttempt(job);
   }
 
   // ---------------------------------------------------------------------------
@@ -669,7 +697,7 @@
   // - shouldReadNow()
   // - dedupe global
   // - lector vs sintetizador
-  // - fallback si TTS falla
+  // - recuperación de TTS sin cambiar el modo elegido
   // ---------------------------------------------------------------------------
   function leerTextoAccesible(raw) {
     if (!shouldReadNow()) return;
@@ -691,8 +719,7 @@
     }
 
     // Modo sintetizador
-    const ok = speakTTS(text);
-    if (!ok) pushToLiveRegion(text);
+    speakTTS(text);
   }
 
   // ---------------------------------------------------------------------------
@@ -707,7 +734,7 @@
   function detenerLectura() {
     for (const timer of pendingAnnouncements) clearTimeout(timer);
     pendingAnnouncements.clear();
-    try { clearWatchdog(); } catch {}
+    stopTTSJob(activeTTS, false);
     try { hardResetTTS(); } catch {}
     try {
       if (S.liveRegion) S.liveRegion.textContent = "";
@@ -735,7 +762,8 @@
     detenerLectura,
     pushToLiveRegion,
     prepareLiveRegion: ensureLiveRegion,
-    getLiveRegionState
+    getLiveRegionState,
+    getTTSState
   };
 
 })();

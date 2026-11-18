@@ -13,7 +13,7 @@ Se conservan aquí las herramientas experimentales de medición de Flow y los
 ensayos de pantalla completa retirados de la distribución estable.
 
 Permanecen abiertos para una próxima versión el atraso y la fragmentación de
-**Flow en vivo** y la ausencia de lectura de subtítulos en **pantalla completa**.
+**Flow en vivo** y la lectura de subtítulos con **lector de pantalla en pantalla completa**.
 Ver [el seguimiento de fallos](docs/problemas-conocidos.md).
 
 **Ensayo de pantalla completa, revisión 1 (17/11/2026):** la región de anuncios
@@ -21,6 +21,13 @@ acompaña al contenedor de pantalla completa y los controles de KathWare solicit
 ese contenedor cuando está disponible. Se retira el reinicio automático del
 pipeline al cambiar de modo. Falta confirmar la lectura automática con NVDA;
 el fallo sigue abierto. Ver [la prueba y sus límites](docs/fullscreen-lectura.md).
+
+**Recuperación del sintetizador, revisión 1 (17/11/2026):** un fallo de voz ya no
+cambia ni guarda automáticamente el modo lector. Se amplía la espera inicial,
+se ajusta la vigilancia a la duración y velocidad de la frase y se permite un
+reintento antes de empezar a hablar. Ver [comportamiento y pruebas](docs/tts-recuperacion.md).
+Katherine confirma que el sintetizador puede leer en pantalla completa; falta
+validar allí la nueva recuperación con sus voces reales.
 
 La etiqueta de esta rama sigue siendo `3.0.0-beta` durante el desarrollo;
 la entrega estable debe empaquetarse desde `main`. El número de la próxima
