@@ -75,13 +75,13 @@
   // Esto vive solo mientras la página está abierta.
   // No se guarda en storage.
   // ---------------------------------------------------------------------------
-  let lastSpeakAt = 0;
-  let ttsBrokenUntil = 0;
   let lastTtsError = "";
-  let watchdogTimer = null;
-
-  // Si TTS falla, pasar automáticamente a modo lector
-  const AUTO_SWITCH_TO_READER_ON_TTS_FAIL = true;
+  let activeTTS = null;
+  let ttsStatus = "idle";
+  let lastTtsNoticeAt = -Infinity;
+  const TTS_RECOVERY_REVISION = 1;
+  const LIVE_REGION_REVISION = 1;
+  const pendingAnnouncements = new Set();
 
   // Para no enganchar onvoiceschanged muchas veces
   let voicesHooked = false;
@@ -121,30 +121,69 @@
   // Esto crea un div invisible que los lectores de pantalla pueden anunciar.
   // Sirve para el modo "lector".
   // ---------------------------------------------------------------------------
-  function ensureLiveRegion() {
-    if (S.liveRegion) return;
-
-    const div = document.createElement("div");
-    div.id = "kwsr-live-region";
-    div.setAttribute("role", "status");
-    div.setAttribute("aria-live", "polite");
-    div.setAttribute("aria-atomic", "true");
-
-    Object.assign(div.style, {
-      position: "fixed",
-      left: "-9999px",
-      top: "0",
-      width: "1px",
-      height: "1px",
-      overflow: "hidden",
-      clip: "rect(1px, 1px, 1px, 1px)",
-      clipPath: "inset(50%)",
-      whiteSpace: "nowrap"
-    });
-
-    document.documentElement.appendChild(div);
-    S.liveRegion = div;
+  function liveRegionContext() {
+    let fullscreen = document.fullscreenElement;
+    // En un Shadow DOM abierto, el documento expone el host, no el nodo interior.
+    while (fullscreen?.shadowRoot?.fullscreenElement) {
+      fullscreen = fullscreen.shadowRoot.fullscreenElement;
+    }
+    const tag = fullscreen?.tagName || "";
+    const nativeMedia = /^(VIDEO|AUDIO)$/.test(tag);
+    const replacedElement = /^(VIDEO|AUDIO|IFRAME|OBJECT|EMBED|CANVAS|IMG)$/.test(tag);
+    return {
+      fullscreen,
+      // Los hijos de video son contenido alternativo: no son una región accesible
+      // fiable en la pantalla completa nativa. No fingimos resolver ese caso.
+      host: fullscreen && !replacedElement
+        ? (fullscreen.shadowRoot || fullscreen) : document.documentElement,
+      scope: !fullscreen ? "document" : nativeMedia ? "native-media-fullscreen"
+        : replacedElement ? "unsupported-fullscreen-element" : "container-fullscreen"
+    };
   }
+
+  function ensureLiveRegion() {
+    if (!S.liveRegion) {
+      const div = document.createElement("div");
+      div.id = "kwsr-live-region";
+      div.setAttribute("role", "status");
+      div.setAttribute("aria-live", "polite");
+      div.setAttribute("aria-atomic", "true");
+      Object.assign(div.style, {
+        position: "fixed", left: "0", top: "0", width: "1px", height: "1px",
+        overflow: "hidden", clip: "rect(1px, 1px, 1px, 1px)",
+        clipPath: "inset(50%)", whiteSpace: "nowrap"
+      });
+      S.liveRegion = div;
+    }
+    const { host } = liveRegionContext();
+    if (host && S.liveRegion.parentNode !== host) {
+      // Mover la misma región vacía evita repetir el último subtítulo. No depende
+      // del panel (que puede estar oculto), ni cambia el foco o el capturador.
+      S.liveRegion.textContent = "";
+      host.appendChild(S.liveRegion);
+    }
+    return S.liveRegion;
+  }
+
+  function getLiveRegionState() {
+    const { fullscreen, scope } = liveRegionContext();
+    const region = S.liveRegion;
+    return {
+      revision: LIVE_REGION_REVISION,
+      scope,
+      fullscreenTag: fullscreen?.tagName || "",
+      connected: !!region?.isConnected,
+      hostTag: region?.parentNode?.tagName || region?.parentNode?.nodeName || "",
+      insideFullscreen: !!(fullscreen && region && (
+        fullscreen.contains(region) || fullscreen.shadowRoot?.contains(region)
+      )),
+      text: String(region?.textContent || "").slice(0, 500)
+    };
+  }
+
+  document.addEventListener("fullscreenchange", () => {
+    if (S.extensionActiva && S.modoNarradorGlobal === "lector") ensureLiveRegion();
+  });
 
   // ---------------------------------------------------------------------------
   // pushToLiveRegion(text)
@@ -160,11 +199,14 @@
 
     try {
       S.liveRegion.textContent = "";
-
-      setTimeout(() => {
-        if (!S.liveRegion) return;
-        S.liveRegion.textContent = String(text ?? "");
+      const outputMode = S.modoNarradorGlobal;
+      const timer = setTimeout(() => {
+        pendingAnnouncements.delete(timer);
+        if (S.modoNarradorGlobal !== outputMode || !shouldReadNow()) return;
+        // El modo de pantalla puede cambiar durante la espera del anuncio.
+        ensureLiveRegion().textContent = String(text ?? "");
       }, 10);
+      pendingAnnouncements.add(timer);
     } catch {}
   }
 
@@ -179,30 +221,25 @@
   }
 
   // ---------------------------------------------------------------------------
-  // cargarVozES()
+  // cargarVoz()
   // ---------------------------------------------------------------------------
-  // Busca una voz en español, idealmente es-AR.
-  // Si no hay, usa alguna es-*.
-  // Si no hay nada, usa la primera disponible.
+  // Respeta la elección guardada; en automático usa la predeterminada del
+  // navegador, sin elegir idioma ni país por cuenta de la extensión.
   // ---------------------------------------------------------------------------
-  function cargarVozES() {
+  function cargarVoz() {
     try {
       if (!isTTSAvailable()) return;
 
       const pick = (voices) => {
-        return (
-          voices.find(v => (v.lang || "").toLowerCase().startsWith("es-ar")) ||
-          voices.find(v => (v.lang || "").toLowerCase().startsWith("es")) ||
-          voices.find(v => (v.lang || "").toLowerCase().includes("es")) ||
-          voices[0] ||
-          null
-        );
+        if (S.ttsVoiceURI || S.ttsVoiceName) {
+          return voices.find(v => S.ttsVoiceURI && String(v.voiceURI || v.name || "") === S.ttsVoiceURI) ||
+            voices.find(v => S.ttsVoiceName && v.name === S.ttsVoiceName) || null;
+        }
+        return voices.find(v => v.default) || null;
       };
 
       const voces = speechSynthesis.getVoices?.() || [];
-      if (voces.length) {
-        S.voiceES = pick(voces);
-      }
+      S.voiceES = pick(voces);
 
       if (!voicesHooked) {
         voicesHooked = true;
@@ -210,7 +247,7 @@
         speechSynthesis.onvoiceschanged = () => {
           try {
             const v2 = speechSynthesis.getVoices?.() || [];
-            if (v2.length) S.voiceES = pick(v2) || S.voiceES || null;
+            S.voiceES = pick(v2);
           } catch {}
         };
       }
@@ -230,70 +267,163 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Watchdog helpers
+  // Recuperación de TTS: respetar el modo elegido y los eventos de cada frase.
   // ---------------------------------------------------------------------------
-  function clearWatchdog() {
-    try {
-      if (watchdogTimer) clearTimeout(watchdogTimer);
-    } catch {}
-
-    watchdogTimer = null;
+  function ttsLimit(name, fallback, min, max) {
+    const value = Number(CFG?.[name] ?? fallback);
+    return Math.max(min, Math.min(max, Number.isFinite(value) ? value : fallback));
   }
 
-  // ---------------------------------------------------------------------------
-  // markTTSBroken(reason)
-  // ---------------------------------------------------------------------------
-  // Marca TTS como roto por unos segundos,
-  // limpia cola y hace fallback a lector si está habilitado.
-  // ---------------------------------------------------------------------------
-  function markTTSBroken(reason) {
-    lastTtsError = String(reason || "unknown");
-    ttsBrokenUntil = Date.now() + 4000;
+  function ttsContextIsCurrent(job) {
+    const v = S.currentVideo;
+    return S.extensionActiva && S.modoNarradorGlobal === "sintetizador" &&
+      v === job.video && !v?.paused && !v?.ended &&
+      String(v?.currentSrc || v?.src || "") === job.source;
+  }
 
-    S.ttsLastError = lastTtsError;
-    S.ttsBrokenUntil = ttsBrokenUntil;
+  function clearTTSTimer(job) {
+    if (job?.timer != null) clearTimeout(job.timer);
+    if (job) { job.timer = null; job.deadlineAt = null; }
+  }
 
-    KWSR.warn?.("TTS error", { msg: lastTtsError });
+  function stopTTSJob(job = activeTTS, cancel = true) {
+    if (!job || activeTTS !== job) return;
+    // Invalidar ANTES de cancel(): el motor puede emitir error sincrónicamente.
+    activeTTS = null;
+    clearTTSTimer(job);
+    job.cleanup?.();
+    ttsStatus = "idle";
+    if (cancel) hardResetTTS();
+  }
 
+  function currentTTSAttempt(job, utterance) {
+    if (activeTTS !== job || job.utterance !== utterance) return false;
+    if (ttsContextIsCurrent(job)) return true;
+    stopTTSJob(job);
+    return false;
+  }
+
+  function armTTSTimer(job, ms, callback) {
+    clearTTSTimer(job);
+    job.deadlineAt = Date.now() + ms;
+    job.timer = setTimeout(() => {
+      if (activeTTS !== job) return;
+      if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+      callback();
+    }, ms);
+  }
+
+  function speechTimeBudget(utterance, charIndex = 0) {
+    const rate = Math.max(0.1, Number(utterance.rate) || 1);
+    const remaining = Math.max(0, utterance.text.length - charIndex);
+    // Margen conservador, ajustado al texto y a la velocidad efectiva. Los
+    // eventos de avance renuevan el margen; no suponemos que hablar >5 s es fallar.
+    return Math.min(120000, Math.max(
+      ttsLimit("ttsWatchdogMs", 15000, 15000, 120000),
+      Math.ceil(remaining / (10 * rate) * 1000) + 8000
+    ));
+  }
+
+  function failTTSAttempt(job, utterance, reason) {
+    if (!currentTTSAttempt(job, utterance)) return;
+    const error = String(reason || "tts_error");
+    if (error === "canceled" || error === "interrupted") {
+      stopTTSJob(job, false);
+      return;
+    }
+    lastTtsError = error;
+    S.ttsLastError = error;
+    try { KWSR.warn?.("TTS error", { msg: error, attempt: job.attempt }); } catch {}
+    const retries = Math.floor(ttsLimit("ttsMaxRetries", 1, 0, 2));
+    const retryable = !/^(not-allowed|voice-unavailable|language-unavailable|text-too-long|invalid-argument|speechSynthesis_not_available)$/.test(error);
+    const retry = !job.started && retryable && job.attempt <= retries;
+    // Los callbacks de este intento quedan obsoletos aunque siga el mismo texto.
+    job.utterance = null;
+    clearTTSTimer(job);
     hardResetTTS();
-
-    if (AUTO_SWITCH_TO_READER_ON_TTS_FAIL) {
-      S.modoNarradorGlobal = "lector";
-
+    if (retry) {
+      job.phase = "retry-wait";
+      armTTSTimer(job, ttsLimit("ttsRetryDelayMs", 500, 100, 3000), () => startTTSAttempt(job));
+      return;
+    }
+    stopTTSJob(job, false);
+    ttsStatus = "failed";
+    // El usuario conserva el modo y la voz. Un subtítulo nuevo puede intentar
+    // nuevamente; no guardamos ni forzamos "lector" como consecuencia de un fallo.
+    if (Date.now() - lastTtsNoticeAt >= 10000) {
+      lastTtsNoticeAt = Date.now();
       try {
-        KWSR.api?.storage?.local?.set?.({ modoNarrador: "lector" });
-      } catch {}
-
-      try {
-        KWSR.toast?.notify?.("⚠️ Falló la voz. Pasé a modo Lector automáticamente.");
-      } catch {}
-
-      try {
-        KWSR.overlay?.updateOverlayStatus?.();
+        KWSR.toast?.notify?.("No se pudo completar la lectura con voz. Podés elegir otra voz o reiniciar la lectura.");
       } catch {}
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // maybeUnstickTTS()
-  // ---------------------------------------------------------------------------
-  // Si speechSynthesis parece colgado demasiado tiempo,
-  // lo cancelamos y marcamos error.
-  // ---------------------------------------------------------------------------
-  function maybeUnstickTTS() {
+  function startTTSAttempt(job) {
+    if (activeTTS !== job) return;
+    if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+    job.phase = "starting";
+    job.started = false;
+    job.progress = 0;
+    job.attempt++;
+    job.utterance = null;
+    clearTTSTimer(job);
+    hardResetTTS();
+    if (!isTTSAvailable()) {
+      failTTSAttempt(job, null, "speechSynthesis_not_available");
+      return;
+    }
     try {
-      if (!isTTSAvailable()) return;
-
-      const now = Date.now();
-      const speaking = !!speechSynthesis.speaking;
-      const stuckTooLong = speaking && (now - lastSpeakAt > 5500);
-
-      if (stuckTooLong) {
-        KWSR.warn?.("TTS parecía colgado, cancel()");
-        hardResetTTS();
-        markTTSBroken("stuck_speaking_timeout");
+      cargarVoz();
+      if ((S.ttsVoiceURI || S.ttsVoiceName) && !S.voiceES) {
+        failTTSAttempt(job, null, "voice-unavailable");
+        return;
       }
-    } catch {}
+      const u = new SpeechSynthesisUtterance(job.text);
+      job.utterance = u;
+      if (S.voiceES) u.voice = S.voiceES;
+      if (S.voiceES?.lang) u.lang = S.voiceES.lang;
+      u.rate = 1;
+      u.pitch = 1;
+      u.volume = 1;
+
+      u.onstart = () => {
+        if (!currentTTSAttempt(job, u)) return;
+        job.started = true;
+        job.phase = "speaking";
+        S.lastSpokenKey = job.key;
+        S.lastSpokenAt = Date.now();
+        armTTSTimer(job, speechTimeBudget(u), () => failTTSAttempt(job, u, "watchdog_no_end"));
+      };
+      u.onboundary = ev => {
+        if (!currentTTSAttempt(job, u) || !job.started) return;
+        const index = Number(ev?.charIndex);
+        if (!Number.isInteger(index) || index <= job.progress || index > job.text.length) return;
+        job.progress = index;
+        armTTSTimer(job, speechTimeBudget(u, index), () => failTTSAttempt(job, u, "watchdog_no_end"));
+      };
+      u.onend = () => {
+        if (currentTTSAttempt(job, u)) stopTTSJob(job, false);
+      };
+      u.onerror = ev => failTTSAttempt(job, u, ev?.error || ev?.message || "tts_error");
+
+      armTTSTimer(job, ttsLimit("ttsStartTimeoutMs", 10000, 5000, 60000),
+        () => failTTSAttempt(job, u, "watchdog_no_start"));
+      if (speechSynthesis.paused) speechSynthesis.resume?.();
+      speechSynthesis.speak(u);
+    } catch (e) {
+      failTTSAttempt(job, job.utterance, e?.message || e);
+    }
+  }
+
+  function getTTSState() {
+    return {
+      revision: TTS_RECOVERY_REVISION,
+      phase: activeTTS?.phase || ttsStatus,
+      attempt: activeTTS?.attempt || 0,
+      started: !!activeTTS?.started,
+      deadlineAt: activeTTS?.deadlineAt ?? null,
+      lastError: lastTtsError
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -317,7 +447,6 @@
       if (v && (v.paused || v.ended)) return false;
     } catch {}
 
-    maybeUnstickTTS();
     return true;
   }
 
@@ -524,89 +653,31 @@
   // speakTTS(text)
   // ---------------------------------------------------------------------------
   //
-  // Devuelve:
-  // - true si intentó hablar o consideró que ya estaba cubierto
-  // - false si falló y conviene fallback a lector
-  // ---------------------------------------------------------------------------
-  // Usa la voz del navegador. Cancela la cola anterior antes de enviar esta frase.
-  // El temporizador de vigilancia intenta detectar una síntesis que quedó trabada.
+  // Conserva el modo elegido. Una frase nueva sustituye a la anterior y a sus
+  // reintentos pendientes para no acumular subtítulos atrasados.
   function speakTTS(text) {
-    if (!isTTSAvailable()) {
-      markTTSBroken("speechSynthesis_not_available");
-      return false;
-    }
-
     const now = Date.now();
-    if (now < ttsBrokenUntil) return false;
-
-    cargarVozES();
-
-    try {
-      clearWatchdog();
-
-      // -----------------------------------------------------------------------
-      // Anti-eco TTS
-      // -----------------------------------------------------------------------
-      // Si el mismo texto llega dos veces muy pegado al sintetizador,
-      // no lo mandamos de nuevo.
-      // -----------------------------------------------------------------------
-      const tKey = fpStrict(text);
-      if (
-        tKey &&
-        (tKey === (S.lastSpokenKey || "")) &&
-        (now - (S.lastSpokenAt || 0) < (CFG.ttsEchoMs ?? 350))
-      ) {
-        return true;
-      }
-
-      // Limpiar cola para evitar acumulación
-      try {
-        speechSynthesis.cancel?.();
-      } catch {}
-
-      const u = new SpeechSynthesisUtterance(text);
-      if (S.voiceES) u.voice = S.voiceES;
-
-      u.lang = (S.voiceES?.lang) || "es-ES";
-      u.rate = 1;
-      u.pitch = 1;
-      u.volume = 1;
-
-      let finished = false;
-
-      u.onstart = () => {
-        lastSpeakAt = Date.now();
-        S.lastSpokenKey = tKey || "";
-        S.lastSpokenAt = Date.now();
+    const key = fpStrict(text);
+    if (key && key === (S.lastSpokenKey || "") &&
+        now - (S.lastSpokenAt || 0) < (CFG.ttsEchoMs ?? 350)) return;
+    stopTTSJob(activeTTS, false);
+    const video = S.currentVideo;
+    const job = {
+      text, key, video, source: String(video?.currentSrc || video?.src || ""),
+      attempt: 0, utterance: null, timer: null, started: false
+    };
+    activeTTS = job;
+    // Pausar o cambiar la posición invalida incluso un reintento que todavía no
+    // llegó a ejecutarse, aunque el video se reanude antes de su temporizador.
+    const events = ["pause", "seeking", "emptied", "ended"];
+    const invalidate = () => stopTTSJob(job);
+    if (video?.addEventListener) {
+      for (const event of events) video.addEventListener(event, invalidate);
+      job.cleanup = () => {
+        for (const event of events) video.removeEventListener(event, invalidate);
       };
-
-      u.onend = () => {
-        finished = true;
-        clearWatchdog();
-      };
-
-      u.onerror = (ev) => {
-        finished = true;
-        clearWatchdog();
-
-        const msg = String(ev?.error || ev?.message || "tts_error");
-        markTTSBroken(msg);
-      };
-
-      // Watchdog por si queda colgado
-      watchdogTimer = setTimeout(() => {
-        if (finished) return;
-        markTTSBroken("watchdog_no_end_no_error");
-      }, Math.max(2500, (CFG.ttsWatchdogMs || 4500)));
-
-      speechSynthesis.speak(u);
-      lastSpeakAt = Date.now();
-
-      return true;
-    } catch (e) {
-      markTTSBroken(String(e?.message || e));
-      return false;
     }
+    startTTSAttempt(job);
   }
 
   // ---------------------------------------------------------------------------
@@ -618,7 +689,7 @@
   // - shouldReadNow()
   // - dedupe global
   // - lector vs sintetizador
-  // - fallback si TTS falla
+  // - recuperación de TTS sin cambiar el modo elegido
   // ---------------------------------------------------------------------------
   function leerTextoAccesible(raw) {
     if (!shouldReadNow()) return;
@@ -640,8 +711,7 @@
     }
 
     // Modo sintetizador
-    const ok = speakTTS(text);
-    if (!ok) pushToLiveRegion(text);
+    speakTTS(text);
   }
 
   // ---------------------------------------------------------------------------
@@ -654,7 +724,9 @@
   // - reiniciamos el pipeline
   // ---------------------------------------------------------------------------
   function detenerLectura() {
-    try { clearWatchdog(); } catch {}
+    for (const timer of pendingAnnouncements) clearTimeout(timer);
+    pendingAnnouncements.clear();
+    stopTTSJob(activeTTS, false);
     try { hardResetTTS(); } catch {}
     try {
       if (S.liveRegion) S.liveRegion.textContent = "";
@@ -676,11 +748,15 @@
   // Export público
   // ---------------------------------------------------------------------------
   KWSR.voice = {
-    cargarVozES,
+    cargarVoz,
+    cargarVozES: cargarVoz, // Alias para los módulos existentes.
     shouldReadNow,
     leerTextoAccesible,
     detenerLectura,
-    pushToLiveRegion
+    pushToLiveRegion,
+    prepareLiveRegion: ensureLiveRegion,
+    getLiveRegionState,
+    getTTSState
   };
 
 })();

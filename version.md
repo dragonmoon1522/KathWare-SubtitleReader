@@ -1,9 +1,35 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-17
+**Última actualización:** 2026-11-20
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
+
+### 3.0.0 estable — pantalla completa y sintetizador (2026-11-20)
+
+* Katherine confirma que el error previo no reapareció y aprueba pasar a la
+  estable las correcciones de lectura en pantalla completa y recuperación de voz.
+* La región accesible se prepara vacía y acompaña al contenedor de pantalla
+  completa. Los controles de KathWare solicitan ese contenedor cuando existe,
+  conservando foco y deduplicación. Se mantiene el límite del modo nativo de video.
+* El sintetizador espera hasta 10 segundos para iniciar, calcula el margen de
+  duración según texto y velocidad, y permite un reintento antes del inicio.
+  Se ignoran cancelaciones antiguas y se conserva el modo elegido ante fallos.
+* La selección automática deja de priorizar español: sigue la predeterminada del
+  navegador. Cualquier voz elegida expresamente tiene prioridad. Se elimina
+  «preferir español» del selector y no se fuerza `es-ES` en las frases nuevas.
+* Accessibility Player incorpora esta misma salida compartida mediante un
+  generador de snippet, con voz y velocidad, pantalla completa de contenedor,
+  cancelación de salidas pendientes y conversión local de SRT a VTT.
+* La promoción es selectiva: no incorpora la búsqueda ampliada de selectores,
+  los reportes nuevos ni las herramientas experimentales de Flow de la beta.
+* Validación: 111 pruebas Node de la extensión y 9 del reproductor generado
+  aprobadas. La prueba de navegador sigue bloqueada por creación de sockets
+  (`Operation not permitted`); la aprobación funcional es la reportada por Katherine.
+* El manifest sigue siendo `3.0.0`; la rama beta conserva su desarrollo.
+  La preparación del código y del ZIP no implica publicación en Chrome Web Store.
+* El borrador del post se actualiza con pantalla completa, voz libre, RHVoice,
+  Phonon para NVDA y la etapa prevista de Edge. Todavía no se publica.
 
 ### **Versión 3.0.0 — estable (2026-11-17)**
 

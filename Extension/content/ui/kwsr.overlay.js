@@ -296,9 +296,10 @@
         // Persistimos para popup / próximas cargas
         try { KWSR.api?.storage?.local?.set?.({ modoNarrador: S.modoNarradorGlobal }); } catch {}
 
-        // Si apaga, detenemos lectura al toque
-        if (S.modoNarradorGlobal === "off") {
-          try { KWSR.voice?.detenerLectura?.(); } catch {}
+        // El cambio de salida cancela también cualquier reintento de la anterior.
+        try { KWSR.voice?.detenerLectura?.(); } catch {}
+        if (S.extensionActiva && S.modoNarradorGlobal === "lector") {
+          try { KWSR.voice?.prepareLiveRegion?.(); } catch {}
         }
 
         updateOverlayStatus();
@@ -414,11 +415,24 @@
     const v = S.currentVideo;
     if (!v) return;
 
+    // Usar el contenedor existente conserva controles y anuncios en el mismo
+    // ámbito. No envolver ni mover el video de una plataforma.
+    const root = KWSR.keepAlive?.playerRoot?.(v);
+    const target = root && root !== v && root.contains(v) &&
+      !/^(HTML|BODY|VIDEO|AUDIO|IFRAME|OBJECT|EMBED|CANVAS|IMG)$/.test(root.tagName) &&
+      typeof root.requestFullscreen === "function" ? root : v;
+    if (target === v) {
+      try {
+        KWSR.toast?.notify?.("⚠️ En pantalla completa nativa la lectura automática puede fallar.");
+      } catch {}
+    }
+    const failed = () => {
+      try { KWSR.toast?.notify?.("No se pudo activar la pantalla completa."); } catch {}
+    };
     try {
-      KWSR.toast?.notify?.("La lectura de subtítulos en pantalla completa tiene un fallo pendiente. Para escuchar los subtítulos, usá la vista normal.");
-    } catch {}
-
-    try { v.requestFullscreen?.(); } catch {}
+      const pending = target.requestFullscreen?.();
+      pending?.catch?.(failed);
+    } catch { failed(); }
   }
 
   function toggleCaptions() {

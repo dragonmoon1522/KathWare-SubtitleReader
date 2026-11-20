@@ -1,9 +1,10 @@
 # Paquetes y navegadores — 3.0.0
 
 `main` contiene 3.0.0 estable, aprobada por Katherine el 17/11/2026.
-`3.0.0-beta` continúa como rama de desarrollo. Los
-[dos fallos conocidos](problemas-conocidos.md) quedan abiertos para una
-próxima versión.
+`3.0.0-beta` continúa como rama de desarrollo. El 20/11/2026 se incorporan las
+correcciones aprobadas de pantalla completa de contenedor y sintetizador,
+con selección de voz sin preferencia de idioma. Flow en vivo y el modo nativo
+del elemento de video conservan los [límites documentados](problemas-conocidos.md).
 
 ## Orden de distribución
 

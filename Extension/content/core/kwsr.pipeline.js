@@ -199,6 +199,10 @@
   function startTimers() {
     stopTimers();
 
+    if (S.extensionActiva && S.modoNarradorGlobal === "lector") {
+      KWSR.voice?.prepareLiveRegion?.();
+    }
+
     S.rehookTimer = setInterval(rehookTick, REHOOK_MS);
 
     S.adaptersTimer = setInterval(() => {

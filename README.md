@@ -1,7 +1,7 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-11-17
+**Última actualización:** 2026-11-20
 
 ### Versión estable: 3.0.0
 
@@ -10,11 +10,18 @@ La rama `main` contiene la versión estable 3.0.0, aprobada por Katherine el
 YouTube, Paramount+ y ViX, lectura de Flow, selector de voces y velocidad,
 controles accesibles y diagnóstico general.
 
+El 20/11/2026 Katherine aprueba incorporar a la estable las correcciones de
+pantalla completa y recuperación del sintetizador. Los anuncios acompañan al
+contenedor de pantalla completa; la salida de voz conserva el modo elegido y
+puede recuperarse de fallos de inicio. El selector respeta cualquier idioma y
+la opción automática usa la voz predeterminada del navegador.
+
 **Fallos conocidos que quedan abiertos para una versión posterior:**
 
 - **Flow en vivo:** atraso respecto del audio y entregas fragmentadas reportadas.
-- **Pantalla completa:** los subtítulos no se leen; usar la vista normal para
-  mantener la lectura.
+- **Pantalla completa nativa del elemento de video:** conserva limitaciones para
+  los lectores de pantalla. Los controles de KathWare usan el contenedor cuando
+  está disponible.
 
 Ver el [seguimiento de estos fallos](docs/problemas-conocidos.md).
 
@@ -80,8 +87,13 @@ https://github.com/dragonmoon1522/KathWare-SubtitleReader
 | Paramount+ | Funcionamiento confirmado durante la beta. |
 | Dailymotion / Telefe | Selectores previstos; falta validación específica para anunciar compatibilidad verificada. |
 
-La lectura en pantalla completa tiene un fallo conocido, pendiente de
-corrección. Las confirmaciones de lectura no implican que ese modo funcione.
+La corrección de lectura en pantalla completa de contenedor está integrada en
+3.0.0 por aprobación de Katherine. El modo nativo del elemento de video conserva
+la limitación descrita en [problemas conocidos](docs/problemas-conocidos.md).
+
+Accessibility Player para archivos locales comparte la salida de voz de esta
+versión: [fuente del snippet](web/kathware-player-local.html) y
+[preparación y despliegue](docs/accessibility-player.md).
 
 Otros sitios y reproductores pueden funcionar mediante las pistas o selectores
 incluidos, pero no se anuncian como verificados sin una prueba concreta. Algunas

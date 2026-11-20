@@ -161,8 +161,9 @@
 
       KWSR.toast?.notify?.(`Modo: ${S.modoNarradorGlobal}`);
 
-      if (S.modoNarradorGlobal === "off") {
-        KWSR.voice?.detenerLectura?.();
+      KWSR.voice?.detenerLectura?.();
+      if (S.extensionActiva && S.modoNarradorGlobal === "lector") {
+        KWSR.voice?.prepareLiveRegion?.();
       }
 
       KWSR.overlay?.updateOverlayStatus?.();
