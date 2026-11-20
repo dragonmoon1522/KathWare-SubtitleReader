@@ -1,9 +1,21 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-17
+**Última actualización:** 2026-11-20
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
+
+### Elección de voz y continuidad de la beta (2026-11-20)
+
+* Katherine confirma que el error previo no reapareció y aprueba pasar a `main`
+  las correcciones de pantalla completa y recuperación del sintetizador.
+* El selector elimina «preferir español». La selección explícita del usuario
+  tiene prioridad; el modo automático sigue la predeterminada del navegador,
+  sin forzar idioma ni `es-ES` en la frase.
+* Se añaden seis pruebas de elección de voz. Accessibility Player comparte la
+  salida mediante un generador y añade nueve pruebas de integración.
+* La beta conserva los selectores ampliados, reportes y herramientas de Flow.
+  La promoción a estable es selectiva; el manifest de esta rama sigue siendo beta.
 
 ### Compatibilidad y reportes, revisión 1 (2026-11-17, solo beta)
 

@@ -227,30 +227,25 @@
   }
 
   // ---------------------------------------------------------------------------
-  // cargarVozES()
+  // cargarVoz()
   // ---------------------------------------------------------------------------
-  // Busca una voz en español, idealmente es-AR.
-  // Si no hay, usa alguna es-*.
-  // Si no hay nada, usa la primera disponible.
+  // Respeta la elección guardada; en automático usa la predeterminada del
+  // navegador, sin elegir idioma ni país por cuenta de la extensión.
   // ---------------------------------------------------------------------------
-  function cargarVozES() {
+  function cargarVoz() {
     try {
       if (!isTTSAvailable()) return;
 
       const pick = (voices) => {
-        return (
-          voices.find(v => (v.lang || "").toLowerCase().startsWith("es-ar")) ||
-          voices.find(v => (v.lang || "").toLowerCase().startsWith("es")) ||
-          voices.find(v => (v.lang || "").toLowerCase().includes("es")) ||
-          voices[0] ||
-          null
-        );
+        if (S.ttsVoiceURI || S.ttsVoiceName) {
+          return voices.find(v => S.ttsVoiceURI && String(v.voiceURI || v.name || "") === S.ttsVoiceURI) ||
+            voices.find(v => S.ttsVoiceName && v.name === S.ttsVoiceName) || null;
+        }
+        return voices.find(v => v.default) || null;
       };
 
       const voces = speechSynthesis.getVoices?.() || [];
-      if (voces.length) {
-        S.voiceES = pick(voces);
-      }
+      S.voiceES = pick(voces);
 
       if (!voicesHooked) {
         voicesHooked = true;
@@ -258,7 +253,7 @@
         speechSynthesis.onvoiceschanged = () => {
           try {
             const v2 = speechSynthesis.getVoices?.() || [];
-            if (v2.length) S.voiceES = pick(v2) || S.voiceES || null;
+            S.voiceES = pick(v2);
           } catch {}
         };
       }
@@ -384,11 +379,15 @@
       return;
     }
     try {
-      cargarVozES();
+      cargarVoz();
+      if ((S.ttsVoiceURI || S.ttsVoiceName) && !S.voiceES) {
+        failTTSAttempt(job, null, "voice-unavailable");
+        return;
+      }
       const u = new SpeechSynthesisUtterance(job.text);
       job.utterance = u;
       if (S.voiceES) u.voice = S.voiceES;
-      u.lang = S.voiceES?.lang || "es-ES";
+      if (S.voiceES?.lang) u.lang = S.voiceES.lang;
       u.rate = 1;
       u.pitch = 1;
       u.volume = 1;
@@ -756,7 +755,8 @@
   // Export público
   // ---------------------------------------------------------------------------
   KWSR.voice = {
-    cargarVozES,
+    cargarVoz,
+    cargarVozES: cargarVoz, // Alias para los módulos existentes.
     shouldReadNow,
     leerTextoAccesible,
     detenerLectura,

@@ -1,33 +1,36 @@
 ## **KathWare SubtitleReader**
 
 **Autora:** Katherine Vargas | [(KathWare)](https://kathware.com.ar)
-**Última actualización:** 2026-11-17
+**Última actualización:** 2026-11-20
 
 ### Rama de desarrollo: 3.0.0-beta
 
 **La versión estable 3.0.0 ya está en [`main`](https://github.com/dragonmoon1522/KathWare-SubtitleReader/tree/main)**,
-aprobada por Katherine el 17/11/2026.
+aprobada por Katherine el 17/11/2026 y ampliada el 20/11 con las correcciones
+de pantalla completa de contenedor y recuperación de voz.
 
 Esta rama continúa como espacio de desarrollo para las versiones posteriores.
-Se conservan aquí las herramientas experimentales de medición de Flow y los
-ensayos de pantalla completa retirados de la distribución estable.
+Se conservan aquí las herramientas experimentales de medición de Flow y la
+búsqueda ampliada de selectores/reportes, además de las correcciones compartidas
+con la estable.
 
 Permanecen abiertos para una próxima versión el atraso y la fragmentación de
-**Flow en vivo** y la lectura de subtítulos con **lector de pantalla en pantalla completa**.
+**Flow en vivo** y el límite del modo de pantalla completa nativa de video.
 Ver [el seguimiento de fallos](docs/problemas-conocidos.md).
 
 **Ensayo de pantalla completa, revisión 1 (17/11/2026):** la región de anuncios
 acompaña al contenedor de pantalla completa y los controles de KathWare solicitan
 ese contenedor cuando está disponible. Se retira el reinicio automático del
-pipeline al cambiar de modo. Falta confirmar la lectura automática con NVDA;
-el fallo sigue abierto. Ver [la prueba y sus límites](docs/fullscreen-lectura.md).
+pipeline al cambiar de modo. Katherine aprueba su incorporación a la estable
+el 20/11/2026. Ver [la prueba y sus límites](docs/fullscreen-lectura.md).
 
 **Recuperación del sintetizador, revisión 1 (17/11/2026):** un fallo de voz ya no
 cambia ni guarda automáticamente el modo lector. Se amplía la espera inicial,
 se ajusta la vigilancia a la duración y velocidad de la frase y se permite un
 reintento antes de empezar a hablar. Ver [comportamiento y pruebas](docs/tts-recuperacion.md).
-Katherine confirma que el sintetizador puede leer en pantalla completa; falta
-validar allí la nueva recuperación con sus voces reales.
+Katherine confirma que el error no reapareció y aprueba pasar esta recuperación
+a la estable el 20/11/2026. La voz automática respeta la predeterminada del
+navegador, sin preferencia impuesta de español u otro idioma.
 
 **Compatibilidad y reportes, revisión 1 (17/11/2026):** los sitios sin un banco
 propio prueban los selectores existentes hasta encontrar subtítulos visibles del

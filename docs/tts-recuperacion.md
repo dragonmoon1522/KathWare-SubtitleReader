@@ -1,7 +1,8 @@
 # Recuperación de la voz del navegador
 
-17/11/2026. Revisión 1, disponible solo en `3.0.0-beta`. La estable 3.0.0 de
-`main` conserva su comportamiento previo.
+Revisión 1, desarrollada el 17/11/2026 y aprobada para la estable 3.0.0
+el 20/11/2026. La voz automática sigue la predeterminada del navegador;
+ningún idioma recibe prioridad impuesta por SubtitleReader.
 
 Katherine confirma que el sintetizador puede leer subtítulos en pantalla
 completa. El problema reportado es la recuperación: ante un fallo, SubtitleReader
@@ -19,7 +20,7 @@ cambiaba y guardaba el modo lector automáticamente. Esto es independiente del
   de la frase actual.
 - Cualquier fallo cambiaba el modo a lector y lo guardaba en la configuración.
 
-## Comportamiento de la beta
+## Comportamiento de la estable
 
 La salida sigue siendo la que el usuario eligió. Un error del sintetizador no
 cambia el modo ni entrega ese subtítulo por la región `aria-live`. Se conservan
@@ -53,26 +54,15 @@ bloquea nuevos subtítulos. El diagnóstico del panel incluye `ttsRecovery` con
 
 ## Validación
 
-```sh
-node --test tests/tts-recovery.cjs tests/fullscreen-live-region.cjs tests/flow-incremental.cjs tests/flow-phrases.cjs tests/flow-timing.cjs tests/youtube-incremental.cjs
-```
+La promoción aprueba 111 pruebas Node de la extensión: regresiones de lectura,
+integridad de la estable, pantalla completa, recuperación y seis escenarios
+sobre elección libre de voz. Accessibility Player añade nueve pruebas de su
+integración con la misma salida. Se usan eventos y síntesis simulados.
 
-Resultado: 119 pruebas aprobadas; 24 nuevas de TTS y 95 regresiones. La síntesis
-y el reloj son simulados. Se comprueban arranque lento, duración según velocidad,
-errores transitorios, recuperación limitada, preservación de ajustes, sustitución
-de frases, cancelaciones sincrónicas y tardías, invalidación del contexto y
-ausencia de cambios automáticos de modo. No se acredita el audio real de Chrome,
-Edge, RHVoice ni de voces remotas con estas pruebas.
-
-Para la prueba real, recargar extensión y pestaña, seleccionar modo sintetizador
-y comprobar frases largas y una velocidad más lenta que la habitual, primero en
-vista normal y después en pantalla completa. Verificar que conserva modo, voz y
-velocidad; que no pasa a lector al llegar una frase nueva; y que detener, pausar o
-cambiar de posición no revive frases anteriores. Probar la recuperación si vuelve
-a aparecer un error real y registrar su código mediante el diagnóstico.
-
-El fallo de anuncios automáticos de NVDA en pantalla completa continúa abierto.
-Esta corrección de la beta no modifica el paquete estable ni su publicación.
+Katherine confirma que el error anterior no volvió a aparecer tras recargar y
+aprueba la promoción de estas correcciones. La prueba de navegador no puede
+arrancar aquí por restricciones de sockets; no se atribuye a Node una validación
+de audio real o pronunciación de NVDA.
 
 Referencias: [errores de Web Speech](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisErrorEvent/error)
-y [especificación de síntesis](https://webaudio.github.io/web-speech-api/#tts-section).
+y [especificación de síntesis](https://webaudio.github.io/web-speech-api/).

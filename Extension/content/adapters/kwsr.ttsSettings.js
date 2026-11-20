@@ -76,11 +76,8 @@
       if (byName) return byName;
     }
 
-    return S.voiceES ||
-      voices.find(v => (v.lang || "").toLowerCase().startsWith("es-ar")) ||
-      voices.find(v => (v.lang || "").toLowerCase().startsWith("es")) ||
-      voices[0] ||
-      null;
+    if (S.ttsVoiceURI || S.ttsVoiceName) return null;
+    return voices.find(v => v.default) || null;
   }
 
   function persist(values) {
@@ -289,7 +286,7 @@
 
     const automatic = document.createElement("option");
     automatic.value = "";
-    automatic.textContent = "Automática (preferir español)";
+    automatic.textContent = "Predeterminada del navegador";
     select.appendChild(automatic);
 
     for (const voice of voices) {

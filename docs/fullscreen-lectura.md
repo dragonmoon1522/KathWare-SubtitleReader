@@ -1,7 +1,7 @@
-# Lectura en pantalla completa: ensayo en beta
+# Lectura en pantalla completa
 
-17/11/2026. Revisión 1 de la región de anuncios. No forma parte de la estable
-3.0.0 de `main`. El fallo continúa abierto hasta validarlo con NVDA.
+Revisión 1, desarrollada el 17/11/2026 y aprobada por Katherine para la estable
+3.0.0 el 20/11/2026. Se conserva el límite del modo nativo de video.
 
 ## Qué sabemos
 
@@ -20,7 +20,7 @@ El ensayo de esta página corresponde a los anuncios de NVDA y otros lectores.
 En el código, el panel se movía al contenedor de pantalla completa, mientras
 `#kwsr-live-region` permanecía en la raíz del documento. El reinicio de lectura
 reutilizaba ese nodo sin revisar su ubicación. Esta diferencia es comprobable;
-que sea la causa del silencio de NVDA es todavía una hipótesis.
+la corrección posterior fue aprobada para la estable tras la prueba de Katherine.
 
 ## Qué cambia
 
@@ -47,7 +47,8 @@ Shadow DOM cerrado, reproductores de otros documentos o interfaces del navegador
 
 ## Prueba con NVDA
 
-1. Actualizar desde `3.0.0-beta`, recargar la extensión y la pestaña del servicio.
+1. Actualizar desde `main` (estable) o `3.0.0-beta` (desarrollo), recargar
+   la extensión y la pestaña del servicio.
 2. Activar SubtitleReader, elegir modo lector y comprobar algunos subtítulos
    con el video en reproducción y la vista normal.
 3. Abrir el panel de KathWare y usar su botón «Pantalla completa». Dejar pasar
@@ -64,20 +65,11 @@ El diagnóstico del panel incluye `liveRegion`: `revision`, `scope`,
 
 ## Comprobaciones de desarrollo
 
-```sh
-node --test tests/fullscreen-live-region.cjs tests/flow-incremental.cjs tests/flow-phrases.cjs tests/flow-timing.cjs tests/youtube-incremental.cjs
-node --test tests/player-accessibility.cjs
-```
-
-El primer comando aprueba 95 pruebas de lógica: 15 nuevas de salida accesible y
-pantalla completa, más 80 regresiones. Comprueba ubicación, reconexión, cambios
-de contenedor, conservación del foco y deduplicación, cancelación de entregas y
-la selección del contenedor desde los controles de KathWare.
-
-La prueba de integración en navegador añade la entrada desde el botón, entrega
-de texto dentro del contenedor y recuperación al salir. No pudo ejecutarse aquí:
-Chromium falla al crear un socket con `Operation not permitted`. Ninguna de estas
-pruebas acredita por sí sola la pronunciación de NVDA.
+La promoción incluye 111 pruebas Node de la extensión y 9 del reproductor
+compartido. Se verifican entrada/salida de contenedor, reconexión, foco,
+deduplicación, cancelación y recuperación del sintetizador. La prueba de
+navegador está bloqueada por creación de sockets en este entorno; la
+confirmación de uso real es la informada por Katherine.
 
 Referencias: [NVDA: consulta del foco](https://download.nvaccess.org/documentation/en/keyCommands.html),
 [regiones ARIA live](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions)

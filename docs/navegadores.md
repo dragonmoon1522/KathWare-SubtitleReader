@@ -1,6 +1,6 @@
 # Paquetes y navegadores — 3.0.0-beta
 
-**Estado al 17/11/2026:** `main` contiene 3.0.0 estable. Esta rama mantiene el
+**Estado al 20/11/2026:** `main` contiene 3.0.0 estable. Esta rama mantiene el
 desarrollo y las herramientas de prueba para las próximas versiones. Para
 generar la distribución estable, usar `main`; los comandos de esta rama
 generan paquetes con la etiqueta beta.
@@ -49,7 +49,7 @@ verifica el ZIP e informa su SHA-256. No sube paquetes ni cambia la versión.
 
 | Destino | Paquete | Estado |
 | --- | --- | --- |
-| Chrome | `chrome` | Primera publicación; beta pendiente de las últimas pruebas y confirmación. |
+| Chrome | `chrome` | Primera distribución desde `main`; esta rama genera el paquete de desarrollo beta. |
 | Edge | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y envío a Edge Add-ons. |
 | Brave y Vivaldi | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica. |
 | Opera | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y evaluación para su tienda. |
@@ -176,12 +176,13 @@ Katherine aprobó la estable el 17/11/2026 con el estado funcional actual.
 y el reinicio automático al cambiar de pantalla completa.
 
 La rama `3.0.0-beta` continúa el desarrollo y conserva la medición de Flow.
-El ensayo posterior de [región de anuncios](fullscreen-lectura.md) reemplaza
-en beta el reinicio automático de pantalla completa.
-Los [fallos conocidos](problemas-conocidos.md) de Flow en vivo y lectura en
-pantalla completa se mantienen abiertos para una próxima versión. Los
-registros y pruebas anteriores de este documento corresponden a la preparación
-de la beta.
+La corrección posterior de [región de anuncios](fullscreen-lectura.md) reemplaza
+el reinicio automático de pantalla completa. Katherine aprobó el 20/11/2026 su
+promoción selectiva a estable junto con la recuperación del sintetizador.
+La voz elegida tiene prioridad; la opción automática respeta la predeterminada
+del navegador sin priorizar idioma. Flow en vivo y el modo nativo de video
+conservan los [límites documentados](problemas-conocidos.md). Los registros y
+pruebas anteriores de este documento corresponden a la preparación de la beta.
 
 La primera distribución corresponde a Chrome. Los otros navegadores seguirán
 el orden acordado en el [plan de versiones](plan-de-versiones.md).
