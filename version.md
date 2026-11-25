@@ -5,6 +5,14 @@
 
 ---
 
+### Limpieza de la rama estable (2026-11-25)
+
+Dejé en `main` el código de la extensión estable y su documentación básica.
+Conservo acá las herramientas, pruebas, documentos de trabajo y reproductores.
+El empaquetador acepta `--source-dir` para generar la estable desde su propio
+checkout, sin sustituir ni modificar su manifest. El código de `Extension/`
+conserva su estado anterior en ambas ramas.
+
 ### Organización de la documentación (2026-11-25)
 
 Separé los README y los historiales: este archivo corresponde a SubtitleReader.
@@ -460,8 +468,8 @@ Corrección ViX / overlay (2026-09-29):
 
   * `version`: `3.0.0`
   * `version_name`: `3.0.0-beta`
-* La rama `3.0.0-beta` es la candidata de pruebas; `2.2.0-beta` se conserva como
-  antecedente. Prepararé la estable cuando termine de probarla.
+* La rama `3.0.0-beta` es la candidata de pruebas; el desarrollo previo de `2.2.0-beta` queda
+  conservado en el historial de Git. Prepararé la estable cuando termine de probarla.
 
 #### Validación funcional confirmada el 31/10/2026
 

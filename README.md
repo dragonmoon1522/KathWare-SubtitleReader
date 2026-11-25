@@ -19,6 +19,15 @@ de Flow. Todavía me falta probar sitios nuevos, como Crunchyroll, en el servici
 real. Los detalles están en [compatibilidad y reportes](docs/compatibilidad-y-reportes.md)
 y [medición de Flow](docs/flow-timing.md).
 
+## Archivos de la rama estable
+
+Dejé `main` con la extensión estable, su README, historial y licencia. Acá
+conservo las pruebas, documentación de trabajo, scripts y proyectos de reproductor.
+Para generar un paquete estable desde estas herramientas, uso una copia de
+`main/Extension` como origen explícito; no cambio la etiqueta de una beta para
+hacerla pasar por estable. El procedimiento está en
+[paquetes y navegadores](docs/navegadores.md).
+
 ## Qué incluye la 3.0.0
 
 - Correcciones de Disney+ / Hive y compatibilidad incorporada para YouTube,
@@ -95,11 +104,14 @@ Para cargar el código localmente:
 4. Seleccioná la carpeta `Extension/`.
 5. Al actualizar, recargá la extensión y las pestañas de los servicios.
 
-Para generar el ZIP estable, desde `main`:
+Para generar un ZIP de esta rama:
 
 ```sh
 python3 scripts/package_extension.py --target chrome
 ```
+
+El paquete conserva la etiqueta beta. Para empaquetar la estable, indicá su
+carpeta `Extension` con `--source-dir`, como se explica en la guía de paquetes.
 
 El destino `chromium` prepara la base para otros navegadores. Todavía faltan las
 pruebas específicas y sus procesos de publicación. Más información en

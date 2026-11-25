@@ -45,6 +45,21 @@ extensión y su licencia. No se incluyen pruebas, archivos de desarrollo ni las
 consolas experimentales de `web/`. El script comprueba los recursos del manifest,
 verifica el ZIP e informa su SHA-256. No sube paquetes ni cambia la versión.
 
+## Generar la estable con las herramientas de esta rama
+
+Mantengo el empaquetador en desarrollo. Para usarlo con el código de `main`,
+preparo un checkout aparte e indico su carpeta `Extension`:
+
+```sh
+git fetch origin
+git worktree add --detach ../subtitlereader-estable origin/main
+python3 scripts/package_extension.py --target chrome --source-dir ../subtitlereader-estable/Extension
+```
+
+El manifest se lee del origen elegido. Si el origen es una beta, el ZIP sigue
+siendo beta. El paquete no incorpora scripts, pruebas ni documentación del
+repositorio. La licencia se toma del mismo checkout que la extensión.
+
 ## Destinos
 
 | Destino | Paquete | Estado |

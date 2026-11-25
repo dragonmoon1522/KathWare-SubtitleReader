@@ -3,6 +3,7 @@
 
 No necesita dependencias externas. La versión y el estado beta se toman del
 manifest de Extension; este script nunca convierte una beta en estable.
+Con --source-dir puedo empaquetar el checkout de main desde esta rama.
 """
 
 import argparse
@@ -35,7 +36,7 @@ def referenced_files(manifest):
     yield from icons.values() if isinstance(icons, dict) else [icons]
 
 
-def validate_manifest(manifest):
+def validate_manifest(manifest, source=SOURCE):
     if manifest.get("manifest_version") != 3:
         raise ValueError("Se esperaba un manifest V3.")
     version = manifest.get("version", "")
@@ -52,8 +53,8 @@ def validate_manifest(manifest):
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or "\\" in name:
             raise ValueError(f"Ruta de recurso no válida: {name}")
-        source_path = SOURCE.joinpath(*path.parts)
-        if not source_path.is_file() or not source_path.resolve().is_relative_to(SOURCE.resolve()):
+        source_path = source.joinpath(*path.parts)
+        if not source_path.is_file() or not source_path.resolve().is_relative_to(source.resolve()):
             raise ValueError(f"Falta un recurso dentro de Extension: {name}")
 
 
@@ -66,21 +67,22 @@ def write_entry(archive, name, content):
     archive.writestr(info, content)
 
 
-def build(target, output_dir):
-    manifest = json.loads((SOURCE / "manifest.json").read_text(encoding="utf-8"))
+def build(target, output_dir, source=SOURCE):
+    source = source.resolve()
+    manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     if target == "chromium":
         # Cada tienda administra su identidad y sus actualizaciones.
         manifest.pop("update_url", None)
         manifest.pop("key", None)
-    validate_manifest(manifest)
+    validate_manifest(manifest, source)
     label = manifest.get("version_name", manifest["version"])
-    if output_dir.resolve().is_relative_to(SOURCE.resolve()):
+    if output_dir.resolve().is_relative_to(source):
         raise ValueError("La salida debe estar fuera de Extension.")
     output_dir.mkdir(parents=True, exist_ok=True)
     package = output_dir / f"kathware-subtitlereader-{label}-{target}.zip"
     with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in sorted(SOURCE.rglob("*")):
-            relative = path.relative_to(SOURCE)
+        for path in sorted(source.rglob("*")):
+            relative = path.relative_to(source)
             if any(part.startswith(".") or part in {"node_modules", "__pycache__"} for part in relative.parts):
                 continue
             if path.is_symlink():
@@ -91,7 +93,7 @@ def build(target, output_dir):
             if relative.as_posix() == "manifest.json":
                 content = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
             write_entry(archive, relative.as_posix(), content)
-        write_entry(archive, "LICENSE.md", (ROOT / "LICENSE.md").read_bytes())
+        write_entry(archive, "LICENSE.md", (source.parent / "LICENSE.md").read_bytes())
     with zipfile.ZipFile(package) as archive:
         if archive.testzip() is not None or "manifest.json" not in archive.namelist():
             raise ValueError("El ZIP generado no pasó la verificación.")
@@ -103,10 +105,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=(*TARGETS, "all"), default="all")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
+    parser.add_argument("--source-dir", type=Path, default=SOURCE,
+                        help="Carpeta Extension a empaquetar; por defecto la de esta rama.")
     args = parser.parse_args()
     targets = TARGETS if args.target == "all" else (args.target,)
     try:
-        packages = [build(target, args.output_dir) for target in targets]
+        packages = [build(target, args.output_dir, args.source_dir) for target in targets]
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         parser.exit(1, f"No se pudo generar el paquete: {error}\n")
     print(json.dumps({"packages": packages}, ensure_ascii=False, indent=2))
