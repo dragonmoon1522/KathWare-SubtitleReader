@@ -1,8 +1,7 @@
 # Problemas conocidos de 3.0.0
 
-Estado al 20/11/2026. Katherine confirma que el error reportado no reapareció
-después de recargar y aprueba pasar a estable las correcciones de pantalla
-completa y sintetizador. Flow en vivo continúa pendiente.
+Estado al 20/11/2026. Después de recargar, el error no volvió a aparecer.
+Pasé a estable las correcciones de pantalla completa y del sintetizador. Flow en vivo continúa pendiente.
 
 | Problema | Estado | Próximo trabajo |
 | --- | --- | --- |

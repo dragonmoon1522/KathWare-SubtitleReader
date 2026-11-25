@@ -1,14 +1,21 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-20
+**Última actualización:** 2026-11-25
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
 
+### Organización de la documentación (2026-11-25)
+
+Separé los README y los historiales: este archivo corresponde a SubtitleReader.
+Los cambios de Accessibility Player están en su [historial propio](Accessibility-Player/version.md);
+la integración para WPCode Lite también lleva sus notas por separado. Reescribí
+las explicaciones desde mi lugar como autora. No cambié la versión de la extensión.
+
 ### 3.0.0 estable — pantalla completa y sintetizador (2026-11-20)
 
-* Katherine confirma que el error previo no reapareció y aprueba pasar a la
-  estable las correcciones de lectura en pantalla completa y recuperación de voz.
+* Después de recargar, el error no volvió a aparecer. Pasé a la estable las
+  correcciones de pantalla completa y recuperación de voz.
 * La región accesible se prepara vacía y acompaña al contenedor de pantalla
   completa. Los controles de KathWare solicitan ese contenedor cuando existe,
   conservando foco y deduplicación. Se mantiene el límite del modo nativo de video.
@@ -18,23 +25,18 @@
 * La selección automática deja de priorizar español: sigue la predeterminada del
   navegador. Cualquier voz elegida expresamente tiene prioridad. Se elimina
   «preferir español» del selector y no se fuerza `es-ES` en las frases nuevas.
-* Accessibility Player incorpora esta misma salida compartida mediante un
-  generador de snippet, con voz y velocidad, pantalla completa de contenedor,
-  cancelación de salidas pendientes y conversión local de SRT a VTT.
 * La promoción es selectiva: no incorpora la búsqueda ampliada de selectores,
   los reportes nuevos ni las herramientas experimentales de Flow de la beta.
-* Validación: 111 pruebas Node de la extensión y 9 del reproductor generado
-  aprobadas. La prueba de navegador sigue bloqueada por creación de sockets
-  (`Operation not permitted`); la aprobación funcional es la reportada por Katherine.
+* Validación: pasaron 111 pruebas Node de la extensión. No pude ejecutar
+  Chromium por restricciones de sockets (`Operation not permitted`).
+  La comprobación con mis voces corresponde a las pruebas que hice por mi cuenta.
 * El manifest sigue siendo `3.0.0`; la rama beta conserva su desarrollo.
   La preparación del código y del ZIP no implica publicación en Chrome Web Store.
-* El borrador del post se actualiza con pantalla completa, voz libre, RHVoice,
-  Phonon para NVDA y la etapa prevista de Edge. Todavía no se publica.
 
 ### **Versión 3.0.0 — estable (2026-11-17)**
 
-Katherine confirma el paso a estable con la funcionalidad actual. La versión
-se integra en `main`; `3.0.0-beta` continúa como rama de desarrollo futuro.
+Dejé la 3.0.0 estable con la funcionalidad actual en `main`. En
+`3.0.0-beta` voy a seguir trabajando en las próximas versiones.
 
 * Manifest y reportes identifican `version: "3.0.0"` y
   `version_name: "3.0.0"`.
@@ -62,20 +64,20 @@ se integra en `main`; `3.0.0-beta` continúa como rama de desarrollo futuro.
 ### Historial del desarrollo previo a 3.0.0
 
 Los apartados siguientes conservan las decisiones y pruebas de la beta en sus
-fechas originales. La aprobación del 17/11/2026 reemplaza las condiciones de
-promoción pendientes que aparecen en ese historial.
+fechas originales. El paso a estable del 17/11/2026 reemplaza las condiciones de
+promoción que había anotado como pendientes.
 
 ### **Versión 3.0.0-beta — en pruebas (2026-10-26)**
 
 Continúa el trabajo iniciado como 2.2.0-beta el 28/09/2026. Reúne las mejoras
 funcionales de la extensión sin introducir el refactor por renderizadores,
 aplazado para una versión posterior. El paso a estable queda sujeto a las
-pruebas y a la confirmación expresa de Katherine.
+pruebas y a mi decisión de pasarla a estable.
 
 #### Plan de salida definido el 28/10/2026
 
 * La primera distribución estable será la actualización de la extensión de
-  Chrome, después de terminar las pruebas y recibir la confirmación de Katherine.
+  Chrome, cuando termine las pruebas y decida pasarla a estable.
 * Tras unas dos semanas de uso estable desde su publicación en Chrome, se
   preparará la misma versión funcional para otros navegadores. El plazo es
   aproximado y depende de los resultados de estabilidad y de las pruebas
@@ -199,8 +201,8 @@ Captura simple para revisar la sincronización de Flow (2026-10-31):
 
 Medición independiente del atraso de Flow (2026-10-31):
 
-* Katherine confirma que el atraso ocurre también con el sintetizador del
-  navegador y que NVDA está callado cuando aparece el subtítulo. La hipótesis
+* Comprobé que el atraso ocurre también con el sintetizador del navegador
+  y que NVDA está callado cuando aparece el subtítulo. La hipótesis
   de una acumulación exclusiva en NVDA pierde fuerza; la causa sigue abierta.
 * Se incorpora un diagnóstico optativo para Flow, sin cambiar sus esperas de
   lectura: Alt+Shift+M marca una palabra escuchada en el audio original, abre
@@ -409,17 +411,15 @@ Corrección ViX / overlay (2026-09-29):
   * `version`: `3.0.0`
   * `version_name`: `3.0.0-beta`
 * La rama `3.0.0-beta` es la candidata de pruebas; `2.2.0-beta` se conserva como
-  antecedente. La estable se preparará solo cuando Katherine la confirme.
+  antecedente. Prepararé la estable cuando termine de probarla.
 
 #### Validación funcional confirmada el 31/10/2026
 
-* Katherine confirmó que **Netflix, Disney+, Max y Paramount+** funcionan bien
-  en sus pruebas de la beta. Se cierra la comprobación funcional reportada de
-  estas cuatro plataformas y se actualiza su estado en README.
-* Katherine confirmó después el funcionamiento correcto de **YouTube revisión
-  1**. Se cierra también su comprobación funcional reportada.
-* **Flow en vivo revisión 3** mantiene pendiente la sincronización: Katherine
-  reporta unos 10 segundos de atraso frente a la transmisión. El registro
+* Probé **Netflix, Disney+, Max y Paramount+** y funcionan bien en la beta.
+  Dejé registrado el resultado de esas cuatro plataformas en el README.
+* También probé **YouTube revisión 1** y funciona correctamente.
+* **Flow en vivo revisión 3** sigue pendiente: noté unos 10 segundos de
+  atraso frente a la transmisión. El registro
   contiene 12 entregas de una o dos palabras con `pendingMs` de 355 a 983 ms;
   no mide cuándo NVDA las pronuncia ni cuándo debían aparecer respecto del audio.
   La causa sigue abierta, sin atribuirla al proveedor ni al lector de pantalla
@@ -440,7 +440,7 @@ Corrección ViX / overlay (2026-09-29):
 * Revalidar Flow a demanda con el paquete final.
 * Dailymotion / Telefe solo se anunciará como verificado si se completa una
   prueba específica; no hay cierre documentado en esta entrega.
-* Recibir la confirmación expresa de Katherine para preparar la estable.
+* Decidir el paso a estable después de las pruebas.
 
 Las pruebas específicas para otros navegadores se harán en la segunda etapa
 del lanzamiento, antes de anunciar su compatibilidad verificada.

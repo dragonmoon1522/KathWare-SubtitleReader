@@ -1,13 +1,13 @@
 # Integración futura con Audiocinemateca
 
-Decisiones de Katherine del 26/10/2026. Estado: planificación; no implementada.
+Decisiones que tomé el 26/10/2026. Estado: planificación; no implementada.
 El [plan de versiones del 28/10/2026](plan-de-versiones.md) mantiene esta
 integración como trabajo posterior, fuera del lanzamiento de 3.0.0 y de su
 distribución equivalente para otros navegadores.
 
 ## Alcance y momento
 
-Audiocinemateca queda fuera de 3.0.0. Katherine confirmó la versión estable
+Dejé Audiocinemateca fuera de 3.0.0. Pasé a estable la extensión
 el 17/11/2026 con la funcionalidad actual; esta integración continúa reservada
 para el desarrollo posterior en la rama beta.
 

@@ -4,8 +4,8 @@ Revisión 1, desarrollada el 17/11/2026 y aprobada para la estable 3.0.0
 el 20/11/2026. La voz automática sigue la predeterminada del navegador;
 ningún idioma recibe prioridad impuesta por SubtitleReader.
 
-Katherine confirma que el sintetizador puede leer subtítulos en pantalla
-completa. El problema reportado es la recuperación: ante un fallo, SubtitleReader
+Comprobé que el sintetizador puede leer subtítulos en pantalla completa.
+El problema estaba en la recuperación: ante un fallo, SubtitleReader
 cambiaba y guardaba el modo lector automáticamente. Esto es independiente del
 [ensayo de anuncios de NVDA en pantalla completa](fullscreen-lectura.md).
 
@@ -56,11 +56,10 @@ bloquea nuevos subtítulos. El diagnóstico del panel incluye `ttsRecovery` con
 
 La promoción aprueba 111 pruebas Node de la extensión: regresiones de lectura,
 integridad de la estable, pantalla completa, recuperación y seis escenarios
-sobre elección libre de voz. Accessibility Player añade nueve pruebas de su
-integración con la misma salida. Se usan eventos y síntesis simulados.
+sobre elección libre de voz. Se usan eventos y síntesis simulados.
 
-Katherine confirma que el error anterior no volvió a aparecer tras recargar y
-aprueba la promoción de estas correcciones. La prueba de navegador no puede
+Después de recargar, el error anterior no volvió a aparecer. Por eso pasé
+estas correcciones a la estable. La prueba de navegador no puede
 arrancar aquí por restricciones de sockets; no se atribuye a Node una validación
 de audio real o pronunciación de NVDA.
 
