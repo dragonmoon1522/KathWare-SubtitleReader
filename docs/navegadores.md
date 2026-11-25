@@ -13,7 +13,7 @@ hace falta mantener una rama de código por cada navegador basado en Chromium.
 ## Orden de publicación acordado el 28/10/2026
 
 1. Publicar primero 3.0.0 como actualización de la extensión de Chrome, una vez
-   cerradas las pruebas y recibida la confirmación de Katherine.
+   cerradas las pruebas y decidido el paso a estable.
 2. Observar su funcionamiento durante aproximadamente dos semanas desde esa
    publicación. El plazo es orientativo y depende de la estabilidad real.
 3. Distribuir la misma versión funcional estabilizada para otros navegadores,
@@ -110,7 +110,7 @@ Documentación consultada el 26/10/2026:
   agrupación de frases y 14 específicas de YouTube. Cubren las secuencias
   recibidas, puntuación, letras en formación, plazos, palabras repetidas y
   recuperación de nodos. Los intervalos entre mutaciones son simulados.
-  Katherine confirmó YouTube revisión 1 el 31/10/2026. En Flow reporta una
+  Probé YouTube revisión 1 el 31/10/2026 y funciona bien. En Flow noté una
   frase de atraso respecto del audio y entregas fragmentadas. La revisión 5
   corrige la agrupación; sigue pendiente medir y localizar el desfase.
 - Se pueden ejecutar juntas con:
@@ -171,14 +171,14 @@ diez segundos reportados.
 
 ### Estable 3.0.0 confirmada
 
-Katherine aprobó la estable el 17/11/2026 con el estado funcional actual.
+Dejé la estable el 17/11/2026 con el estado funcional de ese momento.
 `main` identifica `version_name: "3.0.0"` y excluye la medición temporal de Flow
 y el reinicio automático al cambiar de pantalla completa.
 
 La rama `3.0.0-beta` continúa el desarrollo y conserva la medición de Flow.
 La corrección posterior de [región de anuncios](fullscreen-lectura.md) reemplaza
-el reinicio automático de pantalla completa. Katherine aprobó el 20/11/2026 su
-promoción selectiva a estable junto con la recuperación del sintetizador.
+el reinicio automático de pantalla completa. El 20/11/2026 la pasé a la
+estable junto con la recuperación del sintetizador.
 La voz elegida tiene prioridad; la opción automática respeta la predeterminada
 del navegador sin priorizar idioma. Flow en vivo y el modo nativo de video
 conservan los [límites documentados](problemas-conocidos.md). Los registros y

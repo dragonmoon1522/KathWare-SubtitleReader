@@ -1,26 +1,26 @@
 # Lectura en pantalla completa
 
-Revisión 1, desarrollada el 17/11/2026 y aprobada por Katherine para la estable
-3.0.0 el 20/11/2026. Se conserva el límite del modo nativo de video.
+Desarrollé la revisión 1 el 17/11/2026 y la pasé a la estable 3.0.0
+el 20/11/2026. Se conserva el límite del modo nativo de video.
 
 ## Qué sabemos
 
-Katherine informa que la lectura automática y el reinicio manual no funcionan
+En la prueba inicial, la lectura automática y el reinicio manual no funcionaban
 en pantalla completa. NVDA+Tab sí permite consultar el texto enfocado, incluidos
 subtítulos. Esto demuestra acceso a ese objeto al consultarlo; no confirma que
 NVDA reciba los cambios de la región de anuncios de la extensión. La alerta
 «para salir de pantalla completa, presione Esc» pertenece a la interfaz del
 navegador y tampoco comprueba esa vía de salida.
 
-En la prueba posterior, Katherine confirma que el sintetizador del navegador
-sí puede leer en pantalla completa. Su cambio automático a modo lector ante un
+Después comprobé que el sintetizador del navegador sí puede leer en pantalla
+completa. Su cambio automático a modo lector ante un
 fallo se aborda por separado en [recuperación de TTS](tts-recuperacion.md).
 El ensayo de esta página corresponde a los anuncios de NVDA y otros lectores.
 
 En el código, el panel se movía al contenedor de pantalla completa, mientras
 `#kwsr-live-region` permanecía en la raíz del documento. El reinicio de lectura
 reutilizaba ese nodo sin revisar su ubicación. Esta diferencia es comprobable;
-la corrección posterior fue aprobada para la estable tras la prueba de Katherine.
+después de probar la corrección, la incorporé a la estable.
 
 ## Qué cambia
 
@@ -65,11 +65,11 @@ El diagnóstico del panel incluye `liveRegion`: `revision`, `scope`,
 
 ## Comprobaciones de desarrollo
 
-La promoción incluye 111 pruebas Node de la extensión y 9 del reproductor
-compartido. Se verifican entrada/salida de contenedor, reconexión, foco,
+La extensión tiene 111 pruebas Node en esta revisión. Se verifican entrada y
+salida del contenedor, reconexión, foco,
 deduplicación, cancelación y recuperación del sintetizador. La prueba de
 navegador está bloqueada por creación de sockets en este entorno; la
-confirmación de uso real es la informada por Katherine.
+comprobación de uso real corresponde a las pruebas que hice con NVDA.
 
 Referencias: [NVDA: consulta del foco](https://download.nvaccess.org/documentation/en/keyCommands.html),
 [regiones ARIA live](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions)
