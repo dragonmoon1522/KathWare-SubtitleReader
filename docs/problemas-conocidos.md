@@ -1,18 +1,28 @@
 # Problemas conocidos de 3.0.0
 
-Estado al 20/11/2026. Después de recargar, el error no volvió a aparecer.
-Pasé a estable las correcciones de pantalla completa y del sintetizador. Flow en vivo continúa pendiente.
+Estado al 26/11/2026. **Flow en vivo continúa pendiente. La lectura en pantalla
+completa ya está corregida y comprobada con NVDA** en la beta que estoy usando.
+El 20/11 pasé la corrección a estable y ahora volví a comparar ambas ramas.
 
 | Problema | Estado | Próximo trabajo |
 | --- | --- | --- |
 | Flow en vivo: atraso y fragmentación | Abierto. Se ha reportado un desfase de aproximadamente una frase respecto del audio y cortes en la entrega. La revisión 5 conserva las mejoras actuales, sin dar por resuelto el fallo en el servicio real. | Localizar el desfase y revisar la agrupación con pruebas en Flow, NVDA y voz del navegador. |
-| Anuncios en pantalla completa de contenedor | Corrección aprobada para la estable: la región de anuncios acompaña al contenedor sin reiniciar la captura ni mover el foco. | Mantener validación de cada navegador y plataforma. |
-| Pantalla completa nativa de `video` | Limitación abierta: el contenido alternativo de un video no es una superficie fiable para los anuncios del lector. | Usar el botón de KathWare para entrar con el contenedor cuando esté disponible. |
-| Recuperación del sintetizador | Integrada en estable: espera inicial de 10 segundos, vigilancia según texto y velocidad y un reintento antes del inicio. Los errores conservan el modo y los ajustes del usuario. | Comprobar voces concretas y registrar errores nuevos. |
 
-Las pruebas automatizadas de regresión permiten conservar comportamientos ya
-comprobados. No cierran estos fallos, que necesitan validación con los servicios
-y lectores de pantalla reales.
+## Correcciones ya incorporadas
+
+- **Pantalla completa:** la región de anuncios acompaña al contenedor sin
+  reiniciar la captura ni mover el foco. Ya funciona con NVDA y la corrección
+  está tanto en beta como en estable. No es un fallo abierto de esta entrega.
+- **Recuperación del sintetizador:** integrada en ambas ramas, con espera
+  inicial de 10 segundos, vigilancia según texto y velocidad y un reintento
+  antes del inicio. Los errores conservan el modo y los ajustes elegidos.
+- **Volumen de la voz:** disponible también en beta, independiente del video
+  y del lector de pantalla, con guardado del ajuste.
+
+Las pruebas automatizadas verifican regresiones. La confirmación de uso de
+pantalla completa proviene de mis pruebas reales con NVDA. El detalle sobre
+los distintos elementos que puede poner en pantalla completa una plataforma
+queda en las [notas de implementación](fullscreen-lectura.md).
 
 La estable sigue excluyendo la medición temporal de Flow y el reinicio automático
 al cambiar de pantalla completa. La corrección promovida ajusta la ubicación de

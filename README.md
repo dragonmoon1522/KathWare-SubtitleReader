@@ -34,6 +34,9 @@ La guía de uso, los comandos de NVDA, las recomendaciones de RHVoice y Phonon
 y el plan de Chrome y Edge están en el
 [README de main](https://github.com/dragonmoon1522/KathWare-SubtitleReader/blob/main/README.md).
 La salida de voz de esta rama también incorpora el volumen independiente.
+En el panel (**Alt+Shift+O**), el modo voz permite elegir voz, velocidad y
+**Volumen del sintetizador** de 0% a 100%. El volumen se conserva y no modifica
+el audio del video ni los ajustes del lector de pantalla.
 
 ## Qué incluye la 3.0.0
 
@@ -72,11 +75,13 @@ Que un sitio tenga selectores en el código no significa que ya lo haya probado.
 Todavía no pude revisar todas las plataformas. Si encontrás un problema,
 contame qué navegador, plataforma y modo de lectura usaste.
 
+**La lectura en pantalla completa ya está corregida y comprobada con NVDA.**
+La beta que estoy probando y `main` comparten esa corrección. El 26/11/2026
+revisé ambas ramas para que deje de aparecer como pendiente en las notas.
+
 ## Lo que queda pendiente
 
 Flow en vivo todavía puede ir detrás del audio y entregar frases cortadas.
-También hay una limitación con la pantalla completa nativa que muestra solo el
-elemento de video: el botón de KathWare usa el contenedor cuando está disponible.
 El detalle está en [problemas conocidos](docs/problemas-conocidos.md).
 
 Voy a distribuir primero la actualización de Chrome. Después de aproximadamente

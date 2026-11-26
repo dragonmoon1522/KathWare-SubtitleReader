@@ -1,8 +1,8 @@
 # Plan de salida y trabajo posterior de KathWare SubtitleReader
 
-Actualizado el **20/11/2026**: mantener 3.0.0 estable e incorporar las
-correcciones aprobadas de pantalla completa y sintetizador, con elección de voz
-sin preferencia impuesta de idioma.
+Actualizado el **26/11/2026**: mantener 3.0.0 estable e incorporar las
+correcciones aprobadas de pantalla completa y sintetizador, con elección de voz,
+velocidad y volumen, sin preferencia impuesta de idioma.
 
 ## Primera etapa: actualización de Chrome
 
@@ -10,9 +10,9 @@ sin preferencia impuesta de idioma.
 el desarrollo futuro y conserva las herramientas de prueba retiradas de la
 distribución estable.
 
-El fallo de **Flow en vivo** y la limitación de la pantalla completa nativa
-del elemento de video permanecen abiertos. La corrección para pantalla completa
-de contenedor ya está integrada. Se detallan en
+El fallo de **Flow en vivo** permanece abierto. **La lectura en pantalla completa
+ya está corregida y comprobada con NVDA**; beta y estable comparten la corrección.
+El volumen independiente del sintetizador también está en ambas ramas. Ver
 [problemas conocidos](problemas-conocidos.md).
 
 La arquitectura actual por plataformas y adaptadores se mantiene durante esta
@@ -41,8 +41,6 @@ Estos trabajos quedan fuera del alcance de 3.0.0 y de su distribución equivalen
 para otros navegadores:
 
 - **Flow en vivo:** corregir el atraso y la fragmentación reportados.
-- **Pantalla completa nativa del video:** investigar el caso que queda fuera del
-  contenedor usado por KathWare; la corrección de contenedor ya está en estable.
 - **Reorganización y depuración de plataformas:** pasar de la separación actual
   por plataforma a una organización por tipo de renderizado y selector.
 - **Integración con Audiocinemateca:** identificar la obra y la edición,

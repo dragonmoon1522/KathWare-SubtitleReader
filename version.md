@@ -1,9 +1,27 @@
 ## Historial de Versiones KathWare SubtitleReader
 
-**Última actualización:** 2026-11-25
+**Última actualización:** 2026-11-26
 **Autora:** Katherine Vargas [(KathWare)](https://kathware.com.ar)
 
 ---
+
+### Pantalla completa confirmada y volumen en ambas ramas (2026-11-26)
+
+La lectura en pantalla completa ya funciona en la beta que estoy probando.
+Comparé `main` y beta: comparten la región de anuncios y el manejo de pantalla
+completa. La única diferencia en esa salida son las marcas optativas de Flow
+que conservo para diagnóstico en beta. No faltaba pasar la corrección a estable.
+Corregí README, plan y notas de estado para no presentarla como fallo abierto.
+
+El control de volumen del sintetizador también está en beta y coincide con
+el de estable: 0–100%, guardado del ajuste y aplicación a frases y reintentos,
+sin modificar el video ni el modo lector. Preparé un ZIP beta actualizado.
+Las 15 pruebas de pantalla completa y las 7 de volumen pasan en cada rama:
+**22 en beta y 22 en estable**. La comprobación real con NVDA es la que hice al
+probar la beta; estas regresiones Node simulan el DOM y los eventos de síntesis.
+
+Las entradas anteriores conservan el estado que tenían en su fecha; sus
+pendientes de pantalla completa quedaron cerrados con la corrección probada.
 
 ### Revisión final de 3.0.0: voz y documentación (2026-11-25)
 

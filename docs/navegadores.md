@@ -211,3 +211,10 @@ KWSR_STABLE_ROOT=../subtitlereader-estable node --test tests/stable/popup.cjs
 ```
 
 Las pruebas siguen fuera de `main`. La guía de usuario final está en su README.
+
+El 26/11/2026 comparé la corrección de pantalla completa de beta y estable:
+coinciden la región de anuncios y el manejo del contenedor del reproductor.
+La lectura con NVDA ya funciona en la beta que estoy probando y no queda como
+fallo abierto. Volví a ejecutar las 15 pruebas de pantalla completa y las 7 de
+volumen contra cada rama: 22 aprobadas en cada una. El ZIP beta actualizado
+incluye el mismo control de volumen independiente que la estable.

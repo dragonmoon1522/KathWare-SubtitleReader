@@ -7,7 +7,7 @@ ningún idioma recibe prioridad impuesta por SubtitleReader.
 Comprobé que el sintetizador puede leer subtítulos en pantalla completa.
 El problema estaba en la recuperación: ante un fallo, SubtitleReader
 cambiaba y guardaba el modo lector automáticamente. Esto es independiente del
-[ensayo de anuncios de NVDA en pantalla completa](fullscreen-lectura.md).
+[corrección de anuncios de NVDA en pantalla completa](fullscreen-lectura.md).
 
 ## Causas comprobadas en el código anterior
 
@@ -24,7 +24,7 @@ cambiaba y guardaba el modo lector automáticamente. Esto es independiente del
 
 La salida sigue siendo la que el usuario eligió. Un error del sintetizador no
 cambia el modo ni entrega ese subtítulo por la región `aria-live`. Se conservan
-la voz y la velocidad elegidas. Los ajustes que el usuario cambie deliberadamente
+la voz, la velocidad y el volumen elegidos. Los ajustes que el usuario cambie deliberadamente
 durante una espera se aplican al siguiente intento.
 
 | Situación | Recuperación |

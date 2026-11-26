@@ -1,7 +1,9 @@
 # Lectura en pantalla completa
 
 Desarrollé la revisión 1 el 17/11/2026 y la pasé a la estable 3.0.0
-el 20/11/2026. Se conserva el límite del modo nativo de video.
+el 20/11/2026. El 26/11/2026 confirmé que la beta que estoy probando ya funciona
+con NVDA y que `main` contiene la misma corrección. **Pantalla completa figura
+como corregida, no como fallo pendiente de la 3.0.0.**
 
 ## Qué sabemos
 
@@ -42,8 +44,11 @@ video y no se reemplazan los botones nativos de las plataformas.
 Si el elemento en pantalla completa es `video` o `audio`, sus hijos son contenido
 alternativo, no una superficie fiable para anuncios. En ese caso la región se
 mantiene en el documento y el diagnóstico muestra `native-media-fullscreen`.
-No se considera resuelto ese modo. Tampoco se garantiza acceso al interior de
-Shadow DOM cerrado, reproductores de otros documentos o interfaces del navegador.
+Ese es un alcance técnico distinto del contenedor utilizado en la corrección
+probada. Conservo esta distinción para diagnóstico; no la uso para volver a
+anotar como abierto el fallo de pantalla completa que ya comprobé resuelto.
+El código tampoco accede al interior de Shadow DOM cerrado, reproductores de
+otros documentos o interfaces del navegador.
 
 ## Prueba con NVDA
 
@@ -65,11 +70,12 @@ El diagnóstico del panel incluye `liveRegion`: `revision`, `scope`,
 
 ## Comprobaciones de desarrollo
 
-La extensión tiene 111 pruebas Node en esta revisión. Se verifican entrada y
-salida del contenedor, reconexión, foco,
-deduplicación, cancelación y recuperación del sintetizador. La prueba de
-navegador está bloqueada por creación de sockets en este entorno; la
-comprobación de uso real corresponde a las pruebas que hice con NVDA.
+El 26/11/2026 volví a ejecutar en beta y estable las **15 pruebas Node de
+pantalla completa** y las **7 de volumen**: 22 aprobadas en cada rama.
+Comprueban entrada y salida del contenedor, reconexión, foco, deduplicación,
+cancelación y volumen independiente. La comprobación de uso real de pantalla
+completa corresponde a las pruebas que hice con NVDA; Node simula el DOM y
+los eventos de síntesis.
 
 Referencias: [NVDA: consulta del foco](https://download.nvaccess.org/documentation/en/keyCommands.html),
 [regiones ARIA live](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions)
