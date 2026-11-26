@@ -1,7 +1,7 @@
 # KathWare SubtitleReader
 
 **Autora:** Katherine Vargas · [KathWare](https://kathware.com.ar)
-**Versión estable preparada:** 3.0.0 · **Revisión:** 25/11/2026
+**Versión estable preparada:** 3.0.0 · **Revisión:** 26/11/2026
 
 Desarrollé SubtitleReader para escuchar los subtítulos de las plataformas de
 video con un lector de pantalla o con las voces del navegador. También agregué
@@ -14,7 +14,8 @@ controles accesibles para los reproductores que todavía los necesitan.
 - Lectura desde pistas de texto o subtítulos visibles, con ajustes para evitar
   repeticiones y manejar el texto que se va completando.
 - Elección de voz, velocidad y volumen en el modo voz, sin idioma preferido.
-- Lectura en pantalla completa del contenedor del reproductor.
+- Lectura en pantalla completa corregida y comprobada con NVDA. La corrección
+  que probé en beta ya está incorporada a esta estable.
 - Recuperación del sintetizador con más margen y un reintento cuando corresponde,
   conservando el modo que elegiste ante un error.
 - Controles de reproducción, avance, retroceso, volumen del video y pantalla
@@ -134,12 +135,15 @@ No doy por probado un sitio solo porque tenga selectores en el código.
 
 - **Flow en vivo sigue pendiente:** puede ir detrás del audio y entregar frases
   cortadas. La 3.0.0 no da por resuelto ese fallo.
-- **Pantalla completa:** la corrección usa el contenedor del reproductor. La
-  pantalla completa nativa que muestra solo el elemento de video conserva
-  limitaciones para el lector. Usá el botón de KathWare cuando esté disponible.
 - Los cambios de las plataformas pueden requerir nuevas correcciones. Páginas
   internas del navegador o lugares que no permitan extensiones quedan fuera
   del alcance del lector.
+
+**Pantalla completa ya está corregida.** La región que anuncia los subtítulos
+acompaña al contenedor del reproductor. Confirmé su funcionamiento al probar
+la beta y verifiqué que la estable incluye esa misma corrección. No queda
+anotada como fallo pendiente. Los controles de KathWare usan ese contenedor
+para mantener juntos el video, los controles y los anuncios del lector.
 
 La recuperación de voz espera hasta 10 segundos para iniciar cuando el motor
 no responde; ese límite no agrega 10 segundos a cada subtítulo. Si hay un fallo

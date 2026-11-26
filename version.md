@@ -2,7 +2,7 @@
 
 **Autora:** Katherine Vargas
 
-## 3.0.0 estable — 17/11/2026, actualizada el 25/11/2026
+## 3.0.0 estable — 17/11/2026, actualizada el 26/11/2026
 
 Dejé la estable en `main` y mantengo `3.0.0-beta` para continuar el desarrollo.
 En esta entrega incorporé:
@@ -23,8 +23,26 @@ El 20/11 pasé a estable las correcciones de pantalla completa y sintetizador
 tras las últimas pruebas. Las herramientas experimentales de Flow y los
 selectores ampliados de la beta no forman parte de esta entrega.
 
-**Queda pendiente:** atraso y fragmentación de Flow en vivo y limitaciones de
-la pantalla completa nativa que muestra solo el elemento de video.
+**Queda pendiente:** atraso y fragmentación de Flow en vivo.
+
+## 26/11/2026 — pantalla completa confirmada y revisión de ambas ramas
+
+La lectura en pantalla completa ya funciona en la beta que estoy probando.
+Comparé esa corrección con `main`: la ubicación de la región de anuncios,
+la entrada y salida de pantalla completa y el botón del reproductor coinciden.
+No faltaba promover código; corregí las notas que la seguían presentando como
+pendiente. La distinción técnica del modo nativo de video se conserva en las
+notas de implementación, separada del estado de la corrección probada.
+
+También comprobé que beta y estable incluyen el mismo control de volumen del
+sintetizador, con persistencia y aplicación a las siguientes frases y reintentos.
+Volví a ejecutar las 15 pruebas de pantalla completa y las 7 de volumen en
+cada rama: **22 aprobadas en estable y 22 en beta**. La comprobación auditiva
+de pantalla completa es la de mis pruebas con NVDA; Node verifica las
+regresiones de estructura y eventos.
+
+Esta revisión modifica documentación. El código y el ZIP estable conservan
+su contenido y su SHA-256. Preparé además un ZIP beta actualizado para probar.
 
 ## 25/11/2026 — revisión final para Chrome y Edge
 
