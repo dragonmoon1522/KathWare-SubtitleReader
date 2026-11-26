@@ -109,6 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (h.includes("paramount")) return "paramount";
       if (h.includes("flow")) return "flow";
       if (h.includes("youtube")) return "youtube";
+      if (h.includes("vix")) return "vix";
       return "generic";
     } catch {
       return "generic";
@@ -119,6 +120,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const s = String(x ?? "").replace(/\u0000/g, "").trim();
     if (!s) return "";
     return s.length > 300 ? (s.slice(0, 300) + "…") : s;
+  }
+
+  function pageUrl(value) {
+    try {
+      const url = new URL(value);
+      return /^https?:$/.test(url.protocol) ? url.origin + url.pathname : "";
+    } catch { return ""; }
   }
 
   function buildIssueBody(reporte) {
@@ -184,13 +192,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     withActiveTab((tab) => {
-      reporte.url = tab?.url || "(sin URL o pestaña no compatible)";
+      reporte.url = pageUrl(tab?.url) || "(sin URL o pestaña no compatible)";
       reporte.platform = inferPlatformFromUrl(tab?.url || "");
 
       if (permitirEnvioLogs?.checked) {
         try {
           api.storage.local.get("kathLogs", (data) => {
-            reporte.logs = (data?.kathLogs || []).slice(-100);
+            const entries = Array.isArray(data?.kathLogs) ? data.kathLogs : [];
+            const currentPage = pageUrl(tab?.url);
+            reporte.logs = currentPage && tab?.id != null ? entries.filter(entry =>
+              entry?.tabId === tab.id && pageUrl(entry.tabUrl || entry.url) === currentPage
+            ).slice(-100) : [];
             openGithubIssue(reporte);
             if (reporteError) reporteError.value = "";
           });
