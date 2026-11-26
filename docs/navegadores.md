@@ -10,19 +10,17 @@ La extensión se mantiene en `Extension/`, con una única base de HTML, CSS y
 JavaScript. Se preparan paquetes diferentes a partir de esa misma fuente. No
 hace falta mantener una rama de código por cada navegador basado en Chromium.
 
-## Orden de publicación acordado el 28/10/2026
+## Orden de publicación actualizado el 25/11/2026
 
-1. Publicar primero 3.0.0 como actualización de la extensión de Chrome, una vez
-   cerradas las pruebas y decidido el paso a estable.
-2. Observar su funcionamiento durante aproximadamente dos semanas desde esa
-   publicación. El plazo es orientativo y depende de la estabilidad real.
-3. Distribuir la misma versión funcional estabilizada para otros navegadores,
-   después de sus pruebas y adaptaciones de empaquetado.
+1. Subir primero 3.0.0 estable a Chrome Web Store.
+2. Si Google aprueba el paquete, presentar ese mismo ZIP en Edge Add-ons.
+   La revisión de Microsoft y la prueba de sus voces se realizan por separado.
+3. Evaluar otros Chromium después de la estabilización y sus pruebas.
+4. Mantener Firefox para una adaptación posterior.
 
-Los paquetes preparados para otros Chromium sirven para esa segunda etapa.
-Su generación local no adelanta su publicación ni los convierte en un requisito
-para cerrar la salida inicial de Chrome. Firefox sigue pendiente de adaptación
-y pruebas, sin fecha específica comprometida.
+Este plan reemplaza la espera orientativa de dos semanas para Edge. La salida
+de voz usa las voces que cada navegador exponga; Elena de Argentina es una
+opción solo cuando figure en la lista de Edge.
 
 Ver el [plan de salida y trabajo posterior](plan-de-versiones.md).
 
@@ -65,7 +63,7 @@ repositorio. La licencia se toma del mismo checkout que la extensión.
 | Destino | Paquete | Estado |
 | --- | --- | --- |
 | Chrome | `chrome` | Primera distribución desde `main`; esta rama genera el paquete de desarrollo beta. |
-| Edge | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y envío a Edge Add-ons. |
+| Edge | El mismo ZIP estable de Chrome | Se presentará después de la aprobación de Google; mantiene su revisión y pruebas propias. |
 | Brave y Vivaldi | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica. |
 | Opera | `chromium` | Segunda etapa, después de estabilizar Chrome; falta prueba específica y evaluación para su tienda. |
 | Firefox | Sin paquete en esta entrega | Adaptación y pruebas aplazadas. |
@@ -201,3 +199,15 @@ pruebas anteriores de este documento corresponden a la preparación de la beta.
 
 La primera distribución corresponde a Chrome. Los otros navegadores seguirán
 el orden acordado en el [plan de versiones](plan-de-versiones.md).
+
+## Comprobaciones de salida
+
+El 25/11/2026 añadí pruebas del volumen independiente y del formulario de reporte
+de la estable. El volumen no modifica el del video ni la región del modo lector.
+Para el popup estable, ejecutá desde esta rama:
+
+```sh
+KWSR_STABLE_ROOT=../subtitlereader-estable node --test tests/stable/popup.cjs
+```
+
+Las pruebas siguen fuera de `main`. La guía de usuario final está en su README.

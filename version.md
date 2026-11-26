@@ -5,6 +5,20 @@
 
 ---
 
+### Revisión final de 3.0.0: voz y documentación (2026-11-25)
+
+Incorporé el volumen independiente del sintetizador a la salida compartida.
+Se conserva al cargar ajustes y al reintentar, sin cambiar el audio del video
+ni el modo lector. Agregué siete pruebas de volumen y tres del popup estable.
+Las 172 pruebas Node de desarrollo pasaron. El navegador automatizado no pudo
+iniciar en este entorno.
+
+La estable documenta los comandos de NVDA y las recomendaciones de RHVoice y
+Phonon. El plan es Chrome primero y, tras la aprobación de Google, presentar
+el mismo ZIP en Edge; cada tienda conserva su validación. La voz elegida en Edge
+será una de las que exponga ese navegador. Las correcciones del reporte de main
+se prueban por separado; esta rama conserva su flujo de reportes ampliado.
+
 ### Limpieza de la rama estable (2026-11-25)
 
 Dejé en `main` el código de la extensión estable y su documentación básica.

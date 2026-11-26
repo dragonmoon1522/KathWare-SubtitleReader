@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { fixture: liveFixture } = require('./live-region.cjs');
 
-function fixture({ cancellation = 'sync', settings = false } = {}) {
+function fixture({ cancellation = 'sync', settings = false, storedSettings = null } = {}) {
   const f = liveFixture(), utterances = [], notices = [], writes = [], warnings = [];
   const listeners = new Map(), started = new Set();
   let current = null;
@@ -12,6 +12,7 @@ function fixture({ cancellation = 'sync', settings = false } = {}) {
   f.KWSR.toast = { notify: text => notices.push(text) };
   f.KWSR.warn = (...args) => warnings.push(args);
   f.KWSR.api = { storage: { local: { set: value => writes.push(value) } } };
+  if (storedSettings) f.KWSR.api.storage.local.get = (keys, cb) => cb(storedSettings);
   f.document.querySelector = () => null;
   f.video.addEventListener = (name, fn) => {
     if (!listeners.has(name)) listeners.set(name, new Set());

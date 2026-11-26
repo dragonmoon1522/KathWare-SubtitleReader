@@ -18,23 +18,22 @@ de contenedor ya está integrada. Se detallan en
 La arquitectura actual por plataformas y adaptadores se mantiene durante esta
 entrega. Las ideas y funciones nuevas se anotan para las versiones siguientes.
 
-## Segunda etapa: la misma versión para otros navegadores
+## Edge después de la revisión de Chrome
 
-Después de aproximadamente dos semanas de uso estable desde la publicación
-en Chrome, se distribuirá esa misma versión funcional para otros navegadores.
-Se conserva el alcance de la versión estabilizada; los cambios necesarios para
-cada navegador se limitan a compatibilidad, correcciones y empaquetado.
+El 25/11/2026 actualicé el plan: voy a subir primero la estable 3.0.0 a Chrome
+Web Store y, si Google aprueba el paquete, voy a presentar ese mismo ZIP en
+Microsoft Edge Add-ons. La espera orientativa de dos semanas ya no es un
+requisito para Edge. Microsoft mantiene su propia revisión y las pruebas de
+Edge siguen siendo necesarias antes de anunciarlo como verificado.
 
-Las dos semanas son una referencia, no una fecha automática de publicación.
-Si aparecen regresiones, se corrigen y se evalúa la estabilidad antes de
-ampliar la distribución. La validación específica de cada navegador se realiza
-antes de anunciar su compatibilidad.
+En modo voz, la lista incluye lo que exponga el navegador. En Edge podrán
+elegirse voces de Microsoft, como Elena de Argentina, cuando estén disponibles.
+No se añade un catálogo fijo ni se impone idioma. Las preferencias pertenecen
+a cada navegador y perfil.
 
-Los paquetes Chromium ya preparados permiten avanzar con Edge, Brave, Opera y
-Vivaldi. Firefox requiere su adaptación y pruebas propias y conserva su estado
-pendiente, sin una fecha específica comprometida.
-
-Las instrucciones técnicas están en [paquetes y navegadores](navegadores.md).
+Brave, Opera y Vivaldi conservan su etapa posterior de pruebas y distribución.
+Firefox sigue pendiente de adaptación. Las instrucciones de empaquetado están
+en [paquetes y navegadores](navegadores.md).
 
 ## Versiones posteriores
 

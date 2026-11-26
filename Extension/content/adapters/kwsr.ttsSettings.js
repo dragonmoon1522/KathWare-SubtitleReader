@@ -9,14 +9,14 @@
 //
 // Esta capa mantiene intacto voice.js y aplica, justo antes de speechSynthesis.speak():
 // - voz elegida por el usuario;
-// - velocidad elegida por el usuario.
+// - velocidad y volumen elegidos por el usuario.
 //
 // El modo "lector" (aria-live) NO puede modificar la velocidad de NVDA/JAWS:
 // esa velocidad pertenece al lector de pantalla, no al navegador.
 // -----------------------------------------------------------------------------
 
 // PARA UBICARTE
-// Aplica la voz y velocidad elegidas a la síntesis del navegador.
+// Aplica voz, velocidad y volumen a la síntesis del navegador.
 // TTS significa convertir texto en voz; utterance es una frase para pronunciar.
 // Buscá applySettingsToUtterance. La velocidad de NVDA se configura en NVDA.
 //
@@ -32,10 +32,12 @@
   const DEFAULT_RATE = 1.75;
   const MIN_RATE = 0.8;
   const MAX_RATE = 3;
+  const DEFAULT_VOLUME = 1;
 
   CFG.ttsRate = Number.isFinite(Number(CFG.ttsRate))
     ? Number(CFG.ttsRate)
     : DEFAULT_RATE;
+  CFG.ttsVolume = clampVolume(CFG.ttsVolume);
 
   S.ttsVoiceURI = S.ttsVoiceURI || "";
   S.ttsVoiceName = S.ttsVoiceName || "";
@@ -47,6 +49,12 @@
     const n = Number(value);
     if (!Number.isFinite(n)) return DEFAULT_RATE;
     return Math.min(MAX_RATE, Math.max(MIN_RATE, n));
+  }
+
+  function clampVolume(value) {
+    if (value == null || value === "") return DEFAULT_VOLUME;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : DEFAULT_VOLUME;
   }
 
   function getVoices() {
@@ -98,6 +106,16 @@
     return CFG.ttsRate;
   }
 
+  function setVolume(value, { announce = true } = {}) {
+    CFG.ttsVolume = clampVolume(value);
+    persist({ ttsVolume: CFG.ttsVolume });
+    if (announce) {
+      try { KWSR.toast?.notify?.(`Volumen de voz: ${Math.round(CFG.ttsVolume * 100)}%`); } catch {}
+    }
+    syncPanel();
+    return CFG.ttsVolume;
+  }
+
   function setVoice(value, { announce = true } = {}) {
     const voices = getVoices();
     const selected = voices.find(v => voiceKey(v) === String(value || "")) || null;
@@ -137,10 +155,11 @@
 
     try {
       api.storage.local.get(
-        ["ttsRate", "ttsVoiceURI", "ttsVoiceName"],
+        ["ttsRate", "ttsVolume", "ttsVoiceURI", "ttsVoiceName"],
         (data) => {
           try {
             CFG.ttsRate = clampRate(data?.ttsRate ?? CFG.ttsRate ?? DEFAULT_RATE);
+            CFG.ttsVolume = clampVolume(data?.ttsVolume ?? CFG.ttsVolume);
             S.ttsVoiceURI = String(data?.ttsVoiceURI || "");
             S.ttsVoiceName = String(data?.ttsVoiceName || "");
 
@@ -164,6 +183,7 @@
 
     try {
       utterance.rate = clampRate(CFG.ttsRate);
+      utterance.volume = clampVolume(CFG.ttsVolume);
     } catch {}
 
     try {
@@ -178,6 +198,7 @@
       try {
         KWSR.log?.("TTS speak", {
           rate: utterance.rate,
+          volume: utterance.volume,
           voice: utterance.voice?.name || "default",
           lang: utterance.lang || "",
           text: String(utterance.text || "")
@@ -262,7 +283,7 @@
   function buildRateOptions(select) {
     if (!select) return;
 
-    const rates = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+    const rates = [0.8, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
     select.textContent = "";
 
     for (const rate of rates) {
@@ -324,6 +345,20 @@
 
     const voiceUI = createSelect("kwsr-tts-voice", "Voz del sintetizador");
     const rateUI = createSelect("kwsr-tts-rate", "Velocidad del sintetizador");
+    const volumeWrap = document.createElement("div");
+    const volumeLabel = document.createElement("label");
+    volumeLabel.setAttribute("for", "kwsr-tts-volume");
+    volumeLabel.textContent = "Volumen del sintetizador";
+    const volume = document.createElement("input");
+    volume.id = "kwsr-tts-volume";
+    volume.type = "range";
+    volume.min = "0";
+    volume.max = "100";
+    volume.step = "5";
+    volume.setAttribute("aria-label", "Volumen del sintetizador");
+    Object.assign(volumeWrap.style, { display: "grid", gap: "4px" });
+    Object.assign(volume.style, { width: "100%" });
+    volumeWrap.append(volumeLabel, volume);
 
     buildRateOptions(rateUI.select);
 
@@ -334,15 +369,18 @@
     rateUI.select.addEventListener("change", () => {
       setRate(rateUI.select.value);
     });
+    volume.addEventListener("input", () => {
+      setVolume(Number(volume.value) / 100, { announce: false });
+    });
 
     const note = document.createElement("div");
-    note.textContent = "La velocidad del modo Lector se configura en NVDA, JAWS o el lector de pantalla del sistema.";
+    note.textContent = "En modo Lector, configurá voz, velocidad y volumen desde tu lector de pantalla. El volumen del video se ajusta en sus controles.";
     Object.assign(note.style, {
       fontSize: "12px",
       opacity: ".9"
     });
 
-    section.append(title, voiceUI.wrap, rateUI.wrap, note);
+    section.append(title, voiceUI.wrap, rateUI.wrap, volumeWrap, note);
 
     const betaTools = panel.querySelector("#kwsr-beta-tools");
     if (betaTools) panel.insertBefore(section, betaTools);
@@ -355,6 +393,12 @@
   function syncPanel() {
     const rate = document.querySelector("#kwsr-tts-rate");
     if (rate) rate.value = String(clampRate(CFG.ttsRate));
+    const volume = document.querySelector("#kwsr-tts-volume");
+    if (volume) {
+      const percent = Math.round(clampVolume(CFG.ttsVolume) * 100);
+      volume.value = String(percent);
+      volume.setAttribute("aria-valuetext", `${percent}%`);
+    }
 
     const voice = document.querySelector("#kwsr-tts-voice");
     if (voice) {
@@ -368,6 +412,7 @@
     const selected = getSelectedVoice();
     return {
       rate: clampRate(CFG.ttsRate),
+      volume: clampVolume(CFG.ttsVolume),
       voiceURI: S.ttsVoiceURI || "",
       voiceName: selected?.name || S.ttsVoiceName || "",
       voiceLang: selected?.lang || "",
@@ -407,6 +452,7 @@
 
   KWSR.ttsSettings = {
     setRate,
+    setVolume,
     setVoice,
     getVoices,
     getSelectedVoice,

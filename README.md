@@ -28,13 +28,20 @@ Para generar un paquete estable desde estas herramientas, uso una copia de
 hacerla pasar por estable. El procedimiento está en
 [paquetes y navegadores](docs/navegadores.md).
 
+## Revisión final de la estable
+
+La guía de uso, los comandos de NVDA, las recomendaciones de RHVoice y Phonon
+y el plan de Chrome y Edge están en el
+[README de main](https://github.com/dragonmoon1522/KathWare-SubtitleReader/blob/main/README.md).
+La salida de voz de esta rama también incorpora el volumen independiente.
+
 ## Qué incluye la 3.0.0
 
 - Correcciones de Disney+ / Hive y compatibilidad incorporada para YouTube,
   Paramount+ y ViX.
 - Lectura de subtítulos mediante pistas de texto o mediante el texto visible
   del reproductor, con ajustes para evitar repeticiones.
-- Selección de voz y velocidad en el modo sintetizador. La voz la elegís vos;
+- Selección de voz, velocidad y volumen en el modo sintetizador. La voz la elegís vos;
   la opción automática respeta la predeterminada del navegador.
 - Lectura en pantalla completa del contenedor del reproductor. La región que
   anuncia los subtítulos acompaña al video y a sus controles.
@@ -73,8 +80,9 @@ elemento de video: el botón de KathWare usa el contenedor cuando está disponib
 El detalle está en [problemas conocidos](docs/problemas-conocidos.md).
 
 Voy a distribuir primero la actualización de Chrome. Después de aproximadamente
-dos semanas de uso estable desde su publicación, evaluaré la misma versión para
-Edge y otros navegadores Chromium. Firefox queda para más adelante.
+dos semanas de uso estable desde su publicación, evaluaré otros navegadores
+Chromium. Edge recibirá el mismo ZIP después de la aprobación
+de Chrome, con su propia validación. Firefox queda para más adelante.
 
 También quedan para versiones posteriores la organización por tipo de renderizado,
 la integración con Audiocinemateca para personas con cuenta válida, la versión
