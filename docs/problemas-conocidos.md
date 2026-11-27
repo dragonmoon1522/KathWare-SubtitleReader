@@ -18,6 +18,11 @@ El 20/11 pasé la corrección a estable y ahora volví a comparar ambas ramas.
   antes del inicio. Los errores conservan el modo y los ajustes elegidos.
 - **Volumen de la voz:** disponible también en beta, independiente del video
   y del lector de pantalla, con guardado del ajuste.
+- **Continuidad de voz:** cada frase termina antes de leer la siguiente. Los
+  subtítulos nuevos esperan; la recuperación conserva su turno y los ajustes.
+- **Controles con teclado:** sostengo su visibilidad mientras uso la plataforma
+  o SubtitleReader. La ocultación por inactividad de una barra ya comprobada
+  no vuelve a introducir los controles alternativos.
 
 Las pruebas automatizadas verifican regresiones. La confirmación de uso de
 pantalla completa proviene de mis pruebas reales con NVDA. El detalle sobre

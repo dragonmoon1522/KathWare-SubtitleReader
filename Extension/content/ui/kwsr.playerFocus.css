@@ -2,4 +2,7 @@
 [data-kwsr-focus-controls]:not([hidden], [inert], [aria-hidden="true"], [hidden] *, [inert] *, [aria-hidden="true"] *) {
   opacity: 1 !important;
   visibility: visible !important;
+  /* Si el sitio intenta poner display:none, conservamos el tipo de caja que
+     tenía la barra al recibir el foco. No abrimos menús ni paneles cerrados. */
+  display: var(--kwsr-focus-display) !important;
 }

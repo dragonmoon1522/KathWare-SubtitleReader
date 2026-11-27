@@ -64,17 +64,20 @@ test('a transient startup error retries with the selected voice and rate', () =>
   assert.equal(f.KWSR.state.ttsVoiceURI, 'default');
 });
 
-test('a new subtitle supersedes the retry of an obsolete phrase', () => {
+test('a new subtitle waits for the bounded retry of the previous phrase', () => {
   const f = fixture(), first = f.say('Frase anterior.');
   f.event(first, 'error', { error: 'audio-busy' });
   f.say('Frase actual.'); f.advance(500);
-  assert.deepEqual(f.utterances.map(u => u.text), ['Frase anterior.', 'Frase actual.']);
+  assert.deepEqual(f.utterances.map(u => u.text), ['Frase anterior.', 'Frase anterior.']);
+  const retry=f.utterances[1];f.event(retry,'start');f.event(retry,'end');f.advance(0);
+  assert.equal(f.utterances[2].text,'Frase actual.');
   assertVoiceMode(f);
 });
 
 test('synchronous cancellation of the previous phrase cannot fail the next one', () => {
   const f = fixture(), first = f.say('Primera frase.');
   f.event(first, 'start');
+  f.KWSR.voice.detenerLectura();
   const second = f.say('Segunda frase.'); f.event(second, 'start');
   f.advance(6000);
   assert.equal(f.synth.speaking, true);
@@ -84,6 +87,7 @@ test('synchronous cancellation of the previous phrase cannot fail the next one',
 
 test('late error and end events from an old phrase cannot cancel the current watchdog', () => {
   const f = fixture({ cancellation: 'async' }), first = f.say('Anterior.');
+  f.KWSR.voice.detenerLectura();
   f.say('Actual.');
   f.advance(50); f.event(first, 'end'); f.event(first, 'error', { error: 'synthesis-failed' });
   f.advance(10450);

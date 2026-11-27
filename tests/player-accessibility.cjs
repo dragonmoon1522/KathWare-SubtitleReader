@@ -106,7 +106,10 @@ test('fallback requires visible, enabled controls actually in the Tab order', as
   assert.equal(await p.evaluate(() => KWSR.playerUIRules.nativePlayerAccessibility().accessible), false);
   await p.evaluate(() => document.querySelectorAll('#controls > *').forEach(el => el.tabIndex = 0));
   assert.equal(await p.evaluate(() => KWSR.playerUIRules.nativePlayerAccessibility().accessible), true);
-  for (const [attr, value] of [['style','opacity:0'], ['aria-hidden','true'], ['inert',''], ['hidden','']]) {
+  await p.locator('#controls').evaluate(el => el.style.opacity='0');
+  assert.equal(await p.evaluate(() => KWSR.playerUIRules.nativePlayerAccessibility().accessible), true);
+  await p.locator('#controls').evaluate(el => el.style.opacity='');
+  for (const [attr, value] of [['aria-hidden','true'], ['inert',''], ['hidden','']]) {
     await p.locator('#controls').evaluate((el, pair) => el.setAttribute(...pair), [attr, value]);
     assert.equal(await p.evaluate(() => KWSR.playerUIRules.nativePlayerAccessibility().accessible), false, attr);
     await p.locator('#controls').evaluate((el, attr) => el.removeAttribute(attr), attr);
@@ -254,4 +257,25 @@ test('only the current player is pinned and closed menus stay closed', async t =
   assert.equal(await p.locator('#other-controls').getAttribute('data-kwsr-focus-controls'), null);
   await p.evaluate(() => { KWSR.state.extensionActiva = false; KWSR.keepAlive.tick(); });
   assert.equal(await p.locator('#controls').getAttribute('data-kwsr-focus-controls'), null);
+});
+
+test('SubtitleReader settings preserve native visibility through Tab and Shift+Tab', async t => {
+  const p=await fixture(t,'<button id="play">Play</button><button>Volume</button><button>Fullscreen</button>','generic');
+  await p.locator('#kathware-overlay-panel select').first().focus();
+  await p.locator('#controls').evaluate(el=>el.style.display='none');
+  assert.equal(await p.locator('#controls').isVisible(),true);
+  assert.equal(await p.locator('#kwsr-fallback-player-controls').isVisible(),false);
+  await p.keyboard.press('Tab');await p.keyboard.press('Shift+Tab');
+  assert.equal(await p.locator('#controls').isVisible(),true);
+  await p.locator('#before').focus();
+  await p.locator('#controls').waitFor({state:'hidden'});
+});
+
+test('a sleeping usable platform does not bring back the alternative playback row', async t=>{
+  const p=await fixture(t,'<button>Play</button><button>Volume</button><button>Fullscreen</button>','generic');
+  await p.locator('#before').focus();
+  await p.locator('#controls').evaluate(el=>el.style.visibility='hidden');
+  await p.evaluate(()=>KWSR.playerUIRules.syncFallbackPlayer());
+  assert.equal(await p.locator('#kwsr-fallback-player-controls').isVisible(),false);
+  assert.equal(await p.locator('#kathware-overlay-panel').isVisible(),true);
 });

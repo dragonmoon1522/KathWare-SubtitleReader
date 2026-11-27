@@ -4,6 +4,11 @@ Revisión 1, desarrollada el 17/11/2026 y aprobada para la estable 3.0.0
 el 20/11/2026. La voz automática sigue la predeterminada del navegador;
 ningún idioma recibe prioridad impuesta por SubtitleReader.
 
+El 26/11/2026 actualicé la recuperación a **revisión 2**, con lectura por turnos
+en beta y estable. Ambos modos reciben el mismo texto filtrado; el navegador
+termina una frase antes de empezar la siguiente. No se cancela por la llegada
+de un subtítulo nuevo. La revisión 1 se conserva en el historial.
+
 Comprobé que el sintetizador puede leer subtítulos en pantalla completa.
 El problema estaba en la recuperación: ante un fallo, SubtitleReader
 cambiaba y guardaba el modo lector automáticamente. Esto es independiente del
@@ -31,12 +36,12 @@ durante una espera se aplican al siguiente intento.
 | --- | --- |
 | La voz todavía no comenzó | Se esperan hasta 10 segundos para el evento de inicio. |
 | La frase ya está hablando | El margen depende del texto pendiente y de la velocidad efectiva: al menos 15 segundos, hasta 120 segundos por período sin avance. Los eventos de avance de palabra renuevan el margen. |
-| Fallo recuperable antes del inicio | Un reintento después de 500 ms, si sigue siendo el subtítulo vigente. |
-| Llega un subtítulo nuevo | Reemplaza la frase anterior y sus reintentos pendientes. Se conserva la política previa de dar prioridad al contenido actual. |
-| La frase falló después de empezar | Se limpia el intento y se espera el siguiente subtítulo, sin repetir entera una frase parcialmente escuchada. |
-| Se agotó el reintento | Se informa el problema y se conserva el modo voz. Un subtítulo nuevo puede volver a intentar. |
+| Fallo recuperable antes del inicio | Un reintento después de 500 ms, mientras siga siendo el mismo video, posición y modo. Conserva su turno delante de las frases nuevas. |
+| Llega un subtítulo nuevo | Espera su turno, sin cortar la frase que se está leyendo ni cancelar su reintento. |
+| La frase falló después de empezar | Se limpia el intento y se continúa con la siguiente frase en espera, sin repetir entera una frase parcialmente escuchada. |
+| Se agotó el reintento | Se informa el problema, se conserva el modo voz y se permite continuar con la frase siguiente. |
 | Voz/idioma no disponible, argumento inválido, texto demasiado largo o bloqueo del navegador | Se informa el problema sin repetir automáticamente el mismo intento. Se puede elegir otra voz o reiniciar la lectura. |
-| Pausa, búsqueda de otra posición, finalización, cambio de video, apagado o cambio de modo | Se invalida el intento anterior y su recuperación pendiente. |
+| Pausa, búsqueda de otra posición, finalización, cambio de video, apagado, reinicio o cambio de modo | Se invalida el intento anterior y se vacían las frases en espera. |
 
 Estos tiempos son valores de implementación para probar, no garantías de
 duración o latencia de Web Speech. No es necesario esperar 10 segundos para cada
@@ -51,10 +56,13 @@ reanuda antes de solicitar voz.
 Los avisos de fallo se limitan a uno cada 10 segundos. El límite de avisos no
 bloquea nuevos subtítulos. El diagnóstico del panel incluye `ttsRecovery` con
 `revision`, `phase`, `attempt`, `started`, `deadlineAt` y `lastError`.
+La revisión 2 añade `queued`, la cantidad de frases que todavía esperan turno.
+Voz, velocidad y volumen se aplican al comenzar cada turno o reintento. La cola
+puede atrasarse con una voz lenta; Alt+Shift+R permite vaciarla y reiniciar.
 
 ## Validación
 
-La promoción aprueba 111 pruebas Node de la extensión: regresiones de lectura,
+La promoción del 20/11 aprobó 111 pruebas Node de la extensión: regresiones de lectura,
 integridad de la estable, pantalla completa, recuperación y seis escenarios
 sobre elección libre de voz. Se usan eventos y síntesis simulados.
 
@@ -62,6 +70,11 @@ Después de recargar, el error anterior no volvió a aparecer. Por eso pasé
 estas correcciones a la estable. La prueba de navegador no puede
 arrancar aquí por restricciones de sockets; no se atribuye a Node una validación
 de audio real o pronunciación de NVDA.
+
+Los toques finales del 26/11 aprobaron **146 pruebas Node de la estable y 197
+de beta**. Incluyen 13 escenarios de cola y 12 de foco y respaldo. Se actualizaron
+las pruebas de sustitución para comprobar ahora la cancelación deliberada,
+conservando la protección frente a eventos tardíos y los ajustes guardados.
 
 Referencias: [errores de Web Speech](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisErrorEvent/error)
 y [especificación de síntesis](https://webaudio.github.io/web-speech-api/).

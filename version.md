@@ -5,6 +5,36 @@
 
 ---
 
+### Toques finales: controles y lectura por turnos (2026-11-26)
+
+Mantuve visibles los controles nativos con Tab, Shift+Tab y flechas, también
+mientras uso el panel de SubtitleReader. El tipo de caja de las barras se
+conserva durante el foco y se restaura al salir. Los menús cerrados mantienen
+su estado y los botones conservan su comportamiento de teclado.
+
+La barra de respaldo sigue oculta si el sitio ya tiene controles utilizables,
+incluidos los reparados con nombres y teclado en ViX y Flow. Conservo evidencia
+solo para el video y los botones comprobados: la inactividad no se confunde
+con un reproductor inaccesible, pero retirar o deshabilitar botones se reevalúa.
+
+La recuperación de TTS pasa a revisión 2. Cada subtítulo termina antes de leer
+el siguiente; ambos modos comparten el texto y los filtros de repeticiones.
+Los reintentos son acotados y conservan su turno. Pausa, búsqueda, cambio de
+video o de modo, apagado y reinicio vacían lo pendiente. Cada turno usa los
+ajustes actuales de voz, velocidad y volumen. Agregué comentarios sencillos.
+
+Pasaron **197 pruebas Node de beta y 146 de la estable**. Las 13 nuevas pruebas
+de cola y las 12 de foco usan eventos y DOM simulados. Actualicé además los
+escenarios de navegador; no pude ejecutarlos porque Chrome se cerró al iniciar
+en este entorno. La comprobación real con NVDA de estos toques queda aparte.
+
+Los cambios compartidos están en ambas ramas. Mantengo las herramientas,
+selectores y reportes ampliados de beta, la documentación y las preferencias
+guardadas. Accessibility Player conserva su historial y código por separado.
+
+SHA-256 del ZIP beta actualizado:
+`45bc30d9ed3eb021e8142bf2919087f88a6bf3dd2f207a017a5834e258d9df37`.
+
 ### Pantalla completa confirmada y volumen en ambas ramas (2026-11-26)
 
 La lectura en pantalla completa ya funciona en la beta que estoy probando.

@@ -36,6 +36,7 @@
   let observer = null;
   let scheduled = false;
   let lastAccessibleState = null;
+  let nativeEvidence = null;
 
   function isVisible(el) {
     try {
@@ -129,8 +130,32 @@
       if (!isVisible(el)) return false;
       if (!nearVideo(el, video, root)) return false;
       const name = accessibleName(el);
-      return isKeyboardInteractive(el) && !!name && name !== "Control del reproductor";
+      const usable = isKeyboardInteractive(el) && !!name && name !== "Control del reproductor";
+      // Recordamos cómo se dibujaba su barra antes de que el sitio la esconda.
+      if (usable) KWSR.keepAlive?.controlBar?.(el, root);
+      return usable;
     });
+  }
+
+  function temporarilyHidden(el, root) {
+    const bar = KWSR.keepAlive?.controlBar?.(el, root);
+    if (!bar) return false;
+    let autoHidden = false;
+    for (let node = el; node; node = node.parentElement) {
+      // Un menú cerrado o un botón deshabilitado no es una barra dormida.
+      if (node.hidden || node.inert || node.getAttribute("aria-hidden") === "true") return false;
+      const cs = getComputedStyle(node);
+      const hidden = cs.display === "none" || cs.visibility === "hidden" ||
+        cs.visibility === "collapse" || Number(cs.opacity || 1) < 0.05;
+      if (!hidden) continue;
+      // visibility se hereda: un botón puede verse oculto solo porque su barra
+      // está dormida. display y opacity propios siguen siendo motivos para excluirlo.
+      if (bar !== node && bar.contains(node) && cs.display !== "none" &&
+          Number(cs.opacity || 1) >= 0.05 && !["hidden", "collapse"].includes(node.style.visibility)) continue;
+      if (node === root || !root.contains(node) || !node.contains(bar)) return false;
+      autoHidden = true;
+    }
+    return autoHidden;
   }
 
   // Estima si el sitio ofrece controles utilizables según nombre, visibilidad y foco.
@@ -138,6 +163,7 @@
   function nativePlayerAccessibility() {
     const video = S.currentVideo || KWSR.video?.getMainVideo?.();
     if (!video) {
+      nativeEvidence = null;
       return { accessible: false, reason: "no-video", namedControls: 0 };
     }
 
@@ -148,7 +174,22 @@
       }
     } catch {}
 
-    const controls = getNativeControls(video);
+    const root = KWSR.keepAlive?.playerRoot?.(video) || video.parentElement;
+    const source = String(video.currentSrc || video.src || "");
+    if (nativeEvidence && (nativeEvidence.video !== video || nativeEvidence.root !== root ||
+        nativeEvidence.source !== source)) nativeEvidence = null;
+
+    let controls = getNativeControls(video);
+    let fromSleepingBar = false;
+    if (nativeEvidence) {
+      // Ya vimos y comprobamos estos botones. Que se apaguen por inactividad no
+      // significa que haya que agregar otro reproductor encima del de la página.
+      const known = nativeEvidence.controls.filter(el => el.isConnected && root?.contains(el) &&
+        isKeyboardInteractive(el) && accessibleName(el) && accessibleName(el) !== "Control del reproductor" &&
+        (isVisible(el) || temporarilyHidden(el, root)));
+      fromSleepingBar = known.some(el => !isVisible(el));
+      controls = Array.from(new Set([...controls, ...known]));
+    }
     const names = controls.map(accessibleName).filter(Boolean);
     const joined = names.join(" ").toLowerCase();
 
@@ -158,10 +199,12 @@
     // Tres controles con nombre y teclado, incluyendo reproducción y al menos
     // otra función del player, es una señal conservadora de player usable.
     const accessible = controls.length >= 3 && hasPlayback && hasSecondary;
+    if (accessible) nativeEvidence = { video, root, source, controls };
+    else nativeEvidence = null;
 
     return {
       accessible,
-      reason: accessible ? "named-keyboard-controls" : "insufficient-controls",
+      reason: accessible ? (fromSleepingBar ? "known-controls-auto-hidden" : "named-keyboard-controls") : "insufficient-controls",
       namedControls: controls.length,
       names: CFG.debug ? names.slice(0, 20) : undefined
     };

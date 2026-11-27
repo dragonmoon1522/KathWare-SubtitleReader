@@ -1,7 +1,7 @@
 # KathWare SubtitleReader
 
 **Autora:** Katherine Vargas · [KathWare](https://kathware.com.ar)
-**Documentación actualizada:** 25/11/2026
+**Documentación actualizada:** 26/11/2026
 
 Desarrollé SubtitleReader para escuchar los subtítulos de las plataformas de
 video con un lector de pantalla o con las voces del navegador. También agregué
@@ -37,6 +37,17 @@ La salida de voz de esta rama también incorpora el volumen independiente.
 En el panel (**Alt+Shift+O**), el modo voz permite elegir voz, velocidad y
 **Volumen del sintetizador** de 0% a 100%. El volumen se conserva y no modifica
 el audio del video ni los ajustes del lector de pantalla.
+
+Los últimos ajustes también están en ambas ramas: mantengo visibles los
+controles mientras recorro la plataforma o el panel de SubtitleReader con
+Tab, Shift+Tab y flechas. La barra alternativa sigue oculta si los controles
+del sitio son utilizables, también después de etiquetarlos en ViX y Flow.
+
+Lector y voz reciben los mismos subtítulos filtrados. La voz termina cada frase
+y después lee las que esperan, sin cortarla al llegar texto nuevo. Los ajustes
+se aplican al comenzar cada turno. Si queda atrás, puedo cambiar la velocidad
+o usar Alt+Shift+R para vaciar lo pendiente y reiniciar desde el contenido actual.
+Pausar, buscar, cambiar de video o de modo y apagar también limpian esa cola.
 
 ## Qué incluye la 3.0.0
 

@@ -218,3 +218,10 @@ La lectura con NVDA ya funciona en la beta que estoy probando y no queda como
 fallo abierto. Volví a ejecutar las 15 pruebas de pantalla completa y las 7 de
 volumen contra cada rama: 22 aprobadas en cada una. El ZIP beta actualizado
 incluye el mismo control de volumen independiente que la estable.
+
+Los toques finales del 26/11 comparten también protección del foco en controles
+propios y nativos, decisión del respaldo ante barras dormidas y lectura por
+turnos. Se aprobaron 146 pruebas Node de la estable y 197 de beta. Los casos
+de navegador de `player-accessibility.cjs` se ampliaron para Tab, Shift+Tab y
+el panel propio; no se pudieron ejecutar porque Chrome se cerró al iniciar.
+La comprobación visual y auditiva en cada navegador se mantiene separada.
