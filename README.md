@@ -18,6 +18,7 @@ controles accesibles para los reproductores que todavía los necesitan.
   que probé en beta ya está incorporada a esta estable.
 - Recuperación del sintetizador con más margen y un reintento cuando corresponde,
   conservando el modo que elegiste ante un error.
+- Lectura por voz en orden: cada subtítulo termina antes de empezar el siguiente.
 - Controles de reproducción, avance, retroceso, volumen del video y pantalla
   completa, con mejoras para mantenerlos visibles al recorrerlos con el teclado.
 - Debug opcional, diagnóstico, reinicio manual y preparación de issues en GitHub.
@@ -52,6 +53,19 @@ el deslizador del sintetizador controla la **lectura**.
 Las voces disponibles dependen del navegador y del sistema. Algunas pueden usar
 servicios en línea. Instalar un sintetizador para NVDA no garantiza que aparezca
 en esta lista: el navegador tiene que exponerlo.
+
+### Terminar cada subtítulo
+
+Lector y voz reciben el mismo texto y usan los mismos filtros de repeticiones.
+En modo voz, si aparece otro subtítulo mientras estoy escuchando uno, espera
+su turno. La llegada de texto nuevo ya no corta la frase ni su reintento.
+Voz, velocidad y volumen se aplican cuando comienza cada frase.
+
+Si la voz es más lenta que los diálogos, la lectura puede quedar algo atrás.
+Podés ajustar la velocidad o usar **Alt+Shift+R** para vaciar lo pendiente y
+reiniciar desde el contenido actual. Pausar, buscar otra posición, cambiar de
+video o de modo, apagar o reiniciar también descarta la lectura anterior.
+En modo lector, NVDA administra su propia voz; **Ctrl** permite detenerla.
 
 ## Modo lector: usá tu sintetizador habitual
 
@@ -127,6 +141,20 @@ un procesador con AVX2. La respuesta depende del equipo.
 
 Estos comandos controlan la extensión. Los del apartado anterior controlan NVDA.
 
+## Controles del reproductor y foco del teclado
+
+Al recorrer los botones con **Tab**, **Shift+Tab** o las flechas, mantengo visibles
+los controles de la plataforma. Esto también se aplica mientras usás los
+controles o ajustes de SubtitleReader. Al salir de ese espacio, la plataforma
+vuelve a manejar su ocultación habitual.
+
+Si el reproductor ya tiene controles utilizables, o puedo hacerlos accesibles
+agregando nombres y teclado como en ViX y Flow, oculto la barra de reproducción
+alternativa de KathWare. El panel de lectura y sus ajustes siguen disponibles.
+Una barra que se oculta por inactividad no hace aparecer otro reproductor.
+Si los controles desaparecen de verdad o dejan de ser utilizables, conservo
+el respaldo. Si estabas usando esa barra, espero a que salgas antes de ocultarla.
+
 ## Plataformas probadas y límites
 
 Netflix, Disney+, Max, Paramount+ y YouTube funcionan bien en las pruebas que
@@ -147,8 +175,8 @@ para mantener juntos el video, los controles y los anuncios del lector.
 
 La recuperación de voz espera hasta 10 segundos para iniciar cuando el motor
 no responde; ese límite no agrega 10 segundos a cada subtítulo. Si hay un fallo
-antes de hablar, permite un reintento. Un subtítulo nuevo tiene prioridad sobre
-el anterior y el modo que elegiste se conserva.
+antes de hablar, permite un reintento. Los subtítulos nuevos esperan su turno
+y el modo que elegiste se conserva.
 
 ## Debug y reportar un problema
 

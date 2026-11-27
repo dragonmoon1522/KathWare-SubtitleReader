@@ -25,6 +25,38 @@ selectores ampliados de la beta no forman parte de esta entrega.
 
 **Queda pendiente:** atraso y fragmentación de Flow en vivo.
 
+## 26/11/2026 — toques finales de controles y continuidad de voz
+
+- Mantuve visibles los controles al recorrerlos con Tab, Shift+Tab y flechas,
+  también mientras uso el panel y los controles de SubtitleReader. Conservo
+  el tipo de caja de la barra para sostener su visibilidad y restauro el estilo
+  anterior al salir. Los menús cerrados mantienen su estado.
+- Evité que reaparezca la barra alternativa solo porque el sitio oculte por
+  inactividad controles que ya comprobé utilizables. La decisión contempla los
+  nombres y el teclado, incluidos los que agregan los adaptadores de ViX y Flow.
+  Los controles quitados, deshabilitados o de otro video vuelven a evaluarse.
+- Hice que la voz termine cada subtítulo y continúe con los siguientes en orden.
+  Lector y voz comparten el procesamiento y el filtro de repeticiones. Los
+  ajustes elegidos se aplican al comenzar cada frase o reintento.
+- Conservé la recuperación del sintetizador. Un fallo definitivo permite
+  continuar con la frase siguiente sin repetir las palabras ya escuchadas.
+  Pausar, buscar otra posición, cambiar de video o de modo, apagar o reiniciar
+  limpia lo pendiente. No restablecí ninguna preferencia guardada.
+- Apliqué estos cambios en `main` y beta, con comentarios sencillos en el código.
+
+Validación: **146 pruebas Node de la estable y 197 de beta aprobadas**, más
+sintaxis JavaScript y comprobación de recursos y empaquetado. Las nuevas pruebas
+cubren continuidad de voz, igualdad del texto entre modos, foco, visibilidad y
+decisión de mostrar el respaldo. Son escenarios con DOM y síntesis simulados.
+Chrome automatizado se cerró antes de arrancar aquí; no atribuyo a esas pruebas
+una comprobación visual o auditiva real de estos últimos cambios con NVDA.
+
+Preparé un ZIP estable nuevo para Chrome y Edge y actualicé el paquete beta.
+Conservo la versión **3.0.0** de esta entrega todavía sin presentar a las tiendas.
+
+SHA-256 del ZIP estable de estos toques finales:
+`0693c6778c2bd86e6d19affa284837091fb44e971affa20dc880e4d76f11ba8a`.
+
 ## 26/11/2026 — pantalla completa confirmada y revisión de ambas ramas
 
 La lectura en pantalla completa ya funciona en la beta que estoy probando.
@@ -79,7 +111,7 @@ misma entrega antes de subirla. El ZIP contiene únicamente los archivos de la
 extensión y la licencia. Las pruebas y herramientas permanecen en desarrollo.
 La rama `2.2.0-beta` no tiene commits exclusivos; su retirada sigue pendiente.
 
-SHA-256 del ZIP para Chrome y Edge:
+SHA-256 del ZIP preparado el 25/11, sustituido por el de los toques finales:
 `4c8f2289348dc49f4fb57f1849e1cf7ff1c8ba4404496f561d10de4cfe69a29e`.
 
 ## 25/11/2026 — limpieza de la rama estable

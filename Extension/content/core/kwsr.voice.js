@@ -77,9 +77,15 @@
   // ---------------------------------------------------------------------------
   let lastTtsError = "";
   let activeTTS = null;
+  // Pensá en una fila: quien está hablando termina; los demás esperan su turno.
+  // La fila vive en esta página. No cambia ninguna preferencia guardada.
+  const ttsQueue = [];
+  let ttsQueueTimer = null;
+  let ttsVideo = null;
+  let unwatchTTSVideo = null;
   let ttsStatus = "idle";
   let lastTtsNoticeAt = -Infinity;
-  const TTS_RECOVERY_REVISION = 1;
+  const TTS_RECOVERY_REVISION = 2;
   const LIVE_REGION_REVISION = 1;
   const pendingAnnouncements = new Set();
 
@@ -291,15 +297,60 @@
     // Invalidar ANTES de cancel(): el motor puede emitir error sincrónicamente.
     activeTTS = null;
     clearTTSTimer(job);
-    job.cleanup?.();
     ttsStatus = "idle";
     if (cancel) hardResetTTS();
+  }
+
+  function clearTTSQueue(cancel = true) {
+    // Si cambiamos de escena, nadie debe seguir leyendo la escena anterior.
+    ttsQueue.length = 0;
+    if (ttsQueueTimer != null) clearTimeout(ttsQueueTimer);
+    ttsQueueTimer = null;
+    stopTTSJob(activeTTS, false);
+    ttsStatus = "idle";
+    unwatchTTSVideo?.();
+    unwatchTTSVideo = null;
+    ttsVideo = null;
+    if (cancel) hardResetTTS();
+  }
+
+  function watchTTSVideo(video) {
+    if (unwatchTTSVideo && ttsVideo === video) return;
+    unwatchTTSVideo?.();
+    ttsVideo = video;
+    const events = ["pause", "seeking", "emptied", "ended"];
+    const invalidate = () => clearTTSQueue();
+    for (const event of events) video?.addEventListener?.(event, invalidate);
+    // También vigilamos entre dos frases, cuando todavía no empezó la siguiente.
+    unwatchTTSVideo = () => {
+      for (const event of events) video?.removeEventListener?.(event, invalidate);
+    };
+  }
+
+  function advanceTTSQueue() {
+    if (activeTTS || ttsQueueTimer != null) return;
+    if (!ttsQueue.length) {
+      unwatchTTSVideo?.();
+      unwatchTTSVideo = null;
+      ttsVideo = null;
+      return;
+    }
+    // Un turno breve deja que el motor termine de cerrar la frase anterior.
+    // Además evita llamadas encadenadas si un motor responde sin esperar.
+    ttsQueueTimer = setTimeout(() => {
+      ttsQueueTimer = null;
+      const job = ttsQueue.shift();
+      if (!job) return;
+      if (!ttsContextIsCurrent(job)) { clearTTSQueue(); return; }
+      activeTTS = job;
+      startTTSAttempt(job);
+    }, 0);
   }
 
   function currentTTSAttempt(job, utterance) {
     if (activeTTS !== job || job.utterance !== utterance) return false;
     if (ttsContextIsCurrent(job)) return true;
-    stopTTSJob(job);
+    clearTTSQueue();
     return false;
   }
 
@@ -308,7 +359,7 @@
     job.deadlineAt = Date.now() + ms;
     job.timer = setTimeout(() => {
       if (activeTTS !== job) return;
-      if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+      if (!ttsContextIsCurrent(job)) { clearTTSQueue(); return; }
       callback();
     }, ms);
   }
@@ -328,7 +379,7 @@
     if (!currentTTSAttempt(job, utterance)) return;
     const error = String(reason || "tts_error");
     if (error === "canceled" || error === "interrupted") {
-      stopTTSJob(job, false);
+      clearTTSQueue(false);
       return;
     }
     lastTtsError = error;
@@ -356,11 +407,12 @@
         KWSR.toast?.notify?.("No se pudo completar la lectura con voz. Podés elegir otra voz o reiniciar la lectura.");
       } catch {}
     }
+    advanceTTSQueue();
   }
 
   function startTTSAttempt(job) {
     if (activeTTS !== job) return;
-    if (!ttsContextIsCurrent(job)) { stopTTSJob(job); return; }
+    if (!ttsContextIsCurrent(job)) { clearTTSQueue(); return; }
     job.phase = "starting";
     job.started = false;
     job.progress = 0;
@@ -402,7 +454,9 @@
         armTTSTimer(job, speechTimeBudget(u, index), () => failTTSAttempt(job, u, "watchdog_no_end"));
       };
       u.onend = () => {
-        if (currentTTSAttempt(job, u)) stopTTSJob(job, false);
+        if (!currentTTSAttempt(job, u)) return;
+        stopTTSJob(job, false);
+        advanceTTSQueue();
       };
       u.onerror = ev => failTTSAttempt(job, u, ev?.error || ev?.message || "tts_error");
 
@@ -421,6 +475,7 @@
       phase: activeTTS?.phase || ttsStatus,
       attempt: activeTTS?.attempt || 0,
       started: !!activeTTS?.started,
+      queued: ttsQueue.length,
       deadlineAt: activeTTS?.deadlineAt ?? null,
       lastError: lastTtsError
     };
@@ -653,30 +708,23 @@
   // speakTTS(text)
   // ---------------------------------------------------------------------------
   //
-  // Conserva el modo elegido. Una frase nueva sustituye a la anterior y a sus
-  // reintentos pendientes para no acumular subtítulos atrasados.
+  // Ambos modos reciben el mismo texto, filtrado una sola vez más abajo.
+  // En modo voz, un subtítulo nuevo espera. No le quitamos la palabra al anterior.
   function speakTTS(text) {
-    const now = Date.now();
     const key = fpStrict(text);
-    if (key && key === (S.lastSpokenKey || "") &&
-        now - (S.lastSpokenAt || 0) < (CFG.ttsEchoMs ?? 350)) return;
-    stopTTSJob(activeTTS, false);
+    if ((activeTTS && !ttsContextIsCurrent(activeTTS)) ||
+        (ttsQueue.length && !ttsContextIsCurrent(ttsQueue[0]))) clearTTSQueue();
     const video = S.currentVideo;
     const job = {
       text, key, video, source: String(video?.currentSrc || video?.src || ""),
       attempt: 0, utterance: null, timer: null, started: false
     };
-    activeTTS = job;
-    // Pausar o cambiar la posición invalida incluso un reintento que todavía no
-    // llegó a ejecutarse, aunque el video se reanude antes de su temporizador.
-    const events = ["pause", "seeking", "emptied", "ended"];
-    const invalidate = () => stopTTSJob(job);
-    if (video?.addEventListener) {
-      for (const event of events) video.addEventListener(event, invalidate);
-      job.cleanup = () => {
-        for (const event of events) video.removeEventListener(event, invalidate);
-      };
+    watchTTSVideo(video);
+    if (activeTTS || ttsQueueTimer != null) {
+      ttsQueue.push(job);
+      return;
     }
+    activeTTS = job;
     startTTSAttempt(job);
   }
 
@@ -726,7 +774,7 @@
   function detenerLectura() {
     for (const timer of pendingAnnouncements) clearTimeout(timer);
     pendingAnnouncements.clear();
-    stopTTSJob(activeTTS, false);
+    clearTTSQueue(false);
     try { hardResetTTS(); } catch {}
     try {
       if (S.liveRegion) S.liveRegion.textContent = "";
